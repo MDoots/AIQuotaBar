@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Providers.Codex.Transport;
+namespace AIQuotaBar.Providers.Codex.Transport;
 
 public interface ICodexProcessSession
 {
@@ -11,7 +11,7 @@ public interface ICodexProcessRunner
     Task RunAsync(
         string executablePath,
         string arguments,
-        Func<ICodexProcessSession, Task> sessionAction,
+        Func<ICodexProcessSession, CancellationToken, Task> sessionAction,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

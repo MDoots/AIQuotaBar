@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Providers.Codex.Transport;
+namespace AIQuotaBar.Providers.Codex.Transport;
 
 public static class CodexProcessLocator
 {
@@ -68,7 +68,7 @@ public static class CodexProcessLocator
             }
         }
 
-        // 4. npm/global Codex installations, resolving to the native Windows Codex binary where practical
+        // 4. npm/global Codex installations, resolving to the native Windows Codex binary
         if (!string.IsNullOrWhiteSpace(appData))
         {
             var npmVendorBinary = Path.Combine(
@@ -89,15 +89,9 @@ public static class CodexProcessLocator
             {
                 return npmVendorBinary;
             }
-
-            var npmCodexCmd = Path.Combine(appData, "npm", "codex.cmd");
-            if (fileExists(npmCodexCmd))
-            {
-                return npmCodexCmd;
-            }
         }
 
-        // 4b. Check codex.cmd on PATH if native binary wasn't found directly
+        // 5. If codex.cmd is on PATH, attempt to resolve sibling node_modules to find native codex.exe
         if (!string.IsNullOrWhiteSpace(pathVar))
         {
             var pathEntries = pathVar.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -106,12 +100,28 @@ public static class CodexProcessLocator
                 var candidateCmd = Path.Combine(pathEntry, "codex.cmd");
                 if (fileExists(candidateCmd))
                 {
-                    return candidateCmd;
+                    var resolvedVendor = Path.Combine(
+                        pathEntry,
+                        "node_modules",
+                        "@openai",
+                        "codex",
+                        "node_modules",
+                        "@openai",
+                        "codex-win32-x64",
+                        "vendor",
+                        "x86_64-pc-windows-msvc",
+                        "bin",
+                        "codex.exe");
+
+                    if (fileExists(resolvedVendor))
+                    {
+                        return resolvedVendor;
+                    }
                 }
             }
         }
 
-        // 5. Not found
+        // 6. Native binary not found (do not return .cmd batch wrappers)
         return null;
     }
 }

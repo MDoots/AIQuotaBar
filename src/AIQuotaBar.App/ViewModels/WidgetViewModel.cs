@@ -1,7 +1,6 @@
 namespace AIQuotaBar.App.ViewModels;
 
 using System.Collections.ObjectModel;
-using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using AIQuotaBar.Core.Interfaces;
@@ -14,6 +13,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     private readonly DispatcherTimer _autoRefreshTimer;
     private readonly DispatcherTimer _countdownTimer;
     private CancellationTokenSource? _currentRefreshCts;
+    private bool _disposed;
 
     private bool _isLoading;
     private string _providerName = "OpenAI Codex";
@@ -93,7 +93,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _lastUpdatedText, value);
     }
 
-    public bool CanRefresh => !IsLoading;
+    public bool CanRefresh => !IsLoading && !_disposed;
 
     public ICommand RefreshCommand { get; }
 
@@ -109,18 +109,23 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         {
             Interval = TimeSpan.FromSeconds(120)
         };
-        _autoRefreshTimer.Tick += async (s, e) => await RefreshAsync();
+        _autoRefreshTimer.Tick += OnAutoRefreshTimerTick;
 
         // Local countdown display refresh every 30 seconds (no process spawn)
         _countdownTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(30)
         };
-        _countdownTimer.Tick += (s, e) => UpdateCountdowns();
+        _countdownTimer.Tick += OnCountdownTimerTick;
     }
 
     public void Start()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         _autoRefreshTimer.Start();
         _countdownTimer.Start();
         _ = RefreshAsync();
@@ -128,7 +133,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
     public async Task RefreshAsync()
     {
-        if (IsLoading)
+        if (_disposed || IsLoading)
         {
             return;
         }
@@ -136,31 +141,59 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         IsLoading = true;
         _currentRefreshCts?.Cancel();
         _currentRefreshCts?.Dispose();
-        _currentRefreshCts = new CancellationTokenSource();
+        var cts = new CancellationTokenSource();
+        _currentRefreshCts = cts;
 
         try
         {
-            var snapshot = await Task.Run(
-                () => _provider.GetUsageAsync(_currentRefreshCts.Token),
-                _currentRefreshCts.Token);
+            var snapshot = await _provider.GetUsageAsync(cts.Token).ConfigureAwait(true);
 
-            Application.Current?.Dispatcher.Invoke(() => ApplySnapshot(snapshot));
+            // Prevent applying stale data if refreshed again, cancelled, or disposed
+            if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts))
+            {
+                ApplySnapshot(snapshot);
+            }
         }
         catch (OperationCanceledException)
         {
-            // Ignore manual or cleanup cancellation
+            // Ignore intentional cancellation
         }
-        catch (Exception ex)
+        catch
         {
-            Application.Current?.Dispatcher.Invoke(() =>
+            if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts))
             {
                 Status = ProviderStatus.Error;
-                StatusMessage = $"Unexpected error: {ex.Message}";
-            });
+                StatusMessage = "Unable to communicate with Codex";
+            }
         }
         finally
         {
-            IsLoading = false;
+            if (ReferenceEquals(_currentRefreshCts, cts))
+            {
+                IsLoading = false;
+            }
+        }
+    }
+
+    private void OnAutoRefreshTimerTick(object? sender, EventArgs e)
+    {
+        if (!_disposed && !_isLoading)
+        {
+            _ = RefreshAsync();
+        }
+    }
+
+    private void OnCountdownTimerTick(object? sender, EventArgs e)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        // Re-notify countdown properties on existing windows to refresh "resets in Xm"
+        foreach (var window in Windows)
+        {
+            window.RefreshCountdown();
         }
     }
 
@@ -181,20 +214,24 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasWindows));
     }
 
-    private void UpdateCountdowns()
-    {
-        // Re-notify countdown properties on existing windows to refresh "resets in Xm"
-        foreach (var window in Windows)
-        {
-            window.RefreshCountdown();
-        }
-    }
-
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+
         _autoRefreshTimer.Stop();
+        _autoRefreshTimer.Tick -= OnAutoRefreshTimerTick;
+
         _countdownTimer.Stop();
+        _countdownTimer.Tick -= OnCountdownTimerTick;
+
         _currentRefreshCts?.Cancel();
         _currentRefreshCts?.Dispose();
+        _currentRefreshCts = null;
+
+        IsLoading = false;
     }
 }

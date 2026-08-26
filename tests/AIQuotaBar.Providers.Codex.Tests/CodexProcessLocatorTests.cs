@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Providers.Codex.Tests;
+namespace AIQuotaBar.Providers.Codex.Tests;
 
 using AIQuotaBar.Providers.Codex.Transport;
 using Xunit;
@@ -94,5 +94,47 @@ public class CodexProcessLocatorTests
             fileExists: _ => false);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void LocateExecutable_ReturnsNull_WhenOnlyCmdFoundWithoutNativeBinary()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["PATH"] = @"C:\NpmBin",
+            ["APPDATA"] = @"C:\Users\test\AppData\Roaming"
+        };
+        var files = new HashSet<string>
+        {
+            @"C:\NpmBin\codex.cmd"
+            // No native codex.exe exists
+        };
+
+        var result = CodexProcessLocator.LocateExecutable(
+            getEnvironmentVariable: key => env.GetValueOrDefault(key),
+            fileExists: path => files.Contains(path));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void LocateExecutable_ResolvesNativeFromCmdSibling_WhenPresent()
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["PATH"] = @"C:\NpmBin"
+        };
+        var nativeVendor = @"C:\NpmBin\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\x86_64-pc-windows-msvc\bin\codex.exe";
+        var files = new HashSet<string>
+        {
+            @"C:\NpmBin\codex.cmd",
+            nativeVendor
+        };
+
+        var result = CodexProcessLocator.LocateExecutable(
+            getEnvironmentVariable: key => env.GetValueOrDefault(key),
+            fileExists: path => files.Contains(path));
+
+        Assert.Equal(nativeVendor, result);
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Providers.Codex.Protocol;
+namespace AIQuotaBar.Providers.Codex.Protocol;
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -145,9 +145,6 @@ public sealed class CodexAccountInfo
 {
     [JsonPropertyName("type")]
     public string? Type { get; set; }
-
-    [JsonPropertyName("email")]
-    public string? Email { get; set; }
 
     [JsonPropertyName("planType")]
     public string? PlanType { get; set; }

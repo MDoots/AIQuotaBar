@@ -31,7 +31,7 @@ public sealed class StandardCodexProcessRunner : ICodexProcessRunner
     public async Task RunAsync(
         string executablePath,
         string arguments,
-        Func<ICodexProcessSession, Task> sessionAction,
+        Func<ICodexProcessSession, CancellationToken, Task> sessionAction,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -61,10 +61,14 @@ public sealed class StandardCodexProcessRunner : ICodexProcessRunner
             process = Process.Start(startInfo) 
                 ?? throw new InvalidOperationException($"Failed to start Codex process: '{executablePath}'");
 
+            // Drain stderr asynchronously so the child process never blocks on full stderr buffer
+            process.ErrorDataReceived += (_, _) => { };
+            process.BeginErrorReadLine();
+
             var session = new ProcessSession(process.StandardInput, process.StandardOutput);
 
-            // Execute the RPC session action with linked cancellation token
-            await sessionAction(session).ConfigureAwait(false);
+            // Execute the RPC session action with linked timeout & cancellation token
+            await sessionAction(session, cts.Token).ConfigureAwait(false);
 
             if (cancellationToken.IsCancellationRequested)
             {

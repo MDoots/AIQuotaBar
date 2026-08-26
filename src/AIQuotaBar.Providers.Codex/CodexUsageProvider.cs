@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Providers.Codex;
+namespace AIQuotaBar.Providers.Codex;
 
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
@@ -48,18 +48,18 @@ public sealed class CodexUsageProvider : IUsageProvider
             await _processRunner.RunAsync(
                 executablePath,
                 "app-server --stdio",
-                async session =>
+                async (session, runnerToken) =>
                 {
                     var client = new CodexJsonRpcClient(session);
 
                     // 1. Send initialize and wait for initialize response + send initialized notification
-                    await client.InitializeAsync("AIQuotaBar", "0.1.0", cancellationToken).ConfigureAwait(false);
+                    await client.InitializeAsync("AIQuotaBar", "0.1.0", runnerToken).ConfigureAwait(false);
 
                     // 2. Query rate limits
                     rateLimitsResult = await client.SendRequestAsync<CodexRateLimitsResult>(
                         "account/rateLimits/read",
                         null,
-                        cancellationToken).ConfigureAwait(false);
+                        runnerToken).ConfigureAwait(false);
 
                     // 3. Query account information (best-effort)
                     try
@@ -67,7 +67,7 @@ public sealed class CodexUsageProvider : IUsageProvider
                         accountResult = await client.SendRequestAsync<CodexAccountResult>(
                             "account/read",
                             null,
-                            cancellationToken).ConfigureAwait(false);
+                            runnerToken).ConfigureAwait(false);
                     }
                     catch
                     {
@@ -79,13 +79,13 @@ public sealed class CodexUsageProvider : IUsageProvider
 
             return CodexUsageNormalizer.Normalize(rateLimitsResult, accountResult);
         }
-        catch (TimeoutException ex)
+        catch (TimeoutException)
         {
             return new ProviderSnapshot(
                 providerId: Id,
                 providerDisplayName: DisplayName,
                 status: ProviderStatus.Timeout,
-                statusMessage: ex.Message);
+                statusMessage: "Codex app-server did not respond");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -95,37 +95,29 @@ public sealed class CodexUsageProvider : IUsageProvider
                 status: ProviderStatus.Cancelled,
                 statusMessage: "Refresh cancelled by user");
         }
-        catch (CodexRpcException ex)
-        {
-            return new ProviderSnapshot(
-                providerId: Id,
-                providerDisplayName: DisplayName,
-                status: ProviderStatus.Error,
-                statusMessage: $"Codex RPC error: {SanitizeErrorMessage(ex.ErrorMessage ?? ex.Message)}");
-        }
         catch (Exception ex)
         {
             return new ProviderSnapshot(
                 providerId: Id,
                 providerDisplayName: DisplayName,
                 status: ProviderStatus.Error,
-                statusMessage: $"Error communicating with Codex: {SanitizeErrorMessage(ex.Message)}");
+                statusMessage: SafeErrorMessage(ex));
         }
     }
 
-    private static string SanitizeErrorMessage(string message)
+    private static string SafeErrorMessage(Exception ex)
     {
-        if (string.IsNullOrWhiteSpace(message))
+        return ex switch
         {
-            return "Unknown error";
-        }
-
-        // Avoid exposing any accidental paths or tokens in UI
-        if (message.Length > 120)
-        {
-            return message[..120] + "...";
-        }
-
-        return message;
+            TimeoutException => "Codex app-server did not respond",
+            EndOfStreamException => "Codex app-server closed connection unexpectedly",
+            System.Text.Json.JsonException => "Codex returned an unexpected response",
+            CodexRpcException rpcEx when rpcEx.ErrorCode == -32600 => "Codex rejected the request",
+            CodexRpcException rpcEx when rpcEx.ErrorCode == -32601 => "Codex method not found",
+            CodexRpcException rpcEx when (rpcEx.ErrorMessage?.Contains("auth", StringComparison.OrdinalIgnoreCase) == true ||
+                                         rpcEx.ErrorMessage?.Contains("login", StringComparison.OrdinalIgnoreCase) == true) => "Codex is not authenticated",
+            CodexRpcException => "Codex returned an unexpected response",
+            _ => "Unable to communicate with Codex"
+        };
     }
 }

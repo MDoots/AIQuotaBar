@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Providers.Codex.Tests;
+namespace AIQuotaBar.Providers.Codex.Tests;
 
 using AIQuotaBar.Core.Models;
 using AIQuotaBar.Providers.Codex.Transport;
@@ -8,9 +8,9 @@ public class CodexUsageProviderTests
 {
     private sealed class MockRunner : ICodexProcessRunner
     {
-        private readonly Func<ICodexProcessSession, Task> _handler;
+        private readonly Func<ICodexProcessSession, CancellationToken, Task> _handler;
 
-        public MockRunner(Func<ICodexProcessSession, Task> handler)
+        public MockRunner(Func<ICodexProcessSession, CancellationToken, Task> handler)
         {
             _handler = handler;
         }
@@ -18,11 +18,11 @@ public class CodexUsageProviderTests
         public async Task RunAsync(
             string executablePath,
             string arguments,
-            Func<ICodexProcessSession, Task> sessionAction,
+            Func<ICodexProcessSession, CancellationToken, Task> sessionAction,
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
-            await _handler(new StubSession());
+            await _handler(new StubSession(), cancellationToken);
         }
     }
 
@@ -40,13 +40,13 @@ public class CodexUsageProviderTests
         var snapshot = await provider.GetUsageAsync();
 
         Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
-        Assert.Contains("not found", snapshot.StatusMessage);
+        Assert.Equal("Codex executable not found on system", snapshot.StatusMessage);
     }
 
     [Fact]
     public async Task GetUsageAsync_ReturnsTimeout_WhenProcessTimesOut()
     {
-        var runner = new MockRunner(_ => throw new TimeoutException("Process timed out after 6s"));
+        var runner = new MockRunner((_, _) => throw new TimeoutException("Internal timeout"));
         var provider = new CodexUsageProvider(
             processRunner: runner,
             executableLocator: () => @"C:\codex.exe");
@@ -54,7 +54,7 @@ public class CodexUsageProviderTests
         var snapshot = await provider.GetUsageAsync();
 
         Assert.Equal(ProviderStatus.Timeout, snapshot.Status);
-        Assert.Contains("timed out", snapshot.StatusMessage);
+        Assert.Equal("Codex app-server did not respond", snapshot.StatusMessage);
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public class CodexUsageProviderTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        var runner = new MockRunner(_ => throw new OperationCanceledException(cts.Token));
+        var runner = new MockRunner((_, _) => throw new OperationCanceledException(cts.Token));
         var provider = new CodexUsageProvider(
             processRunner: runner,
             executableLocator: () => @"C:\codex.exe");
@@ -71,13 +71,14 @@ public class CodexUsageProviderTests
         var snapshot = await provider.GetUsageAsync(cts.Token);
 
         Assert.Equal(ProviderStatus.Cancelled, snapshot.Status);
-        Assert.Contains("cancelled", snapshot.StatusMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Refresh cancelled by user", snapshot.StatusMessage);
     }
 
     [Fact]
-    public async Task GetUsageAsync_ReturnsError_WhenExceptionThrown()
+    public async Task GetUsageAsync_ReturnsSafeErrorMessage_AndDoesNotExposeSecrets()
     {
-        var runner = new MockRunner(_ => throw new InvalidOperationException("Fatal process crash"));
+        // Simulate an exception with sensitive paths and tokens
+        var runner = new MockRunner((_, _) => throw new InvalidOperationException("Failed at C:\\Users\\secret_user\\.codex\\auth.json with token=sk-secret123"));
         var provider = new CodexUsageProvider(
             processRunner: runner,
             executableLocator: () => @"C:\codex.exe");
@@ -85,6 +86,8 @@ public class CodexUsageProviderTests
         var snapshot = await provider.GetUsageAsync();
 
         Assert.Equal(ProviderStatus.Error, snapshot.Status);
-        Assert.Contains("Fatal process crash", snapshot.StatusMessage);
+        Assert.Equal("Unable to communicate with Codex", snapshot.StatusMessage);
+        Assert.DoesNotContain("secret_user", snapshot.StatusMessage);
+        Assert.DoesNotContain("sk-secret123", snapshot.StatusMessage);
     }
 }

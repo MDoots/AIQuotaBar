@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Providers.Codex.Normalization;
+namespace AIQuotaBar.Providers.Codex.Normalization;
 
 using AIQuotaBar.Core.Models;
 using AIQuotaBar.Core.Utils;
@@ -34,7 +34,7 @@ public static class CodexUsageNormalizer
 
         var windows = new List<QuotaWindow>();
 
-        // 1. Process primary and secondary from the main rateLimits snapshot
+        // 1. Process primary and secondary from the main rateLimits snapshot (preferred v0.1 presentation)
         var mainSnapshot = rateLimitsResult.RateLimits;
         if (mainSnapshot != null)
         {
@@ -49,7 +49,8 @@ public static class CodexUsageNormalizer
             }
         }
 
-        // 2. If main rateLimits was null or empty, check rateLimitsByLimitId
+        // 2. Fallback: If main rateLimits produced no windows, check rateLimitsByLimitId dictionary.
+        // Richer multi-bucket / model-specific quota presentation is intentionally deferred to future milestones.
         if (windows.Count == 0 && rateLimitsResult.RateLimitsByLimitId != null)
         {
             foreach (var (limitId, snapshot) in rateLimitsResult.RateLimitsByLimitId)
