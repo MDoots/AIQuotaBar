@@ -2,9 +2,7 @@
 
 **AIQuotaBar** is a lightweight, local-first Windows 11 desktop utility designed to keep AI coding-agent subscription quotas and rate limits visible at a glance. Built natively with .NET 10 and WPF, AIQuotaBar provides a customizable, low-overhead widget that operates entirely on your local machine without telemetry, tracking, or cloud infrastructure.
 
-<!-- Application Preview Screenshot Placeholder -->
-<!-- When available, the owner will add app-preview.png to docs/images/ -->
-<!-- ![AIQuotaBar Widget Preview](docs/images/app-preview.png) -->
+![AIQuotaBar showing OpenAI Codex and Google Antigravity quota usage](docs/images/app-preview.png)
 
 ---
 
