@@ -20,7 +20,7 @@ Execute all checks from a clean working directory:
 - [ ] **Binary Inspection:**
   - Executable properties report version `0.2.0.0`.
   - No debug symbols (`.pdb`), test assemblies, or temporary files are present in the output.
-  - File size is self-contained (~180MB single-file bundle).
+  - File size is self-contained (~165MB single-file bundle).
 
 ---
 
@@ -40,21 +40,31 @@ These checks require live provider installations and user interaction:
 
 ---
 
-## 3. Owner Actions Required Before Public Launch
+## 3. Owner Public Launch Sequence
 
-The repository maintainer must complete these actions prior to public release:
+The repository maintainer executes the following sequential steps for public release:
 
-- [ ] **Add Final README Screenshot:** Capture a clean UI screenshot and place it at `docs/images/app-preview.png`.
-- [ ] **Review Code Signing Strategy:** Confirm whether releasing unsigned for v0.2.0 preview or enrolling in Microsoft Trusted Signing (see [`docs/code-signing.md`](code-signing.md)).
-- [ ] **Change Repository Visibility:** Transition GitHub repository from **Private** to **Public** when ready for public preview.
-- [ ] **Enable GitHub Private Vulnerability Reporting:** In GitHub repo settings -> *Security* -> *Vulnerability alerts*, enable *Private vulnerability reporting*.
-- [ ] **Configure GitHub Sponsors (Optional):** If accepting sponsorships, set up GitHub Sponsors and add `.github/FUNDING.yml`.
-- [ ] **Approve & Push Tag:** Create and push the Git tag:
-  ```powershell
-  git tag -a v0.2.0 -m "Release v0.2.0"
-  git push origin v0.2.0
-  ```
-- [ ] **Approve GitHub Release:** Verify the automated `.github/workflows/release.yml` workflow finishes and publishes the release archive.
+1. [ ] **Provide Application Screenshot:** Place final UI capture at `docs/images/app-preview.png`.
+2. [ ] **Live Codex Smoke Test:** Verify quota display with active local Codex app-server.
+3. [ ] **Live Antigravity Smoke Test:** Verify quota display with active local `agy` CLI.
+4. [ ] **Visual Confirmation:** Verify UI in both expanded and compact modes.
+5. [ ] **Confirm Unsigned Preview Decision:** Confirm shipping v0.2.0 unsigned with published SHA-256 checksums.
+6. [ ] **Switch Repository Visibility:** Transition GitHub repository from **Private** to **Public**.
+7. [ ] **Enable GitHub Private Vulnerability Reporting:** Navigate to *Settings* -> *Security* -> *Vulnerability alerts* and enable *Private vulnerability reporting*.
+8. [ ] **Verify Public Rendering:** Confirm `README.md` and repository pages render correctly when public.
+9. [ ] **Approve & Create Tag:**
+   ```powershell
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   ```
+10. [ ] **Push Tag:**
+    ```powershell
+    git push origin v0.2.0
+    ```
+11. [ ] **Verify Release Workflow:** Confirm the automated `.github/workflows/release.yml` run completes successfully.
+12. [ ] **Verify Assets:** Confirm `AIQuotaBar-v0.2.0-win-x64.zip` and `AIQuotaBar-v0.2.0-win-x64.zip.sha256` are attached to the release.
+13. [ ] **Download & Smoke Test Release Asset:** Download the published ZIP from GitHub Releases, verify its SHA-256 hash, extract, and execute `AIQuotaBar.exe`.
+
+*(Note: Enrolling in GitHub Sponsors is optional and does not block public release).*
 
 ---
 
