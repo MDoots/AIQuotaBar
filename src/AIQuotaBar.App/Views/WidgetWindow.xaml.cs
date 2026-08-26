@@ -11,15 +11,6 @@ public partial class WidgetWindow : Window
     public WidgetWindow()
     {
         InitializeComponent();
-        LocationChanged += OnLocationChanged;
-    }
-
-    private void OnLocationChanged(object? sender, EventArgs e)
-    {
-        if (WindowState == WindowState.Normal && Left >= -5000 && Top >= -5000)
-        {
-            PositionChanged?.Invoke(Left, Top);
-        }
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -27,6 +18,13 @@ public partial class WidgetWindow : Window
         if (e.ButtonState == MouseButtonState.Pressed)
         {
             DragMove();
+
+            // DragMove blocks until mouse button is released.
+            // Persist the settled position once when dragging completes.
+            if (WindowState == WindowState.Normal)
+            {
+                PositionChanged?.Invoke(Left, Top);
+            }
         }
     }
 
