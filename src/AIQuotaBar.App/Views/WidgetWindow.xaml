@@ -120,7 +120,7 @@
 
                                         <!-- Provider Name & Status Dot -->
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Border Background="#10B981" Width="6" Height="6" CornerRadius="3" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                            <Border Background="{Binding ProviderAccentColor}" Width="6" Height="6" CornerRadius="3" Margin="0,0,5,0" VerticalAlignment="Center" />
                                             <TextBlock Text="{Binding ProviderName}" FontWeight="SemiBold" FontSize="11.5" Foreground="#FAFAFA" VerticalAlignment="Center" />
 
                                             <!-- Plan Badge (Expanded mode only) -->
@@ -144,7 +144,9 @@
                                     <ItemsControl ItemsSource="{Binding Windows}" Visibility="{Binding HasWindows, Converter={StaticResource BoolToVisConverter}}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Margin="0,1,0,3" Background="#242429" CornerRadius="5" Padding="7,4" ToolTip="{Binding TooltipText}">
+                                                <Border Margin="0,1,0,3" Background="#242429" CornerRadius="5" Padding="7,5" 
+                                                        ToolTip="{Binding TooltipText}"
+                                                        AutomationProperties.Name="{Binding AccessibilityText}">
                                                     <StackPanel>
                                                         <!-- Window Header -->
                                                         <Grid Margin="0,0,0,3">
@@ -154,15 +156,15 @@
                                                             </Grid.ColumnDefinitions>
 
                                                             <!-- Window Title -->
-                                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Medium" FontSize="11" Foreground="#F4F4F5" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Medium" FontSize="11" Foreground="#F4F4F5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                                             <!-- Remaining & Countdown info -->
-                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0,0,0">
                                                                 <TextBlock Text="{Binding RemainingText}" 
                                                                            FontWeight="Bold" 
                                                                            FontSize="11" 
                                                                            Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}" 
-                                                                           Margin="0,0,5,0" />
+                                                                           Margin="0,0,6,0" />
 
                                                                 <TextBlock Text="{Binding ResetCountdown}" 
                                                                            FontSize="10" 
@@ -172,19 +174,20 @@
                                                         </Grid>
 
                                                         <!-- Progress Bar (Showing Remaining Quota) -->
-                                                        <Grid Height="4">
-                                                            <Border Background="#333338" CornerRadius="2" />
+                                                        <Grid Height="4" Margin="0,1,0,1">
                                                             <ProgressBar Value="{Binding RemainingPercent, Mode=OneWay}" 
                                                                          Minimum="0" 
                                                                          Maximum="100" 
                                                                          Height="4" 
                                                                          BorderThickness="0" 
-                                                                         Background="Transparent"
+                                                                         Background="#333338"
                                                                          Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}">
                                                                 <ProgressBar.Template>
                                                                     <ControlTemplate TargetType="ProgressBar">
-                                                                        <Grid x:Name="TemplateRoot">
-                                                                            <Border Background="{TemplateBinding Background}" CornerRadius="2" />
+                                                                        <Grid x:Name="TemplateRoot" Height="{TemplateBinding Height}">
+                                                                            <Border x:Name="PART_Track" 
+                                                                                    Background="{TemplateBinding Background}" 
+                                                                                    CornerRadius="2" />
                                                                             <Border x:Name="PART_Indicator" 
                                                                                     HorizontalAlignment="Left" 
                                                                                     Background="{TemplateBinding Foreground}" 

@@ -22,6 +22,13 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     public IUsageProvider Provider => _provider;
     public TimeSpan RefreshInterval => _refreshInterval;
 
+    public string ProviderAccentColor => ProviderId.ToLowerInvariant() switch
+    {
+        "codex" => "#10B981",       // Emerald green
+        "antigravity" => "#38BDF8", // Cyan / Sky blue
+        _ => "#10B981"
+    };
+
     public string ProviderName
     {
         get => _providerName;

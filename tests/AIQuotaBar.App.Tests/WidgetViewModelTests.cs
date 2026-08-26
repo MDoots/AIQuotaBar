@@ -71,19 +71,23 @@ public class WidgetViewModelTests
         Assert.Equal(ProviderStatus.Available, codexVm.Status);
         Assert.Equal("ChatGPT Plus", codexVm.AccountPlan);
         Assert.True(codexVm.HasAccountPlan);
+        Assert.Equal("#10B981", codexVm.ProviderAccentColor);
         Assert.Single(codexVm.Windows);
         Assert.Equal(70.0, codexVm.Windows[0].RemainingPercent);
-        Assert.Equal("70% remaining", codexVm.Windows[0].RemainingText);
+        Assert.Equal("70%", codexVm.Windows[0].RemainingText);
+        Assert.Contains("70% quota remaining", codexVm.Windows[0].TooltipText);
 
         // Antigravity section checks
         var agyVm = vm.Providers[1];
         Assert.Equal(ProviderStatus.Available, agyVm.Status);
         Assert.Null(agyVm.AccountPlan);
         Assert.False(agyVm.HasAccountPlan);
+        Assert.Equal("#38BDF8", agyVm.ProviderAccentColor);
         Assert.Single(agyVm.Windows);
         Assert.Equal(72.7055, agyVm.Windows[0].RemainingPercent);
-        Assert.Equal("73% remaining", agyVm.Windows[0].RemainingText);
+        Assert.Equal("73%", agyVm.Windows[0].RemainingText);
         Assert.Equal("Gemini · 5-Hour", agyVm.Windows[0].DisplayName);
+        Assert.Contains("72.7% quota remaining", agyVm.Windows[0].TooltipText);
 
         Assert.Contains("Updated", vm.LastUpdatedText);
     }
