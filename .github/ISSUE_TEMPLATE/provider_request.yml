@@ -1,0 +1,51 @@
+name: Provider Request
+description: Propose adding support for a new AI quota provider
+title: "[Provider Request]: "
+labels: ["enhancement", "provider"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please provide details on the requested AI provider and its local interface.
+        **CRITICAL:** Do NOT share API keys, session tokens, passwords, or screenshots with sensitive data.
+  - type: input
+    id: provider_name
+    attributes:
+      label: Provider Name
+      description: Name of the AI service or tool (e.g., Claude Code, Cursor, Copilot).
+      placeholder: e.g., Claude Code
+    validations:
+      required: true
+  - type: textarea
+    id: official_interface
+    attributes:
+      label: Official Local Interface
+      description: Does this tool have an official CLI command (e.g. `tool usage --json`) or local RPC endpoint?
+      placeholder: Describe how quotas can be queried locally without scraping web portals.
+    validations:
+      required: true
+  - type: textarea
+    id: auth_mechanism
+    attributes:
+      label: Authentication Mechanism
+      description: How does the tool authenticate (e.g., local CLI login, provider keychain)? Confirm AIQuotaBar will not need direct access to secrets.
+    validations:
+      required: true
+  - type: dropdown
+    id: os_support
+    attributes:
+      label: Operating System Support
+      multiple: true
+      options:
+        - Windows 11 x64
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: docs_links
+    attributes:
+      label: Documentation Links
+      description: Links to official developer documentation or CLI reference if available.
+    validations:
+      required: false

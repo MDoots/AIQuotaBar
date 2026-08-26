@@ -14,9 +14,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
+    <FileVersion>0.2.0.0</FileVersion>
     <Product>AIQuotaBar</Product>
     <Description>AIQuotaBar - AI Quota &amp; Usage Monitor</Description>
+    <Authors>MDoots</Authors>
+    <Copyright>Copyright (c) 2026 MDoots</Copyright>
   </PropertyGroup>
 
 </Project>

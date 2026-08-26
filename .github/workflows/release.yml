@@ -1,0 +1,110 @@
+name: Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore AIQuotaBar.slnx
+
+      - name: Build Solution
+        run: dotnet build AIQuotaBar.slnx -c Release --no-restore
+
+      - name: Run Unit Tests
+        run: dotnet test AIQuotaBar.slnx -c Release --no-build
+
+      - name: Publish Self-Contained Executable
+        run: |
+          dotnet publish src/AIQuotaBar.App/AIQuotaBar.App.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            "-p:PublishSingleFile=true" `
+            "-p:PublishTrimmed=false" `
+            "-p:IncludeNativeLibrariesForSelfExtract=true" `
+            "-p:IncludeAllContentForSelfExtract=true" `
+            -o publish-staging
+
+      # =========================================================================
+      # FUTURE CODE-SIGNING INSERTION POINT
+      # =========================================================================
+      # When Microsoft Trusted Signing (or Authenticode) is configured:
+      # - name: Sign Executable with Microsoft Trusted Signing
+      #   uses: azure/trusted-signing-action@v0.5.1
+      #   with:
+      #     azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+      #     azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+      #     azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+      #     endpoint: https://eus.codesigning.azure.net/
+      #     trusted-signing-account-name: ${{ secrets.TRUSTED_SIGNING_ACCOUNT }}
+      #     certificate-profile-name: ${{ secrets.TRUSTED_SIGNING_PROFILE }}
+      #     files: publish-staging/AIQuotaBar.exe
+      #     file-digest: SHA256
+      #     timestamp-rfc3161: http://timestamp.acs.microsoft.com
+      #     timestamp-digest: SHA256
+      # =========================================================================
+
+      - name: Package Release Archive & Generate Checksum
+        shell: powershell
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zipName = "AIQuotaBar-$tag-win-x64.zip"
+          $checksumName = "$zipName.sha256"
+          
+          # Create staging and output directories
+          $stagingDir = "package-staging"
+          $artifactsDir = "artifacts"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $artifactsDir -Force | Out-Null
+          
+          # Copy only the executable and legal/readme files
+          Copy-Item -Path "publish-staging/AIQuotaBar.exe" -Destination "$stagingDir/AIQuotaBar.exe" -Force
+          Copy-Item -Path "LICENSE" -Destination "$stagingDir/LICENSE" -Force
+          Copy-Item -Path "README.md" -Destination "$stagingDir/README.md" -Force
+          
+          # Create final ZIP archive
+          $zipPath = Join-Path $artifactsDir $zipName
+          Compress-Archive -Path "$stagingDir/*" -DestinationPath $zipPath -Force
+          
+          # Calculate SHA-256 checksum of the final ZIP
+          $hash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $checksumContent = "$hash  $zipName"
+          $checksumPath = Join-Path $artifactsDir $checksumName
+          [System.IO.File]::WriteAllText($checksumPath, $checksumContent, [System.Text.Encoding]::ASCII)
+          
+          Write-Host "Generated Release Archive: $zipPath"
+          Write-Host "Generated Checksum File:  $checksumPath"
+          Write-Host "Checksum Content:         $checksumContent"
+
+      - name: Upload Release Assets to GitHub Release
+        shell: powershell
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $zipName = "AIQuotaBar-$tag-win-x64.zip"
+          $checksumName = "$zipName.sha256"
+          $zipPath = "artifacts/$zipName"
+          $checksumPath = "artifacts/$checksumName"
+          
+          gh release create $tag $zipPath $checksumPath `
+            --title "AIQuotaBar $tag" `
+            --generate-notes
