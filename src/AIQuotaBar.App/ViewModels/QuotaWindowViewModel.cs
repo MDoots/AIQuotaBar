@@ -15,6 +15,31 @@ public sealed class QuotaWindowViewModel : ViewModelBase
     public string UsedText => $"{_model.ClampedUsedPercent}% used";
     public string? ResetCountdown => CountdownFormatter.FormatCountdown(_model.ResetsAt);
     public bool HasCountdown => !string.IsNullOrWhiteSpace(ResetCountdown);
+    public string? ExactResetTime => _model.ResetsAt?.ToLocalTime().ToString("dddd, d MMMM, HH:mm");
+    
+    public string TooltipText
+    {
+        get
+        {
+            var lines = new List<string>
+            {
+                $"{DisplayName}: {RemainingPercent}% remaining ({UsedPercent}% used)"
+            };
+
+            if (!string.IsNullOrWhiteSpace(ResetCountdown))
+            {
+                lines.Add(char.ToUpperInvariant(ResetCountdown[0]) + ResetCountdown[1..]);
+            }
+
+            if (!string.IsNullOrWhiteSpace(ExactResetTime))
+            {
+                lines.Add($"Reset: {ExactResetTime}");
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+    }
+
     public QuotaWindowStatus Status => _model.Status;
     public bool IsExhausted => _model.Status == QuotaWindowStatus.Exhausted;
 
@@ -27,5 +52,7 @@ public sealed class QuotaWindowViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(ResetCountdown));
         OnPropertyChanged(nameof(HasCountdown));
+        OnPropertyChanged(nameof(ExactResetTime));
+        OnPropertyChanged(nameof(TooltipText));
     }
 }

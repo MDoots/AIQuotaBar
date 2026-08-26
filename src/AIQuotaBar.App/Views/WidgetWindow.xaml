@@ -10,8 +10,8 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        Topmost="True"
-        ShowInTaskbar="True"
+        Topmost="{Binding IsAlwaysOnTop}"
+        ShowInTaskbar="False"
         ResizeMode="NoResize"
         SizeToContent="WidthAndHeight"
         SnapsToDevicePixels="True"
@@ -57,25 +57,25 @@
         </Style>
     </Window.Resources>
 
-    <Border Margin="12"
+    <Border Margin="10"
             Background="#18181B"
             BorderBrush="#27272A"
             BorderThickness="1"
             CornerRadius="10"
-            Width="340">
+            Width="330">
         <Border.Effect>
             <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.45" />
         </Border.Effect>
 
-        <Grid Margin="12,10,12,10">
+        <Grid Margin="10,8,10,8">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" /> <!-- Header -->
                 <RowDefinition Height="Auto" /> <!-- Body / Quota Windows -->
-                <RowDefinition Height="Auto" /> <!-- Footer -->
+                <RowDefinition Height="Auto" /> <!-- Footer (Expanded mode) -->
             </Grid.RowDefinitions>
 
             <!-- 1. Header -->
-            <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid Grid.Row="0" Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -84,79 +84,92 @@
                 <!-- Provider Badge & Plan -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Background="#10B981" Width="7" Height="7" CornerRadius="3.5" Margin="0,0,6,0" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding ProviderName}" FontWeight="SemiBold" FontSize="13" Foreground="#FAFAFA" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding ProviderName}" FontWeight="SemiBold" FontSize="12.5" Foreground="#FAFAFA" VerticalAlignment="Center" />
 
-                    <Border Background="#27272A" CornerRadius="4" Padding="5,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                    <!-- Plan Badge (Shown in Expanded mode only) -->
+                    <Border Background="#27272A" CornerRadius="4" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
                             Visibility="{Binding HasAccountPlan, Converter={StaticResource BoolToVisConverter}}">
-                        <TextBlock Text="{Binding AccountPlan}" FontSize="11" Foreground="#A1A1AA" FontWeight="Medium" />
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCompactMode}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding AccountPlan}" FontSize="10.5" Foreground="#A1A1AA" FontWeight="Medium" />
                     </Border>
                 </StackPanel>
 
                 <!-- Window Action Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding RefreshCommand}" ToolTip="Refresh Quotas" Width="24" Height="22" Margin="0,0,2,0">
-                        <TextBlock Text="⟳" FontSize="14" FontWeight="Bold" RenderTransformOrigin="0.5,0.5" />
+                    <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding ToggleModeCommand}" ToolTip="{Binding ModeToggleTooltip}" Width="22" Height="22" Margin="0,0,2,0">
+                        <TextBlock Text="{Binding ModeToggleText}" FontSize="12" FontWeight="Bold" Margin="0,-1,0,0" />
                     </Button>
-                    <Button Style="{StaticResource WidgetButtonStyle}" Click="MinimizeButton_Click" ToolTip="Minimize" Width="22" Height="22" Margin="0,0,2,0">
+                    <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding RefreshCommand}" ToolTip="Refresh Quotas" Width="22" Height="22" Margin="0,0,2,0">
+                        <TextBlock Text="⟳" FontSize="13" FontWeight="Bold" RenderTransformOrigin="0.5,0.5" />
+                    </Button>
+                    <Button Style="{StaticResource WidgetButtonStyle}" Click="MinimizeButton_Click" ToolTip="Hide to System Tray" Width="22" Height="22" Margin="0,0,2,0">
                         <TextBlock Text="−" FontSize="13" FontWeight="Bold" Margin="0,-2,0,0" />
                     </Button>
-                    <Button Style="{StaticResource WidgetButtonStyle}" Click="CloseButton_Click" ToolTip="Close AIQuotaBar" Width="22" Height="22">
+                    <Button Style="{StaticResource WidgetButtonStyle}" Click="CloseButton_Click" ToolTip="Exit AIQuotaBar" Width="22" Height="22">
                         <TextBlock Text="✕" FontSize="11" FontWeight="Bold" />
                     </Button>
                 </StackPanel>
             </Grid>
 
             <!-- 2. Body / Quota Windows -->
-            <Grid Grid.Row="1" Margin="0,2,0,4">
+            <Grid Grid.Row="1" Margin="0,0,0,2">
                 <!-- Active Windows View -->
                 <ItemsControl ItemsSource="{Binding Windows}" Visibility="{Binding HasWindows, Converter={StaticResource BoolToVisConverter}}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Margin="0,4,0,6" Background="#202024" CornerRadius="6" Padding="10,8">
+                            <Border Margin="0,2,0,4" Background="#202024" CornerRadius="6" Padding="8,6" ToolTip="{Binding TooltipText}">
                                 <StackPanel>
                                     <!-- Window Header -->
-                                    <Grid Margin="0,0,0,6">
+                                    <Grid Margin="0,0,0,4">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Window Title -->
-                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12" Foreground="#F4F4F5" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="11.5" Foreground="#F4F4F5" VerticalAlignment="Center" />
 
                                         <!-- Remaining & Countdown info -->
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding RemainingText}" 
                                                        FontWeight="Bold" 
-                                                       FontSize="12" 
+                                                       FontSize="11.5" 
                                                        Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}" 
                                                        Margin="0,0,6,0" />
 
                                             <TextBlock Text="{Binding ResetCountdown}" 
-                                                       FontSize="11" 
+                                                       FontSize="10.5" 
                                                        Foreground="#71717A" 
                                                        Visibility="{Binding HasCountdown, Converter={StaticResource BoolToVisConverter}}" />
                                         </StackPanel>
                                     </Grid>
 
                                     <!-- Progress Bar (Showing Remaining Quota) -->
-                                    <Grid Height="6">
-                                        <Border Background="#2E2E33" CornerRadius="3" />
+                                    <Grid Height="5">
+                                        <Border Background="#2E2E33" CornerRadius="2.5" />
                                         <ProgressBar Value="{Binding RemainingPercent, Mode=OneWay}" 
                                                      Minimum="0" 
                                                      Maximum="100" 
-                                                     Height="6" 
+                                                     Height="5" 
                                                      BorderThickness="0" 
                                                      Background="Transparent"
                                                      Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}">
                                             <ProgressBar.Template>
                                                 <ControlTemplate TargetType="ProgressBar">
                                                     <Grid x:Name="TemplateRoot">
-                                                        <Border Background="{TemplateBinding Background}" CornerRadius="3" />
+                                                        <Border Background="{TemplateBinding Background}" CornerRadius="2.5" />
                                                         <Border x:Name="PART_Indicator" 
                                                                 HorizontalAlignment="Left" 
                                                                 Background="{TemplateBinding Foreground}" 
-                                                                CornerRadius="3" />
+                                                                CornerRadius="2.5" />
                                                     </Grid>
                                                 </ControlTemplate>
                                             </ProgressBar.Template>
@@ -169,26 +182,36 @@
                 </ItemsControl>
 
                 <!-- Status / Error / Empty View -->
-                <Border Background="#27272A" CornerRadius="6" Padding="10,8" Margin="0,4,0,6"
+                <Border Background="#27272A" CornerRadius="6" Padding="8,6" Margin="0,2,0,4"
                         Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVisConverter}}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="ℹ" FontSize="13" Foreground="#F59E0B" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding StatusMessage}" FontSize="11.5" Foreground="#D4D4D8" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <TextBlock Text="ℹ" FontSize="12" Foreground="#F59E0B" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="#D4D4D8" TextWrapping="Wrap" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <!-- 3. Footer -->
-            <Grid Grid.Row="2" Margin="0,4,0,0">
+            <!-- 3. Footer (Expanded mode only) -->
+            <Grid Grid.Row="2" Margin="0,2,0,0">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCompactMode}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Text="{Binding LastUpdatedText}" FontSize="10" Foreground="#71717A" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding LastUpdatedText}" FontSize="9.5" Foreground="#71717A" VerticalAlignment="Center" />
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="Refreshing..." FontSize="10" Foreground="#10B981" FontWeight="Medium" VerticalAlignment="Center" />
+                    <TextBlock Text="Refreshing..." FontSize="9.5" Foreground="#10B981" FontWeight="Medium" VerticalAlignment="Center" />
                 </StackPanel>
             </Grid>
         </Grid>

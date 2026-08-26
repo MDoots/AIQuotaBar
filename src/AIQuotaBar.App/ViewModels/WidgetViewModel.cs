@@ -16,13 +16,47 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     private bool _disposed;
 
     private bool _isLoading;
+    private bool _isAlwaysOnTop = true;
+    private bool _isCompactMode;
     private string _providerName = "OpenAI Codex";
     private string? _accountPlan;
     private ProviderStatus _status = ProviderStatus.Available;
     private string? _statusMessage;
     private string _lastUpdatedText = "Not updated yet";
 
+    public Action<bool>? AlwaysOnTopChanged { get; set; }
+    public Action<bool>? CompactModeChanged { get; set; }
+
     public ObservableCollection<QuotaWindowViewModel> Windows { get; } = new();
+
+    public bool IsAlwaysOnTop
+    {
+        get => _isAlwaysOnTop;
+        set
+        {
+            if (SetProperty(ref _isAlwaysOnTop, value))
+            {
+                AlwaysOnTopChanged?.Invoke(value);
+            }
+        }
+    }
+
+    public bool IsCompactMode
+    {
+        get => _isCompactMode;
+        set
+        {
+            if (SetProperty(ref _isCompactMode, value))
+            {
+                OnPropertyChanged(nameof(ModeToggleText));
+                OnPropertyChanged(nameof(ModeToggleTooltip));
+                CompactModeChanged?.Invoke(value);
+            }
+        }
+    }
+
+    public string ModeToggleText => IsCompactMode ? "▾" : "▴";
+    public string ModeToggleTooltip => IsCompactMode ? "Switch to Expanded View" : "Switch to Compact View";
 
     public bool IsLoading
     {
@@ -35,6 +69,8 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             }
         }
     }
+
+    public ICommand ToggleModeCommand { get; }
 
     public string ProviderName
     {
@@ -103,6 +139,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         ProviderName = _provider.DisplayName;
 
         RefreshCommand = new RelayCommand(async () => await RefreshAsync(), () => CanRefresh);
+        ToggleModeCommand = new RelayCommand(() => IsCompactMode = !IsCompactMode);
 
         // Auto refresh every 120 seconds
         _autoRefreshTimer = new DispatcherTimer

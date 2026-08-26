@@ -5,6 +5,7 @@
     <Project Path="src/AIQuotaBar.Providers.Codex/AIQuotaBar.Providers.Codex.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/AIQuotaBar.App.Tests/AIQuotaBar.App.Tests.csproj" />
     <Project Path="tests/AIQuotaBar.Core.Tests/AIQuotaBar.Core.Tests.csproj" />
     <Project Path="tests/AIQuotaBar.Providers.Codex.Tests/AIQuotaBar.Providers.Codex.Tests.csproj" />
   </Folder>

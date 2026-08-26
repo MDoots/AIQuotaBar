@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.App.Views;
+namespace AIQuotaBar.App.Views;
 
 using System.Windows;
 using System.Windows.Input;
@@ -6,9 +6,20 @@ using AIQuotaBar.App.ViewModels;
 
 public partial class WidgetWindow : Window
 {
+    public Action<double, double>? PositionChanged { get; set; }
+
     public WidgetWindow()
     {
         InitializeComponent();
+        LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, EventArgs e)
+    {
+        if (WindowState == WindowState.Normal && Left >= -5000 && Top >= -5000)
+        {
+            PositionChanged?.Invoke(Left, Top);
+        }
     }
 
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -21,20 +32,13 @@ public partial class WidgetWindow : Window
 
     private void MinimizeButton_Click(object sender, RoutedEventArgs e)
     {
-        WindowState = WindowState.Minimized;
+        // Hide to system tray
+        Hide();
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        Close();
-    }
-
-    protected override void OnClosed(EventArgs e)
-    {
-        base.OnClosed(e);
-        if (DataContext is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
+        // Genuine application shutdown
+        Application.Current.Shutdown();
     }
 }
