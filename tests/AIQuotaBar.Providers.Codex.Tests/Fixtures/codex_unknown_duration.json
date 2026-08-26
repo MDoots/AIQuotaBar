@@ -1,0 +1,16 @@
+﻿{
+  "rateLimits": {
+    "limitId": "codex",
+    "primary": {
+      "usedPercent": 15,
+      "windowDurationMins": 45,
+      "resetsAt": 1787755078
+    },
+    "secondary": {
+      "usedPercent": 80,
+      "windowDurationMins": 4320,
+      "resetsAt": 1788276926
+    },
+    "planType": "team"
+  }
+}
