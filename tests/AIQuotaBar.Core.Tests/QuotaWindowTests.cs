@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Core.Tests;
+namespace AIQuotaBar.Core.Tests;
 
 using AIQuotaBar.Core.Models;
 using Xunit;
@@ -37,5 +37,15 @@ public class QuotaWindowTests
         Assert.Equal(-10, window.RawUsedPercent);
         Assert.Equal(0, window.ClampedUsedPercent);
         Assert.Equal(100, window.RemainingPercent);
+    }
+
+    [Fact]
+    public void QuotaWindow_PreservesFractionalPrecision()
+    {
+        var window = new QuotaWindow("primary", "5-Hour", 27.294451, TimeSpan.FromHours(5), null);
+
+        Assert.Equal(27.294451, window.RawUsedPercent);
+        Assert.Equal(27.294451, window.ClampedUsedPercent);
+        Assert.True(Math.Abs(72.705549 - window.RemainingPercent) < 0.000001);
     }
 }

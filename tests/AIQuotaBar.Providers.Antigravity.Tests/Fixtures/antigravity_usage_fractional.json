@@ -1,0 +1,49 @@
+{
+  "conversation_id": "",
+  "status": "SUCCESS",
+  "command": {
+    "name": "usage",
+    "data": {
+      "groups": [
+        {
+          "name": "Gemini Models",
+          "buckets": [
+            {
+              "id": "gemini-5h",
+              "name": "Five Hour Limit Remaining",
+              "window": "5h",
+              "remaining_fraction": 0.727055,
+              "reset_time": "2026-08-26T17:48:26Z"
+            },
+            {
+              "id": "gemini-weekly",
+              "name": "Weekly Limit Remaining",
+              "window": "weekly",
+              "remaining_fraction": -0.05,
+              "reset_time": "2026-09-02T12:48:26Z"
+            }
+          ]
+        },
+        {
+          "name": "Claude and GPT models",
+          "buckets": [
+            {
+              "id": "3p-5h",
+              "name": "Five Hour Limit Remaining",
+              "window": "5h",
+              "remaining_fraction": 1.05,
+              "reset_time": "2026-08-26T21:25:03Z"
+            },
+            {
+              "id": "3p-weekly",
+              "name": "Weekly Limit Remaining",
+              "window": "weekly",
+              "remaining_fraction": 0.0,
+              "reset_time": "2026-09-02T16:25:03Z"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

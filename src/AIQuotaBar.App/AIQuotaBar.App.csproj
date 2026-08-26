@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AIQuotaBar.Core\AIQuotaBar.Core.csproj" />
+    <ProjectReference Include="..\AIQuotaBar.Providers.Antigravity\AIQuotaBar.Providers.Antigravity.csproj" />
     <ProjectReference Include="..\AIQuotaBar.Providers.Codex\AIQuotaBar.Providers.Codex.csproj" />
   </ItemGroup>
 

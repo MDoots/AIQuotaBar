@@ -5,29 +5,23 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
+using AIQuotaBar.Providers.Antigravity;
 using AIQuotaBar.Providers.Codex;
 
 public sealed class WidgetViewModel : ViewModelBase, IDisposable
 {
-    private readonly IUsageProvider _provider;
-    private readonly DispatcherTimer _autoRefreshTimer;
+    private readonly List<DispatcherTimer> _providerTimers = new();
     private readonly DispatcherTimer _countdownTimer;
-    private CancellationTokenSource? _currentRefreshCts;
     private bool _disposed;
 
-    private bool _isLoading;
     private bool _isAlwaysOnTop = true;
     private bool _isCompactMode;
-    private string _providerName = "OpenAI Codex";
-    private string? _accountPlan;
-    private ProviderStatus _status = ProviderStatus.Available;
-    private string? _statusMessage;
     private string _lastUpdatedText = "Not updated yet";
 
     public Action<bool>? AlwaysOnTopChanged { get; set; }
     public Action<bool>? CompactModeChanged { get; set; }
 
-    public ObservableCollection<QuotaWindowViewModel> Windows { get; } = new();
+    public ObservableCollection<ProviderSectionViewModel> Providers { get; } = new();
 
     public bool IsAlwaysOnTop
     {
@@ -58,70 +52,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     public string ModeToggleText => IsCompactMode ? "▾" : "▴";
     public string ModeToggleTooltip => IsCompactMode ? "Switch to Expanded View" : "Switch to Compact View";
 
-    public bool IsLoading
-    {
-        get => _isLoading;
-        private set
-        {
-            if (SetProperty(ref _isLoading, value))
-            {
-                OnPropertyChanged(nameof(CanRefresh));
-            }
-        }
-    }
-
-    public ICommand ToggleModeCommand { get; }
-
-    public string ProviderName
-    {
-        get => _providerName;
-        private set => SetProperty(ref _providerName, value);
-    }
-
-    public string? AccountPlan
-    {
-        get => _accountPlan;
-        private set
-        {
-            if (SetProperty(ref _accountPlan, value))
-            {
-                OnPropertyChanged(nameof(HasAccountPlan));
-            }
-        }
-    }
-
-    public bool HasAccountPlan => !string.IsNullOrWhiteSpace(AccountPlan);
-
-    public ProviderStatus Status
-    {
-        get => _status;
-        private set
-        {
-            if (SetProperty(ref _status, value))
-            {
-                OnPropertyChanged(nameof(IsAvailable));
-                OnPropertyChanged(nameof(HasError));
-            }
-        }
-    }
-
-    public bool IsAvailable => Status == ProviderStatus.Available;
-    public bool HasError => Status != ProviderStatus.Available;
-
-    public string? StatusMessage
-    {
-        get => _statusMessage;
-        private set
-        {
-            if (SetProperty(ref _statusMessage, value))
-            {
-                OnPropertyChanged(nameof(HasStatusMessage));
-            }
-        }
-    }
-
-    public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
-    public bool HasWindows => Windows.Count > 0;
+    public bool IsLoading => Providers.Any(p => p.IsLoading);
 
     public string LastUpdatedText
     {
@@ -131,22 +62,47 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
     public bool CanRefresh => !IsLoading && !_disposed;
 
+    public ICommand ToggleModeCommand { get; }
     public ICommand RefreshCommand { get; }
 
-    public WidgetViewModel(IUsageProvider? provider = null)
+    public WidgetViewModel(IEnumerable<ProviderSectionViewModel>? providerSections = null)
     {
-        _provider = provider ?? new CodexUsageProvider();
-        ProviderName = _provider.DisplayName;
-
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync(), () => CanRefresh);
         ToggleModeCommand = new RelayCommand(() => IsCompactMode = !IsCompactMode);
+        RefreshCommand = new RelayCommand(async () => await RefreshAllAsync(), () => CanRefresh);
 
-        // Auto refresh every 120 seconds
-        _autoRefreshTimer = new DispatcherTimer
+        if (providerSections != null)
         {
-            Interval = TimeSpan.FromSeconds(120)
-        };
-        _autoRefreshTimer.Tick += OnAutoRefreshTimerTick;
+            foreach (var section in providerSections)
+            {
+                Providers.Add(section);
+            }
+        }
+        else
+        {
+            // Default production configuration:
+            // 1. OpenAI Codex: 60s auto-refresh
+            // 2. Google Antigravity: 180s auto-refresh
+            Providers.Add(new ProviderSectionViewModel(new CodexUsageProvider(), TimeSpan.FromSeconds(60)));
+            Providers.Add(new ProviderSectionViewModel(new AntigravityUsageProvider(), TimeSpan.FromSeconds(180)));
+        }
+
+        // Set up individual auto-refresh timers for each provider
+        foreach (var provider in Providers)
+        {
+            var timer = new DispatcherTimer
+            {
+                Interval = provider.RefreshInterval
+            };
+            timer.Tick += async (s, e) =>
+            {
+                if (!_disposed && !provider.IsLoading)
+                {
+                    await provider.RefreshAsync().ConfigureAwait(true);
+                    UpdateLastUpdated();
+                }
+            };
+            _providerTimers.Add(timer);
+        }
 
         // Local countdown display refresh every 30 seconds (no process spawn)
         _countdownTimer = new DispatcherTimer
@@ -156,6 +112,11 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         _countdownTimer.Tick += OnCountdownTimerTick;
     }
 
+    public WidgetViewModel(IUsageProvider provider, TimeSpan? refreshInterval = null)
+        : this(new[] { new ProviderSectionViewModel(provider, refreshInterval ?? TimeSpan.FromSeconds(60)) })
+    {
+    }
+
     public void Start()
     {
         if (_disposed)
@@ -163,60 +124,35 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        _autoRefreshTimer.Start();
+        foreach (var timer in _providerTimers)
+        {
+            timer.Start();
+        }
+
         _countdownTimer.Start();
-        _ = RefreshAsync();
+        _ = RefreshAllAsync();
     }
 
-    public async Task RefreshAsync()
+    public async Task RefreshAllAsync(CancellationToken cancellationToken = default)
     {
-        if (_disposed || IsLoading)
+        if (_disposed)
         {
             return;
         }
 
-        IsLoading = true;
-        _currentRefreshCts?.Cancel();
-        _currentRefreshCts?.Dispose();
-        var cts = new CancellationTokenSource();
-        _currentRefreshCts = cts;
+        OnPropertyChanged(nameof(IsLoading));
+        OnPropertyChanged(nameof(CanRefresh));
 
         try
         {
-            var snapshot = await _provider.GetUsageAsync(cts.Token).ConfigureAwait(true);
-
-            // Prevent applying stale data if refreshed again, cancelled, or disposed
-            if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts))
-            {
-                ApplySnapshot(snapshot);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Ignore intentional cancellation
-        }
-        catch
-        {
-            if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts))
-            {
-                Status = ProviderStatus.Error;
-                StatusMessage = "Unable to communicate with Codex";
-            }
+            var refreshTasks = Providers.Select(p => p.RefreshAsync(cancellationToken)).ToArray();
+            await Task.WhenAll(refreshTasks).ConfigureAwait(true);
         }
         finally
         {
-            if (ReferenceEquals(_currentRefreshCts, cts))
-            {
-                IsLoading = false;
-            }
-        }
-    }
-
-    private void OnAutoRefreshTimerTick(object? sender, EventArgs e)
-    {
-        if (!_disposed && !_isLoading)
-        {
-            _ = RefreshAsync();
+            UpdateLastUpdated();
+            OnPropertyChanged(nameof(IsLoading));
+            OnPropertyChanged(nameof(CanRefresh));
         }
     }
 
@@ -227,28 +163,24 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        // Re-notify countdown properties on existing windows to refresh "resets in Xm"
-        foreach (var window in Windows)
+        foreach (var provider in Providers)
         {
-            window.RefreshCountdown();
+            provider.RefreshCountdown();
         }
     }
 
-    private void ApplySnapshot(ProviderSnapshot snapshot)
+    private void UpdateLastUpdated()
     {
-        ProviderName = snapshot.ProviderDisplayName;
-        AccountPlan = snapshot.AccountPlan;
-        Status = snapshot.Status;
-        StatusMessage = snapshot.StatusMessage;
-        LastUpdatedText = $"Updated {snapshot.Timestamp.ToLocalTime():HH:mm:ss}";
+        var latest = Providers
+            .Where(p => p.LastRefreshedAt.HasValue)
+            .Select(p => p.LastRefreshedAt!.Value)
+            .DefaultIfEmpty()
+            .Max();
 
-        Windows.Clear();
-        foreach (var window in snapshot.Windows)
+        if (latest != default)
         {
-            Windows.Add(new QuotaWindowViewModel(window));
+            LastUpdatedText = $"Updated {latest.ToLocalTime():HH:mm:ss}";
         }
-
-        OnPropertyChanged(nameof(HasWindows));
     }
 
     public void Dispose()
@@ -259,16 +191,20 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         }
         _disposed = true;
 
-        _autoRefreshTimer.Stop();
-        _autoRefreshTimer.Tick -= OnAutoRefreshTimerTick;
+        foreach (var timer in _providerTimers)
+        {
+            timer.Stop();
+        }
+        _providerTimers.Clear();
 
         _countdownTimer.Stop();
         _countdownTimer.Tick -= OnCountdownTimerTick;
 
-        _currentRefreshCts?.Cancel();
-        _currentRefreshCts?.Dispose();
-        _currentRefreshCts = null;
+        foreach (var provider in Providers)
+        {
+            provider.Dispose();
+        }
 
-        IsLoading = false;
+        OnPropertyChanged(nameof(CanRefresh));
     }
 }

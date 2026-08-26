@@ -9,10 +9,12 @@ public sealed class QuotaWindowViewModel : ViewModelBase
 
     public string Id => _model.Id;
     public string DisplayName => _model.DisplayName;
-    public int RemainingPercent => _model.RemainingPercent;
-    public int UsedPercent => _model.ClampedUsedPercent;
-    public string RemainingText => $"{_model.RemainingPercent}% remaining";
-    public string UsedText => $"{_model.ClampedUsedPercent}% used";
+    public double RemainingPercent => _model.RemainingPercent;
+    public double UsedPercent => _model.ClampedUsedPercent;
+    public int DisplayRemainingPercent => (int)Math.Round(_model.RemainingPercent, MidpointRounding.AwayFromZero);
+    public int DisplayUsedPercent => (int)Math.Round(_model.ClampedUsedPercent, MidpointRounding.AwayFromZero);
+    public string RemainingText => $"{DisplayRemainingPercent}% remaining";
+    public string UsedText => $"{DisplayUsedPercent}% used";
     public string? ResetCountdown => CountdownFormatter.FormatCountdown(_model.ResetsAt);
     public bool HasCountdown => !string.IsNullOrWhiteSpace(ResetCountdown);
     public string? ExactResetTime => _model.ResetsAt?.ToLocalTime().ToString("dddd, d MMMM, HH:mm");
@@ -23,7 +25,7 @@ public sealed class QuotaWindowViewModel : ViewModelBase
         {
             var lines = new List<string>
             {
-                $"{DisplayName}: {RemainingPercent}% remaining ({UsedPercent}% used)"
+                $"{DisplayName}: {DisplayRemainingPercent}% remaining ({DisplayUsedPercent}% used)"
             };
 
             if (!string.IsNullOrWhiteSpace(ResetCountdown))

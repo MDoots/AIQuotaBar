@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.App.Converters;
+namespace AIQuotaBar.App.Converters;
 
 using System.Globalization;
 using System.Windows.Data;
@@ -21,17 +21,25 @@ public sealed class RemainingToBrushConverter : IValueConverter
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is int remaining)
+        if (value is IConvertible convertible)
         {
-            if (remaining > 30)
+            try
             {
-                return HealthyBrush;
+                var remaining = convertible.ToDouble(culture ?? CultureInfo.InvariantCulture);
+                if (remaining > 30.0)
+                {
+                    return HealthyBrush;
+                }
+                if (remaining >= 10.0)
+                {
+                    return WarningBrush;
+                }
+                return CriticalBrush;
             }
-            if (remaining >= 10)
+            catch
             {
-                return WarningBrush;
+                // Fallback to neutral brush on conversion failure
             }
-            return CriticalBrush;
         }
 
         return NeutralBrush;

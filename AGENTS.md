@@ -1,4 +1,4 @@
-﻿# AIQuotaBar — Engineering Guidance & Architecture Guardrails
+# AIQuotaBar — Engineering Guidance & Architecture Guardrails
 
 This document establishes the permanent engineering rules, architectural boundaries, and quality standards for **AIQuotaBar**. All implementation agents operating in this repository must adhere strictly to these principles.
 
@@ -22,13 +22,14 @@ AIQuotaBar is a lightweight, Windows-first, local-first desktop widget designed 
 The codebase is organized into strict, decoupled layers:
 
 ```
-[ AIQuotaBar.App (WPF / Presentation / Tray / Lifecycle) ]
-                         │
-                         ▼
-        [ AIQuotaBar.Core (Domain Abstractions) ]
-                         ▲
-                         │
-[ AIQuotaBar.Providers.Codex (IPC / JSON-RPC / Normalization) ]
+             [ AIQuotaBar.App (WPF / Presentation / Tray / Lifecycle) ]
+                                      │
+                                      ▼
+                     [ AIQuotaBar.Core (Domain Abstractions) ]
+                                      ▲
+                         ┌────────────┴────────────┐
+                         │                         │
+[ AIQuotaBar.Providers.Codex ]          [ AIQuotaBar.Providers.Antigravity ]
 ```
 
 ### Invariant Rules
@@ -66,7 +67,7 @@ Production dependencies must remain minimal:
 
 Do not expand scope beyond approved milestones without architectural direction from the lead architect:
 
-* **Current Provider Scope (v0.1):** OpenAI Codex only. Do not add Claude, Gemini, Antigravity, Cursor, Copilot, OpenRouter, or other providers until architecturally specified.
+* **Current Provider Scope (v0.2):** OpenAI Codex and Google Antigravity. Do not add Claude, Gemini, Cursor, Copilot, OpenRouter, or other providers until architecturally specified.
 * **Feature Boundaries:** Do not implement cloud synchronization, account systems, automatic updaters, MSI/MSIX installers, Windows shell/taskbar injections, or telemetry.
 * **Retained v0.1 Daily-Driver Features:** System tray integration (`NotifyIcon`), compact/expanded mode toggle, always-on-top toggle, start-with-Windows toggle, and window position persistence in `%LOCALAPPDATA%\AIQuotaBar\settings.json` are approved parts of v0.1.
 

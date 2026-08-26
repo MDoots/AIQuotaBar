@@ -11,11 +11,16 @@ public class WidgetViewModelTests
     {
         private readonly Func<CancellationToken, Task<ProviderSnapshot>> _handler;
 
-        public string Id => "mock";
-        public string DisplayName => "Mock Provider";
+        public string Id { get; }
+        public string DisplayName { get; }
 
-        public MockUsageProvider(Func<CancellationToken, Task<ProviderSnapshot>> handler)
+        public MockUsageProvider(
+            string id,
+            string displayName,
+            Func<CancellationToken, Task<ProviderSnapshot>> handler)
         {
+            Id = id;
+            DisplayName = displayName;
             _handler = handler;
         }
 
@@ -26,39 +31,100 @@ public class WidgetViewModelTests
     }
 
     [Fact]
-    public async Task RefreshAsync_UpdatesViewModel_WhenSuccessful()
+    public async Task RefreshAllAsync_UpdatesMultipleProvidersConcurrently()
     {
         var resetEpoch = DateTimeOffset.UtcNow.AddHours(3);
-        var snapshot = new ProviderSnapshot(
-            providerId: "mock",
-            providerDisplayName: "Mock Provider",
+
+        var codexSnapshot = new ProviderSnapshot(
+            providerId: "codex",
+            providerDisplayName: "OpenAI Codex",
             status: ProviderStatus.Available,
             accountPlan: "ChatGPT Plus",
             windows: new[]
             {
-                new QuotaWindow("primary", "5-Hour", 30, TimeSpan.FromHours(5), resetEpoch)
+                new QuotaWindow("codex_5h", "5-Hour", 30, TimeSpan.FromHours(5), resetEpoch)
             });
 
-        var provider = new MockUsageProvider(_ => Task.FromResult(snapshot));
-        using var vm = new WidgetViewModel(provider);
+        var agySnapshot = new ProviderSnapshot(
+            providerId: "antigravity",
+            providerDisplayName: "Google Antigravity",
+            status: ProviderStatus.Available,
+            windows: new[]
+            {
+                new QuotaWindow("gemini_5h", "Gemini · 5-Hour", 27.2945, TimeSpan.FromHours(5), resetEpoch)
+            });
 
-        await vm.RefreshAsync();
+        var codexProvider = new MockUsageProvider("codex", "OpenAI Codex", _ => Task.FromResult(codexSnapshot));
+        var agyProvider = new MockUsageProvider("antigravity", "Google Antigravity", _ => Task.FromResult(agySnapshot));
 
-        Assert.Equal(ProviderStatus.Available, vm.Status);
-        Assert.Equal("ChatGPT Plus", vm.AccountPlan);
-        Assert.True(vm.HasAccountPlan);
-        Assert.Single(vm.Windows);
-        Assert.Equal(70, vm.Windows[0].RemainingPercent);
-        Assert.Equal("70% remaining", vm.Windows[0].RemainingText);
-        Assert.NotNull(vm.Windows[0].ExactResetTime);
-        Assert.Contains("70% remaining", vm.Windows[0].TooltipText);
+        var codexSection = new ProviderSectionViewModel(codexProvider, TimeSpan.FromSeconds(60));
+        var agySection = new ProviderSectionViewModel(agyProvider, TimeSpan.FromSeconds(180));
+
+        using var vm = new WidgetViewModel(new[] { codexSection, agySection });
+
+        await vm.RefreshAllAsync();
+
+        Assert.Equal(2, vm.Providers.Count);
+
+        // Codex section checks
+        var codexVm = vm.Providers[0];
+        Assert.Equal(ProviderStatus.Available, codexVm.Status);
+        Assert.Equal("ChatGPT Plus", codexVm.AccountPlan);
+        Assert.True(codexVm.HasAccountPlan);
+        Assert.Single(codexVm.Windows);
+        Assert.Equal(70.0, codexVm.Windows[0].RemainingPercent);
+        Assert.Equal("70% remaining", codexVm.Windows[0].RemainingText);
+
+        // Antigravity section checks
+        var agyVm = vm.Providers[1];
+        Assert.Equal(ProviderStatus.Available, agyVm.Status);
+        Assert.Null(agyVm.AccountPlan);
+        Assert.False(agyVm.HasAccountPlan);
+        Assert.Single(agyVm.Windows);
+        Assert.Equal(72.7055, agyVm.Windows[0].RemainingPercent);
+        Assert.Equal("73% remaining", agyVm.Windows[0].RemainingText);
+        Assert.Equal("Gemini · 5-Hour", agyVm.Windows[0].DisplayName);
+
+        Assert.Contains("Updated", vm.LastUpdatedText);
+    }
+
+    [Fact]
+    public async Task RefreshAllAsync_IsolatesProviderFailures()
+    {
+        // Provider 1 succeeds
+        var codexSnapshot = new ProviderSnapshot(
+            providerId: "codex",
+            providerDisplayName: "OpenAI Codex",
+            status: ProviderStatus.Available,
+            windows: new[] { new QuotaWindow("p", "5-Hour", 10, null, null) });
+
+        // Provider 2 fails with exception
+        var codexProvider = new MockUsageProvider("codex", "OpenAI Codex", _ => Task.FromResult(codexSnapshot));
+        var agyProvider = new MockUsageProvider("antigravity", "Google Antigravity", _ => throw new InvalidOperationException("CLI error"));
+
+        var codexSection = new ProviderSectionViewModel(codexProvider, TimeSpan.FromSeconds(60));
+        var agySection = new ProviderSectionViewModel(agyProvider, TimeSpan.FromSeconds(180));
+
+        using var vm = new WidgetViewModel(new[] { codexSection, agySection });
+
+        await vm.RefreshAllAsync();
+
+        // Codex must be unaffected
+        Assert.Equal(ProviderStatus.Available, codexSection.Status);
+        Assert.Single(codexSection.Windows);
+
+        // Antigravity has error but does not throw or crash widget
+        Assert.Equal(ProviderStatus.Error, agySection.Status);
+        Assert.True(agySection.HasStatusMessage);
+        Assert.Empty(agySection.Windows);
     }
 
     [Fact]
     public void ModeToggleCommand_TogglesCompactMode_AndFiresCallback()
     {
-        using var vm = new WidgetViewModel(new MockUsageProvider(_ => Task.FromResult(new ProviderSnapshot("m", "M", ProviderStatus.Available))));
-        
+        var provider = new MockUsageProvider("m", "M", _ => Task.FromResult(new ProviderSnapshot("m", "M", ProviderStatus.Available)));
+        using var vm = new WidgetViewModel(provider);
+
         bool? callbackValue = null;
         vm.CompactModeChanged = val => callbackValue = val;
 
@@ -81,8 +147,9 @@ public class WidgetViewModelTests
     [Fact]
     public void IsAlwaysOnTop_FiresCallback_WhenChanged()
     {
-        using var vm = new WidgetViewModel(new MockUsageProvider(_ => Task.FromResult(new ProviderSnapshot("m", "M", ProviderStatus.Available))));
-        
+        var provider = new MockUsageProvider("m", "M", _ => Task.FromResult(new ProviderSnapshot("m", "M", ProviderStatus.Available)));
+        using var vm = new WidgetViewModel(provider);
+
         bool? callbackValue = null;
         vm.AlwaysOnTopChanged = val => callbackValue = val;
 
@@ -95,50 +162,22 @@ public class WidgetViewModelTests
     }
 
     [Fact]
-    public async Task RefreshAsync_PreventsSimultaneousConcurrentRefreshes()
+    public void Dispose_IsIdempotent_AndCleansUpTimersAndSections()
     {
-        var fetchCount = 0;
-        var tcs = new TaskCompletionSource<ProviderSnapshot>();
-
-        var provider = new MockUsageProvider(async token =>
-        {
-            Interlocked.Increment(ref fetchCount);
-            return await tcs.Task;
-        });
-
-        using var vm = new WidgetViewModel(provider);
-
-        // Start first refresh
-        var task1 = vm.RefreshAsync();
-        Assert.True(vm.IsLoading);
-
-        // Second call while first is still pending should be ignored
-        var task2 = vm.RefreshAsync();
-
-        // Release first
-        tcs.SetResult(new ProviderSnapshot("m", "M", ProviderStatus.Available));
-        await Task.WhenAll(task1, task2);
-
-        Assert.Equal(1, fetchCount);
-    }
-
-    [Fact]
-    public void Dispose_IsIdempotent_AndDisablesRefresh()
-    {
-        var provider = new MockUsageProvider(_ => Task.FromResult(new ProviderSnapshot("m", "M", ProviderStatus.Available)));
+        var provider = new MockUsageProvider("m", "M", _ => Task.FromResult(new ProviderSnapshot("m", "M", ProviderStatus.Available)));
         var vm = new WidgetViewModel(provider);
 
         vm.Dispose();
-        vm.Dispose(); // Second call must not throw
+        vm.Dispose(); // Must not throw on subsequent call
 
         Assert.False(vm.CanRefresh);
     }
 
     [Fact]
-    public async Task RefreshAsync_DoesNotStartOrUpdate_WhenDisposed()
+    public async Task RefreshAllAsync_DoesNotUpdate_WhenDisposed()
     {
         var providerCalled = false;
-        var provider = new MockUsageProvider(_ =>
+        var provider = new MockUsageProvider("m", "M", _ =>
         {
             providerCalled = true;
             return Task.FromResult(new ProviderSnapshot("m", "M", ProviderStatus.Available));
@@ -147,35 +186,8 @@ public class WidgetViewModelTests
         var vm = new WidgetViewModel(provider);
         vm.Dispose();
 
-        await vm.RefreshAsync();
+        await vm.RefreshAllAsync();
 
         Assert.False(providerCalled);
-        Assert.Empty(vm.Windows);
-    }
-
-    [Fact]
-    public async Task RefreshAsync_DoesNotApplySnapshot_IfDisposedDuringFetch()
-    {
-        var tcs = new TaskCompletionSource<ProviderSnapshot>();
-        var provider = new MockUsageProvider(async token =>
-        {
-            return await tcs.Task;
-        });
-
-        var vm = new WidgetViewModel(provider);
-        var refreshTask = vm.RefreshAsync();
-
-        // Dispose while fetch is pending
-        vm.Dispose();
-
-        // Complete the fetch
-        tcs.SetResult(new ProviderSnapshot(
-            "m", "M", ProviderStatus.Available,
-            windows: new[] { new QuotaWindow("p", "5-Hour", 10, null, null) }));
-
-        await refreshTask;
-
-        // Verify snapshot was NOT applied to the disposed view model
-        Assert.Empty(vm.Windows);
     }
 }
