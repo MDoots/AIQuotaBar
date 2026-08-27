@@ -9,12 +9,12 @@
   <Identity
     Name="AGIFutu.AIQuotaBar"
     Publisher="CN=63F366FC-16FC-4C0B-99DF-7E5B40742F24"
-    Version="1.0.0.0"
+    Version="1.0.1.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>AIQuotaBar</DisplayName>
-    <PublisherDisplayName>AGIFutu</PublisherDisplayName>
+    <PublisherDisplayName>AGIFutures</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
