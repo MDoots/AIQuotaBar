@@ -20,6 +20,7 @@ public class SettingsManagerTests
         Assert.False(settings.StartWithWindows);
         Assert.Null(settings.WindowLeft);
         Assert.Null(settings.WindowTop);
+        Assert.Null(settings.WidgetWidth);
     }
 
     [Fact]
@@ -35,6 +36,7 @@ public class SettingsManagerTests
 
             Assert.NotNull(settings);
             Assert.True(settings.IsAlwaysOnTop);
+            Assert.Null(settings.WidgetWidth);
         }
         finally
         {
@@ -54,6 +56,7 @@ public class SettingsManagerTests
             {
                 WindowLeft = 450.5,
                 WindowTop = 120.0,
+                WidgetWidth = 280.0,
                 IsAlwaysOnTop = false,
                 IsCompactMode = true,
                 StartWithWindows = true
@@ -64,6 +67,7 @@ public class SettingsManagerTests
 
             Assert.Equal(450.5, loaded.WindowLeft);
             Assert.Equal(120.0, loaded.WindowTop);
+            Assert.Equal(280.0, loaded.WidgetWidth);
             Assert.False(loaded.IsAlwaysOnTop);
             Assert.True(loaded.IsCompactMode);
             Assert.True(loaded.StartWithWindows);

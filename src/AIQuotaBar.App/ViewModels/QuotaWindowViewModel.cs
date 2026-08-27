@@ -1,14 +1,18 @@
 namespace AIQuotaBar.App.ViewModels;
 
+using System.Windows;
+using AIQuotaBar.App.Layout;
 using AIQuotaBar.Core.Models;
 using AIQuotaBar.Core.Utils;
 
 public sealed class QuotaWindowViewModel : ViewModelBase
 {
     private readonly QuotaWindow _model;
+    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Compact;
 
     public string Id => _model.Id;
-    public string DisplayName => _model.DisplayName;
+    public string RawDisplayName => _model.DisplayName;
+    public string DisplayName => QuotaLabelFormatter.Format(_model.DisplayName, _layoutMode, _model.Id);
     public double RemainingPercent => _model.RemainingPercent;
     public double UsedPercent => _model.ClampedUsedPercent;
     public int DisplayRemainingPercent => (int)Math.Round(_model.RemainingPercent, MidpointRounding.AwayFromZero);
@@ -18,7 +22,26 @@ public sealed class QuotaWindowViewModel : ViewModelBase
     public string UsedText => $"{DisplayUsedPercent}% used";
     public string? ResetCountdown => CountdownFormatter.FormatCountdown(_model.ResetsAt);
     public bool HasCountdown => !string.IsNullOrWhiteSpace(ResetCountdown);
+    public bool ShowCountdown => _layoutMode is WidgetLayoutMode.Full or WidgetLayoutMode.Compact && HasCountdown;
+    public Thickness RemainingMargin => ShowCountdown ? new Thickness(0, 0, 6, 0) : new Thickness(0);
     public string? ExactResetTime => _model.ResetsAt?.ToLocalTime().ToString("dddd, d MMMM, HH:mm");
+
+    public WidgetLayoutMode LayoutMode
+    {
+        get => _layoutMode;
+        set
+        {
+            if (_layoutMode != value)
+            {
+                _layoutMode = value;
+                OnPropertyChanged(nameof(LayoutMode));
+                OnPropertyChanged(nameof(DisplayName));
+                OnPropertyChanged(nameof(ShowCountdown));
+                OnPropertyChanged(nameof(RemainingMargin));
+                OnPropertyChanged(nameof(TooltipText));
+            }
+        }
+    }
 
     public string FormattedRemainingPercent
     {

@@ -194,4 +194,50 @@ public class WidgetViewModelTests
 
         Assert.False(providerCalled);
     }
+
+    [Fact]
+    public void WidgetWidth_UpdatesLayoutMode_AndPropagatesToChildren()
+    {
+        var snapshot = new ProviderSnapshot("p", "Provider", ProviderStatus.Available, windows: new[]
+        {
+            new QuotaWindow("w", "Gemini · 5-Hour", 20, TimeSpan.FromHours(5), null)
+        });
+        var provider = new MockUsageProvider("p", "Provider", _ => Task.FromResult(snapshot));
+        var section = new ProviderSectionViewModel(provider, TimeSpan.FromSeconds(60));
+        section.ApplySnapshot(snapshot);
+
+        using var vm = new WidgetViewModel(new[] { section });
+
+        double? widthFired = null;
+        vm.WidgetWidthChanged = w => widthFired = w;
+
+        // Default: 330px -> Compact
+        Assert.Equal(330.0, vm.WidgetWidth);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, vm.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, section.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, section.Windows[0].LayoutMode);
+
+        // Change width to 500px -> Full
+        vm.WidgetWidth = 500;
+        Assert.Equal(500.0, widthFired);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, vm.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.Windows[0].LayoutMode);
+        Assert.Equal("Gemini · 5-Hour", section.Windows[0].DisplayName);
+
+        // Change width to 270px -> Minimal
+        vm.WidgetWidth = 270;
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, vm.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, section.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, section.Windows[0].LayoutMode);
+        Assert.Equal("Gemini · 5h", section.Windows[0].DisplayName);
+
+        // Change width to 200px -> Micro
+        vm.WidgetWidth = 200;
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Micro, vm.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Micro, section.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Micro, section.Windows[0].LayoutMode);
+        Assert.Equal("G · 5h", section.Windows[0].DisplayName);
+        Assert.False(vm.ShowFooter);
+    }
 }

@@ -14,7 +14,9 @@
         Topmost="{Binding IsAlwaysOnTop}"
         ShowInTaskbar="False"
         ResizeMode="NoResize"
-        SizeToContent="WidthAndHeight"
+        SizeToContent="Height"
+        MinWidth="200"
+        MaxWidth="1220"
         MaxHeight="620"
         SnapsToDevicePixels="True"
         UseLayoutRounding="True"
@@ -64,7 +66,7 @@
             BorderBrush="#27272A"
             BorderThickness="1"
             CornerRadius="10"
-            Width="330">
+            HorizontalAlignment="Stretch">
         <Border.Effect>
             <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.45" />
         </Border.Effect>
@@ -85,7 +87,7 @@
 
                 <!-- App Title / Brand -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="AIQuotaBar" FontWeight="Bold" FontSize="12.5" Foreground="#E4E4E7" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding AppTitleText}" FontWeight="Bold" FontSize="12.5" Foreground="#E4E4E7" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
 
                 <!-- Window Action Buttons -->
@@ -122,20 +124,11 @@
                                         <!-- Provider Name & Status Dot -->
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                             <Border Background="{Binding ProviderAccentColor}" Width="6" Height="6" CornerRadius="3" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding ProviderName}" FontWeight="SemiBold" FontSize="11.5" Foreground="#FAFAFA" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding DisplayProviderName}" FontWeight="SemiBold" FontSize="11.5" Foreground="#FAFAFA" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
-                                            <!-- Plan Badge (Expanded mode only) -->
+                                            <!-- Plan Badge (Full mode + Expanded view only) -->
                                             <Border Background="#27272A" CornerRadius="4" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
-                                                    Visibility="{Binding HasAccountPlan, Converter={StaticResource BoolToVisConverter}}">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding DataContext.IsCompactMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
-                                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
+                                                    Visibility="{Binding ShowAccountPlan, Converter={StaticResource BoolToVisConverter}}">
                                                 <TextBlock Text="{Binding AccountPlan}" FontSize="10" Foreground="#A1A1AA" FontWeight="Medium" />
                                             </Border>
                                         </StackPanel>
@@ -160,17 +153,17 @@
                                                             <TextBlock Text="{Binding DisplayName}" FontWeight="Medium" FontSize="11" Foreground="#F4F4F5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                                             <!-- Remaining & Countdown info -->
-                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="4,0,0,0">
                                                                 <TextBlock Text="{Binding RemainingText}" 
                                                                            FontWeight="Bold" 
                                                                            FontSize="11" 
                                                                            Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}" 
-                                                                           Margin="0,0,6,0" />
+                                                                           Margin="{Binding RemainingMargin}" />
 
                                                                 <TextBlock Text="{Binding ResetCountdown}" 
                                                                            FontSize="10" 
                                                                            Foreground="#71717A" 
-                                                                           Visibility="{Binding HasCountdown, Converter={StaticResource BoolToVisConverter}}" />
+                                                                           Visibility="{Binding ShowCountdown, Converter={StaticResource BoolToVisConverter}}" />
                                                             </StackPanel>
                                                         </Grid>
 
@@ -220,23 +213,13 @@
             </ScrollViewer>
 
             <!-- 3. Footer (Expanded mode only) -->
-            <Grid Grid.Row="2" Margin="0,4,0,0">
-                <Grid.Style>
-                    <Style TargetType="Grid">
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsCompactMode}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </Grid.Style>
-
+            <Grid Grid.Row="2" Margin="0,4,0,0" Visibility="{Binding ShowFooter, Converter={StaticResource BoolToVisConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Text="{Binding LastUpdatedText}" FontSize="9.5" Foreground="#71717A" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding LastUpdatedText}" FontSize="9.5" Foreground="#71717A" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="Refreshing..." FontSize="9.5" Foreground="#10B981" FontWeight="Medium" VerticalAlignment="Center" />

@@ -3,6 +3,7 @@ namespace AIQuotaBar.App.ViewModels;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using System.Windows.Threading;
+using AIQuotaBar.App.Layout;
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
 using AIQuotaBar.Providers.Antigravity;
@@ -16,12 +17,50 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
     private bool _isAlwaysOnTop = true;
     private bool _isCompactMode;
+    private double _widgetWidth = ResponsiveLayoutHelper.DefaultWidgetWidth;
+    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Compact;
     private string _lastUpdatedText = "Not updated yet";
 
     public Action<bool>? AlwaysOnTopChanged { get; set; }
     public Action<bool>? CompactModeChanged { get; set; }
+    public Action<double>? WidgetWidthChanged { get; set; }
 
     public ObservableCollection<ProviderSectionViewModel> Providers { get; } = new();
+
+    public double WidgetWidth
+    {
+        get => _widgetWidth;
+        set
+        {
+            var clamped = ResponsiveLayoutHelper.ClampWidth(value);
+            if (SetProperty(ref _widgetWidth, clamped))
+            {
+                LayoutMode = ResponsiveLayoutHelper.GetLayoutMode(clamped);
+                WidgetWidthChanged?.Invoke(clamped);
+            }
+        }
+    }
+
+    public WidgetLayoutMode LayoutMode
+    {
+        get => _layoutMode;
+        private set
+        {
+            if (SetProperty(ref _layoutMode, value))
+            {
+                OnPropertyChanged(nameof(ShowFooter));
+                OnPropertyChanged(nameof(AppTitleText));
+                foreach (var provider in Providers)
+                {
+                    provider.LayoutMode = value;
+                }
+            }
+        }
+    }
+
+    public string AppTitleText => "AIQuotaBar";
+
+    public bool ShowFooter => !IsCompactMode && LayoutMode != WidgetLayoutMode.Micro;
 
     public bool IsAlwaysOnTop
     {
@@ -44,6 +83,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             {
                 OnPropertyChanged(nameof(ModeToggleText));
                 OnPropertyChanged(nameof(ModeToggleTooltip));
+                OnPropertyChanged(nameof(ShowFooter));
                 CompactModeChanged?.Invoke(value);
             }
         }
@@ -89,6 +129,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         // Set up individual auto-refresh timers for each provider
         foreach (var provider in Providers)
         {
+            provider.LayoutMode = _layoutMode;
             var timer = new DispatcherTimer
             {
                 Interval = provider.RefreshInterval

@@ -51,4 +51,32 @@ public class QuotaWindowViewModelTests
         Assert.Contains("5-Hour, 47 percent remaining", vm.AccessibilityText);
         Assert.Contains("resets in", vm.AccessibilityText);
     }
+
+    [Fact]
+    public void LayoutMode_Changes_UpdatesDisplayNameAndShowCountdown()
+    {
+        var reset = DateTimeOffset.UtcNow.AddHours(2);
+        var window = new QuotaWindow("gemini_5h", "Gemini · 5-Hour", 30.0, TimeSpan.FromHours(5), reset);
+        var vm = new QuotaWindowViewModel(window);
+
+        // Default layout mode is Compact
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, vm.LayoutMode);
+        Assert.Equal("Gemini · 5h", vm.DisplayName);
+        Assert.True(vm.ShowCountdown);
+
+        // Switch to Full
+        vm.LayoutMode = AIQuotaBar.App.Layout.WidgetLayoutMode.Full;
+        Assert.Equal("Gemini · 5-Hour", vm.DisplayName);
+        Assert.True(vm.ShowCountdown);
+
+        // Switch to Minimal
+        vm.LayoutMode = AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal;
+        Assert.Equal("Gemini · 5h", vm.DisplayName);
+        Assert.False(vm.ShowCountdown);
+
+        // Switch to Micro
+        vm.LayoutMode = AIQuotaBar.App.Layout.WidgetLayoutMode.Micro;
+        Assert.Equal("G · 5h", vm.DisplayName);
+        Assert.False(vm.ShowCountdown);
+    }
 }
