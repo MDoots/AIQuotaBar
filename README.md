@@ -130,7 +130,7 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 I used my quota to make this, so you don’t have to. 😄
 
-If AIQuotaBar saves you some time, quota, or frustration, feel free to [buy me a coffee]([YOUR-BUY-ME-A-COFFEE-LINK](https://buymeacoffee.com/mdoots)). ☕
+If AIQuotaBar saves you some time, quota or frustration, feel free to [buy me a coffee](https://buymeacoffee.com/mdoots). ☕
 
 ---
 
