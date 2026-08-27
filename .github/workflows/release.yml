@@ -23,13 +23,13 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore Dependencies
-        run: dotnet restore AIQuotaBar.slnx
+        run: dotnet restore AIQuotaBar.slnf
 
       - name: Build Solution
-        run: dotnet build AIQuotaBar.slnx -c Release --no-restore
+        run: dotnet build AIQuotaBar.slnf -c Release --no-restore
 
       - name: Run Unit Tests
-        run: dotnet test AIQuotaBar.slnx -c Release --no-build
+        run: dotnet test AIQuotaBar.slnf -c Release --no-build
 
       - name: Publish Self-Contained Executable
         run: |

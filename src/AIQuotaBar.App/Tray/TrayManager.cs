@@ -68,12 +68,12 @@ public sealed class TrayManager : IDisposable
             CheckOnClick = true
         };
 
-        _startWithWindowsMenuItem = new ToolStripMenuItem("Start with Windows", null, (s, e) =>
+        _startWithWindowsMenuItem = new ToolStripMenuItem("Start with Windows", null, async (s, e) =>
         {
             if (s is ToolStripMenuItem item)
             {
                 var isChecked = item.Checked;
-                var success = StartupManager.SetStartup(isChecked);
+                var success = await StartupManager.SetStartupAsync(isChecked);
                 if (!success)
                 {
                     item.Checked = !isChecked;
@@ -99,6 +99,12 @@ public sealed class TrayManager : IDisposable
         _contextMenu.Items.Add(_startWithWindowsMenuItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_exitMenuItem);
+
+        _contextMenu.Opening += async (s, e) =>
+        {
+            var isEnabled = await StartupManager.IsStartupEnabledAsync();
+            _startWithWindowsMenuItem.Checked = isEnabled;
+        };
 
         _notifyIcon = new NotifyIcon
         {
