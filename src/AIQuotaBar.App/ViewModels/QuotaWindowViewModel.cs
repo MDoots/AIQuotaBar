@@ -8,11 +8,13 @@ using AIQuotaBar.Core.Utils;
 public sealed class QuotaWindowViewModel : ViewModelBase
 {
     private readonly QuotaWindow _model;
-    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Compact;
+    private readonly string? _providerId;
+    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
 
     public string Id => _model.Id;
+    public string? ProviderId => _providerId;
     public string RawDisplayName => _model.DisplayName;
-    public string DisplayName => QuotaLabelFormatter.Format(_model.DisplayName, _layoutMode, _model.Id);
+    public string DisplayName => QuotaLabelFormatter.Format(_model.DisplayName, _layoutMode, _providerId, _model.Id);
     public double RemainingPercent => _model.RemainingPercent;
     public double UsedPercent => _model.ClampedUsedPercent;
     public int DisplayRemainingPercent => (int)Math.Round(_model.RemainingPercent, MidpointRounding.AwayFromZero);
@@ -94,9 +96,10 @@ public sealed class QuotaWindowViewModel : ViewModelBase
     public QuotaWindowStatus Status => _model.Status;
     public bool IsExhausted => _model.Status == QuotaWindowStatus.Exhausted;
 
-    public QuotaWindowViewModel(QuotaWindow model)
+    public QuotaWindowViewModel(QuotaWindow model, string? providerId = null)
     {
         _model = model ?? throw new ArgumentNullException(nameof(model));
+        _providerId = providerId;
     }
 
     public void RefreshCountdown()

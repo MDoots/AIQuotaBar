@@ -10,6 +10,7 @@ public partial class WidgetWindow : Window
 {
     private const int WM_NCHITTEST = 0x0084;
     private const int WM_EXITSIZEMOVE = 0x0232;
+    private const int HTCLIENT = 1;
     private const int HTLEFT = 10;
     private const int HTRIGHT = 11;
 
@@ -17,7 +18,6 @@ public partial class WidgetWindow : Window
     // Resize grip zone: from outer window edge through the 10px shadow margin + 4px inside the visible border.
     private const double ResizeHitThickness = 14.0;
 
-    public Action<double, double>? PositionChanged { get; set; }
     public Action<double, double, double>? SizeOrPositionChanged { get; set; }
 
     public double WidgetContentWidth => Math.Max(ResponsiveLayoutHelper.MinWidgetWidth, ActualWidth - 20.0);
@@ -67,21 +67,25 @@ public partial class WidgetWindow : Window
                 return IntPtr.Zero;
             }
 
-            // Left resize border
+            // Left resize border (horizontal only)
             if (clientPoint.X >= 0 && clientPoint.X <= ResizeHitThickness)
             {
                 handled = true;
                 return new IntPtr(HTLEFT);
             }
 
-            // Right resize border
+            // Right resize border (horizontal only)
             if (clientPoint.X >= ActualWidth - ResizeHitThickness && clientPoint.X <= ActualWidth)
             {
                 handled = true;
                 return new IntPtr(HTRIGHT);
             }
 
-            return IntPtr.Zero;
+            // Explicitly neutralize all other hit test areas (top, bottom, corners, body)
+            // to HTCLIENT so Windows never attempts vertical or diagonal sizing,
+            // while preserving full WPF client interactivity (buttons, dragging, etc.).
+            handled = true;
+            return new IntPtr(HTCLIENT);
         }
 
         if (msg == WM_EXITSIZEMOVE)
@@ -90,7 +94,6 @@ public partial class WidgetWindow : Window
             {
                 var contentWidth = WidgetContentWidth;
                 SizeOrPositionChanged?.Invoke(Left, Top, contentWidth);
-                PositionChanged?.Invoke(Left, Top);
             }
         }
 
@@ -109,7 +112,6 @@ public partial class WidgetWindow : Window
             {
                 var contentWidth = WidgetContentWidth;
                 SizeOrPositionChanged?.Invoke(Left, Top, contentWidth);
-                PositionChanged?.Invoke(Left, Top);
             }
         }
     }

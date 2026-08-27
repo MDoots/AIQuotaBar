@@ -211,11 +211,12 @@ public class WidgetViewModelTests
         double? widthFired = null;
         vm.WidgetWidthChanged = w => widthFired = w;
 
-        // Default: 330px -> Compact
+        // Default: 330px -> Full
         Assert.Equal(330.0, vm.WidgetWidth);
-        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, vm.LayoutMode);
-        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, section.LayoutMode);
-        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, section.Windows[0].LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, vm.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.Windows[0].LayoutMode);
+        Assert.Equal("Gemini · 5-Hour", section.Windows[0].DisplayName);
 
         // Change width to 500px -> Full
         vm.WidgetWidth = 500;
@@ -225,8 +226,15 @@ public class WidgetViewModelTests
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.Windows[0].LayoutMode);
         Assert.Equal("Gemini · 5-Hour", section.Windows[0].DisplayName);
 
-        // Change width to 270px -> Minimal
-        vm.WidgetWidth = 270;
+        // Change width to 300px -> Compact
+        vm.WidgetWidth = 300;
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, vm.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, section.LayoutMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, section.Windows[0].LayoutMode);
+        Assert.Equal("Gemini · 5h", section.Windows[0].DisplayName);
+
+        // Change width to 250px -> Minimal
+        vm.WidgetWidth = 250;
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, vm.LayoutMode);
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, section.LayoutMode);
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, section.Windows[0].LayoutMode);

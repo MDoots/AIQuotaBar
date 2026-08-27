@@ -13,7 +13,7 @@
         Background="Transparent"
         Topmost="{Binding IsAlwaysOnTop}"
         ShowInTaskbar="False"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
         SizeToContent="Height"
         MinWidth="200"
         MaxWidth="1220"

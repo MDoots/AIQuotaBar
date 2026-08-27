@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.App.Layout;
+namespace AIQuotaBar.App.Layout;
 
 public enum WidgetLayoutMode
 {
@@ -15,16 +15,16 @@ public static class ResponsiveLayoutHelper
     public const double DefaultWidgetWidth = 330.0;
 
     // Breakpoint thresholds for client widget width (excluding window shadow margins)
-    public const double FullBreakpoint = 420.0;
-    public const double CompactBreakpoint = 300.0;
-    public const double MinimalBreakpoint = 240.0;
+    public const double FullBreakpoint = 330.0;
+    public const double CompactBreakpoint = 270.0;
+    public const double MinimalBreakpoint = 220.0;
     public const double MicroBreakpoint = 180.0;
 
     public static WidgetLayoutMode GetLayoutMode(double width)
     {
         if (double.IsNaN(width) || double.IsInfinity(width))
         {
-            return WidgetLayoutMode.Compact;
+            return WidgetLayoutMode.Full;
         }
 
         if (width >= FullBreakpoint)

@@ -22,32 +22,43 @@ public class QuotaLabelFormatterTests
     [InlineData("Claude & GPT · Weekly", WidgetLayoutMode.Compact, "Claude & GPT · Week")]
     [InlineData("Claude & GPT · Weekly", WidgetLayoutMode.Minimal, "Claude · Week")]
     [InlineData("Claude & GPT · Weekly", WidgetLayoutMode.Micro, "CG · W")]
-    public void Format_CompoundNames_FormatsAcrossModes(string input, WidgetLayoutMode mode, string expected)
+    public void Format_AntigravityCompoundNames_FormatsAcrossModes(string input, WidgetLayoutMode mode, string expected)
     {
-        var result = QuotaLabelFormatter.Format(input, mode);
+        var result = QuotaLabelFormatter.Format(input, mode, providerId: "antigravity", windowId: "gemini_5h");
         Assert.Equal(expected, result);
     }
 
     [Theory]
-    [InlineData("5-Hour", WidgetLayoutMode.Full, "codex_5h", "5-Hour")]
-    [InlineData("5-Hour", WidgetLayoutMode.Compact, "codex_5h", "5-Hour")]
-    [InlineData("5-Hour", WidgetLayoutMode.Minimal, "codex_5h", "5h")]
-    [InlineData("5-Hour", WidgetLayoutMode.Micro, "codex_5h", "C · 5h")]
-    [InlineData("Weekly", WidgetLayoutMode.Full, "codex_weekly", "Weekly")]
-    [InlineData("Weekly", WidgetLayoutMode.Compact, "codex_weekly", "Weekly")]
-    [InlineData("Weekly", WidgetLayoutMode.Minimal, "codex_weekly", "Week")]
-    [InlineData("Weekly", WidgetLayoutMode.Micro, "codex_weekly", "C · W")]
-    [InlineData("Primary Window", WidgetLayoutMode.Full, "codex_primary", "Primary Window")]
-    [InlineData("Primary Window", WidgetLayoutMode.Compact, "codex_primary", "Primary")]
-    [InlineData("Primary Window", WidgetLayoutMode.Minimal, "codex_primary", "Primary")]
-    [InlineData("Primary Window", WidgetLayoutMode.Micro, "codex_primary", "C · Pri")]
-    [InlineData("Secondary Window", WidgetLayoutMode.Full, "codex_secondary", "Secondary Window")]
-    [InlineData("Secondary Window", WidgetLayoutMode.Compact, "codex_secondary", "Secondary")]
-    [InlineData("Secondary Window", WidgetLayoutMode.Minimal, "codex_secondary", "Secondary")]
-    [InlineData("Secondary Window", WidgetLayoutMode.Micro, "codex_secondary", "C · Sec")]
-    public void Format_CodexStandaloneNames_FormatsAcrossModes(string input, WidgetLayoutMode mode, string id, string expected)
+    [InlineData("5-Hour Window", WidgetLayoutMode.Full, "codex", "primary", "5-Hour Window")]
+    [InlineData("5-Hour Window", WidgetLayoutMode.Compact, "codex", "primary", "5-Hour")]
+    [InlineData("5-Hour Window", WidgetLayoutMode.Minimal, "codex", "primary", "5h")]
+    [InlineData("5-Hour Window", WidgetLayoutMode.Micro, "codex", "primary", "C · 5h")]
+    [InlineData("Weekly Window", WidgetLayoutMode.Full, "codex", "secondary", "Weekly Window")]
+    [InlineData("Weekly Window", WidgetLayoutMode.Compact, "codex", "secondary", "Weekly")]
+    [InlineData("Weekly Window", WidgetLayoutMode.Minimal, "codex", "secondary", "Week")]
+    [InlineData("Weekly Window", WidgetLayoutMode.Micro, "codex", "secondary", "C · W")]
+    [InlineData("Primary Window", WidgetLayoutMode.Full, "codex", "primary", "Primary Window")]
+    [InlineData("Primary Window", WidgetLayoutMode.Compact, "codex", "primary", "Primary")]
+    [InlineData("Primary Window", WidgetLayoutMode.Minimal, "codex", "primary", "Primary")]
+    [InlineData("Primary Window", WidgetLayoutMode.Micro, "codex", "primary", "C · Pri")]
+    [InlineData("Secondary Window", WidgetLayoutMode.Full, "codex", "secondary", "Secondary Window")]
+    [InlineData("Secondary Window", WidgetLayoutMode.Compact, "codex", "secondary", "Secondary")]
+    [InlineData("Secondary Window", WidgetLayoutMode.Minimal, "codex", "secondary", "Secondary")]
+    [InlineData("Secondary Window", WidgetLayoutMode.Micro, "codex", "secondary", "C · Sec")]
+    [InlineData("5-Hour Window", WidgetLayoutMode.Micro, "codex", "gpt4_primary", "C · 5h")]
+    [InlineData("Weekly Window", WidgetLayoutMode.Micro, "codex", "gpt4_secondary", "C · W")]
+    public void Format_CodexProductionNames_FormatsWithExplicitProviderId(string input, WidgetLayoutMode mode, string providerId, string windowId, string expected)
     {
-        var result = QuotaLabelFormatter.Format(input, mode, id);
+        var result = QuotaLabelFormatter.Format(input, mode, providerId: providerId, windowId: windowId);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("5-Hour Window", WidgetLayoutMode.Micro, "other_provider", "primary", "5h")]
+    [InlineData("Weekly Window", WidgetLayoutMode.Micro, "other_provider", "secondary", "W")]
+    public void Format_NonCodexStandaloneNames_DoesNotAddCodexPrefix(string input, WidgetLayoutMode mode, string providerId, string windowId, string expected)
+    {
+        var result = QuotaLabelFormatter.Format(input, mode, providerId: providerId, windowId: windowId);
         Assert.Equal(expected, result);
     }
 

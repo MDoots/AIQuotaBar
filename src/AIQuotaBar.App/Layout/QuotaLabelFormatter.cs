@@ -2,7 +2,7 @@ namespace AIQuotaBar.App.Layout;
 
 public static class QuotaLabelFormatter
 {
-    public static string Format(string? displayName, WidgetLayoutMode mode, string? id = null)
+    public static string Format(string? displayName, WidgetLayoutMode mode, string? providerId = null, string? windowId = null)
     {
         if (string.IsNullOrWhiteSpace(displayName))
         {
@@ -33,7 +33,7 @@ public static class QuotaLabelFormatter
         {
             WidgetLayoutMode.Compact => FormatCompactStandalone(displayName),
             WidgetLayoutMode.Minimal => FormatMinimalStandalone(displayName),
-            WidgetLayoutMode.Micro => FormatMicroStandalone(displayName, id),
+            WidgetLayoutMode.Micro => FormatMicroStandalone(displayName, providerId),
             _ => displayName
         };
     }
@@ -73,10 +73,11 @@ public static class QuotaLabelFormatter
         return AbbreviateSuffix(clean, minimal: true);
     }
 
-    private static string FormatMicroStandalone(string name, string? id)
+    private static string FormatMicroStandalone(string name, string? providerId)
     {
         var clean = FormatCompactStandalone(name);
-        var isCodex = (id != null && id.Contains("codex", StringComparison.OrdinalIgnoreCase));
+        var isCodex = !string.IsNullOrWhiteSpace(providerId) &&
+                      providerId.Contains("codex", StringComparison.OrdinalIgnoreCase);
         var microSuffix = AbbreviateSuffix(clean, micro: true);
         return isCodex ? $"C · {microSuffix}" : microSuffix;
     }

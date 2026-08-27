@@ -18,7 +18,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     private bool _isAlwaysOnTop = true;
     private bool _isCompactMode;
     private double _widgetWidth = ResponsiveLayoutHelper.DefaultWidgetWidth;
-    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Compact;
+    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
     private string _lastUpdatedText = "Not updated yet";
 
     public Action<bool>? AlwaysOnTopChanged { get; set; }

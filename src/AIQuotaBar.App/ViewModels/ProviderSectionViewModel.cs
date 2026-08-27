@@ -11,7 +11,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     private readonly TimeSpan _refreshInterval;
     private CancellationTokenSource? _currentRefreshCts;
     private bool _disposed;
-    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Compact;
+    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
 
     private bool _isLoading;
     private string _providerName;
@@ -199,7 +199,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         Windows.Clear();
         foreach (var window in snapshot.Windows)
         {
-            var windowVm = new QuotaWindowViewModel(window)
+            var windowVm = new QuotaWindowViewModel(window, ProviderId)
             {
                 LayoutMode = _layoutMode
             };

@@ -22,22 +22,23 @@ public partial class App : Application
         _settingsManager = new SettingsManager();
         _settings = _settingsManager.Load();
 
-        var initialWidth = ResponsiveLayoutHelper.ClampWidth(_settings.WidgetWidth);
+        var initialContentWidth = ResponsiveLayoutHelper.ClampWidth(_settings.WidgetWidth);
+        var outerWindowWidth = initialContentWidth + 20.0;
 
         _viewModel = new WidgetViewModel
         {
             IsAlwaysOnTop = _settings.IsAlwaysOnTop,
             IsCompactMode = _settings.IsCompactMode,
-            WidgetWidth = initialWidth
+            WidgetWidth = initialContentWidth
         };
 
-        var safePos = PositionHelper.GetSafePosition(_settings.WindowLeft, _settings.WindowTop, windowWidth: initialWidth);
+        var safePos = PositionHelper.GetSafePosition(_settings.WindowLeft, _settings.WindowTop, windowWidth: outerWindowWidth);
 
         _window = new WidgetWindow
         {
             DataContext = _viewModel,
             WindowStartupLocation = WindowStartupLocation.Manual,
-            Width = initialWidth + 20.0,
+            Width = outerWindowWidth,
             Left = safePos.Left,
             Top = safePos.Top
         };
