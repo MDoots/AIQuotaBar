@@ -69,9 +69,9 @@ AIQuotaBar is distributed as a lightweight, portable single-file executable:
 
 Progress bars in AIQuotaBar represent **Quota Remaining**:
 
-* 🟢 **Teal / Green:** Healthy remaining capacity (> 20%).
-* 🟡 **Amber:** Warning threshold; quota is getting low (<= 20%).
-* 🔴 **Red:** Critical / exhausted quota (<= 5%).
+* 🟢 **Teal / Green:** Healthy remaining capacity (> 30%).
+* 🟡 **Amber:** Warning threshold; quota is getting low (10–30%).
+* 🔴 **Red:** Critical / exhausted quota (<= 10%).
 
 Reset timers indicate when the corresponding quota window (e.g., 5-hour rolling window or weekly allocation) will refresh.
 
