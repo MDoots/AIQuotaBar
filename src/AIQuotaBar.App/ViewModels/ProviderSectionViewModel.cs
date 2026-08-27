@@ -13,6 +13,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     private bool _disposed;
     private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
 
+    private bool _isCompactMode;
     private bool _isLoading;
     private string _providerName;
     private string? _accountPlan;
@@ -23,6 +24,18 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     public string ProviderId => _provider.Id;
     public IUsageProvider Provider => _provider;
     public TimeSpan RefreshInterval => _refreshInterval;
+
+    public bool IsCompactMode
+    {
+        get => _isCompactMode;
+        set
+        {
+            if (SetProperty(ref _isCompactMode, value))
+            {
+                OnPropertyChanged(nameof(ShowAccountPlan));
+            }
+        }
+    }
 
     public WidgetLayoutMode LayoutMode
     {
@@ -78,7 +91,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     }
 
     public bool HasAccountPlan => !string.IsNullOrWhiteSpace(AccountPlan);
-    public bool ShowAccountPlan => _layoutMode == WidgetLayoutMode.Full && HasAccountPlan;
+    public bool ShowAccountPlan => _layoutMode == WidgetLayoutMode.Full && !_isCompactMode && HasAccountPlan;
 
     public ProviderStatus Status
     {

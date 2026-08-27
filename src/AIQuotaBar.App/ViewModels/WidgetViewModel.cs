@@ -84,6 +84,10 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(ModeToggleText));
                 OnPropertyChanged(nameof(ModeToggleTooltip));
                 OnPropertyChanged(nameof(ShowFooter));
+                foreach (var provider in Providers)
+                {
+                    provider.IsCompactMode = value;
+                }
                 CompactModeChanged?.Invoke(value);
             }
         }
@@ -130,6 +134,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         foreach (var provider in Providers)
         {
             provider.LayoutMode = _layoutMode;
+            provider.IsCompactMode = _isCompactMode;
             var timer = new DispatcherTimer
             {
                 Interval = provider.RefreshInterval

@@ -248,4 +248,59 @@ public class WidgetViewModelTests
         Assert.Equal("G · 5h", section.Windows[0].DisplayName);
         Assert.False(vm.ShowFooter);
     }
+
+    [Theory]
+    [InlineData("ChatGPT Plus", AIQuotaBar.App.Layout.WidgetLayoutMode.Full, false, true)]    // Has plan + Full + Expanded => true
+    [InlineData("ChatGPT Plus", AIQuotaBar.App.Layout.WidgetLayoutMode.Full, true, false)]     // Has plan + Full + Compact => false
+    [InlineData("ChatGPT Plus", AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, false, false)] // Has plan + Compact-responsive + Expanded => false
+    [InlineData("ChatGPT Plus", AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, false, false)] // Has plan + Minimal + Expanded => false
+    [InlineData("ChatGPT Plus", AIQuotaBar.App.Layout.WidgetLayoutMode.Micro, false, false)]   // Has plan + Micro + Expanded => false
+    [InlineData(null, AIQuotaBar.App.Layout.WidgetLayoutMode.Full, false, false)]              // No plan + Full + Expanded => false
+    [InlineData("", AIQuotaBar.App.Layout.WidgetLayoutMode.Full, false, false)]                // Empty plan + Full + Expanded => false
+    public void ShowAccountPlan_MatchesRequiredConditions(string? accountPlan, AIQuotaBar.App.Layout.WidgetLayoutMode layoutMode, bool isCompactMode, bool expected)
+    {
+        var section = new ProviderSectionViewModel(new MockUsageProvider("codex", "OpenAI Codex", _ => Task.FromResult(new ProviderSnapshot("codex", "OpenAI Codex", ProviderStatus.Available))), TimeSpan.FromMinutes(1));
+        var snapshot = new ProviderSnapshot(
+            providerId: "codex",
+            providerDisplayName: "OpenAI Codex",
+            status: ProviderStatus.Available,
+            accountPlan: accountPlan);
+
+        section.ApplySnapshot(snapshot);
+        section.LayoutMode = layoutMode;
+        section.IsCompactMode = isCompactMode;
+
+        Assert.Equal(expected, section.ShowAccountPlan);
+    }
+
+    [Fact]
+    public void IsCompactMode_TogglingWidgetViewModel_PropagatesToProvidersAndUpdatesPlanVisibility()
+    {
+        var snapshot = new ProviderSnapshot(
+            providerId: "codex",
+            providerDisplayName: "OpenAI Codex",
+            status: ProviderStatus.Available,
+            accountPlan: "ChatGPT Plus");
+        var provider = new MockUsageProvider("codex", "OpenAI Codex", _ => Task.FromResult(snapshot));
+        var section = new ProviderSectionViewModel(provider, TimeSpan.FromMinutes(1));
+        section.ApplySnapshot(snapshot);
+
+        using var vm = new WidgetViewModel(new[] { section });
+
+        // Initial: Expanded + Full (330px default) -> ShowAccountPlan is true
+        Assert.False(vm.IsCompactMode);
+        Assert.False(section.IsCompactMode);
+        Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.LayoutMode);
+        Assert.True(section.ShowAccountPlan);
+
+        // Toggle to Compact
+        vm.IsCompactMode = true;
+        Assert.True(section.IsCompactMode);
+        Assert.False(section.ShowAccountPlan);
+
+        // Toggle back to Expanded
+        vm.IsCompactMode = false;
+        Assert.False(section.IsCompactMode);
+        Assert.True(section.ShowAccountPlan);
+    }
 }
