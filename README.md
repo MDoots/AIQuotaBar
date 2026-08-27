@@ -11,7 +11,7 @@
 * **Multi-Provider Monitoring:** Track quotas across multiple AI tools simultaneously in a single, unified widget.
 * **Local-First & Private:** Direct local inter-process communication (IPC) with official installed tools. No telemetry, no analytics, and no remote server backend.
 * **Provider-Owned Authentication:** Never asks for or stores API keys, tokens, or passwords. Authentication remains 100% managed by each provider's official CLI or application.
-* **Compact & Expanded Modes:** Switch between a rich multi-window breakdown and a minimal, unobtrusive single-line status bar.
+* **Compact & Expanded Modes:** Switch between the full view and a denser compact layout while keeping all provider quotas visible.
 * **Always-on-Top & Tray:** Keep quotas above your active editor or tuck AIQuotaBar away in the system tray.
 * **Semantic Health Bars:** Color-coded progress indicators give an immediate visual summary of remaining capacity and reset times.
 * **Zero Runtime Dependencies:** Packaged as a self-contained, single-file Windows x64 executable requiring no separate .NET installation.
