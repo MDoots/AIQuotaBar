@@ -47,6 +47,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Restore Packaging Dependencies
+        run: dotnet restore AIQuotaBar.slnf
+
       - name: Build & Validate MSIX Packaging
         shell: powershell
         run: |
