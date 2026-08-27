@@ -12,7 +12,7 @@
 * **Local-First & Private:** Direct local inter-process communication (IPC) with official installed tools. No telemetry, no analytics, and no remote server backend.
 * **Provider-Owned Authentication:** Never asks for or stores API keys, tokens, or passwords. Authentication remains 100% managed by each provider's official CLI or application.
 * **Compact & Expanded Modes:** Switch between a rich multi-window breakdown and a minimal, unobtrusive single-line status bar.
-* **Always-on-Top & Docking:** Keep quotas pinned above active code editors or let the widget stay tucked in the system tray.
+* **Always-on-Top & Tray:** Keep quotas above your active editor or tuck AIQuotaBar away in the system tray.
 * **Semantic Health Bars:** Color-coded progress indicators give an immediate visual summary of remaining capacity and reset times.
 * **Zero Runtime Dependencies:** Packaged as a self-contained, single-file Windows x64 executable requiring no separate .NET installation.
 
@@ -33,7 +33,7 @@ Support for additional AI developer tools (e.g., Claude Code, Cursor, GitHub Cop
 ## Requirements
 
 ### AIQuotaBar
-* **Operating System:** Windows 11 x64 (or Windows 10 x64 21H2+).
+* **Operating System:** Windows 11 x64.
 * **Runtime:** None required for the portable release (the executable is self-contained).
 
 ### Provider Requirements
@@ -57,7 +57,7 @@ AIQuotaBar is distributed as a lightweight, portable single-file executable:
 
 ## Usage & Controls
 
-* **Mode Toggle (⤢ / ⤡):** Toggle between Expanded mode (showing all quota details and reset timestamps) and Compact mode (a minimal single-line status bar).
+* **Mode Toggle (▴ / ▾):** Switch between Expanded and Compact layouts.
 * **Always on Top (📌):** Pin the widget above your IDE or editor windows.
 * **Manual Refresh (↻):** Refresh quotas immediately on demand.
 * **System Tray:** Minimize AIQuotaBar to the Windows taskbar notification area (`NotifyIcon`). Right-click the tray icon to access the menu or restore the window.
@@ -71,7 +71,7 @@ Progress bars in AIQuotaBar represent **Quota Remaining**:
 
 * 🟢 **Teal / Green:** Healthy remaining capacity (> 30%).
 * 🟡 **Amber:** Warning threshold; quota is getting low (10–30%).
-* 🔴 **Red:** Critical / exhausted quota (<= 10%).
+* 🔴 **Red:** Critical / exhausted quota (< 10%).
 
 Reset timers indicate when the corresponding quota window (e.g., 5-hour rolling window or weekly allocation) will refresh.
 
