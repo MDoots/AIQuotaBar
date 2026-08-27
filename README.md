@@ -126,6 +126,14 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 ---
 
+## Support
+
+I used my quota to make this, so you don’t have to. 😄
+
+If AIQuotaBar saves you some time, quota, or frustration, feel free to [buy me a coffee]([YOUR-BUY-ME-A-COFFEE-LINK](https://buymeacoffee.com/mdoots)). ☕
+
+---
+
 ## Security
 
 To report security vulnerabilities or review our security practices, please see our [Security Policy](SECURITY.md).
