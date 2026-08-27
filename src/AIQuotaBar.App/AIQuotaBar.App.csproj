@@ -1,19 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\AIQuotaBar.Core\AIQuotaBar.Core.csproj" />
-    <ProjectReference Include="..\AIQuotaBar.Providers.Antigravity\AIQuotaBar.Providers.Antigravity.csproj" />
-    <ProjectReference Include="..\AIQuotaBar.Providers.Codex\AIQuotaBar.Providers.Codex.csproj" />
+    <ProjectReference Include="..\AIQuotaBar.Core\AIQuotaBar.Core.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
+    <ProjectReference Include="..\AIQuotaBar.Providers.Antigravity\AIQuotaBar.Providers.Antigravity.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
+    <ProjectReference Include="..\AIQuotaBar.Providers.Codex\AIQuotaBar.Providers.Codex.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\AIQuotaBar.ico" />
   </ItemGroup>
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <AssemblyName>AIQuotaBar</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\AIQuotaBar.ico</ApplicationIcon>
     <Version>0.2.0</Version>
     <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <FileVersion>0.2.0.0</FileVersion>

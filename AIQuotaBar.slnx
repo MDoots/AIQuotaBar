@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/AIQuotaBar.App/AIQuotaBar.App.csproj" />
     <Project Path="src/AIQuotaBar.Core/AIQuotaBar.Core.csproj" />
+    <Project Path="src/AIQuotaBar.Package/AIQuotaBar.Package.wapproj" Type="C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5" />
     <Project Path="src/AIQuotaBar.Providers.Antigravity/AIQuotaBar.Providers.Antigravity.csproj" />
     <Project Path="src/AIQuotaBar.Providers.Codex/AIQuotaBar.Providers.Codex.csproj" />
   </Folder>

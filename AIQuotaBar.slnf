@@ -1,0 +1,15 @@
+{
+  "solution": {
+    "path": "AIQuotaBar.slnx",
+    "projects": [
+      "src/AIQuotaBar.App/AIQuotaBar.App.csproj",
+      "src/AIQuotaBar.Core/AIQuotaBar.Core.csproj",
+      "src/AIQuotaBar.Providers.Antigravity/AIQuotaBar.Providers.Antigravity.csproj",
+      "src/AIQuotaBar.Providers.Codex/AIQuotaBar.Providers.Codex.csproj",
+      "tests/AIQuotaBar.App.Tests/AIQuotaBar.App.Tests.csproj",
+      "tests/AIQuotaBar.Core.Tests/AIQuotaBar.Core.Tests.csproj",
+      "tests/AIQuotaBar.Providers.Antigravity.Tests/AIQuotaBar.Providers.Antigravity.Tests.csproj",
+      "tests/AIQuotaBar.Providers.Codex.Tests/AIQuotaBar.Providers.Codex.Tests.csproj"
+    ]
+  }
+}

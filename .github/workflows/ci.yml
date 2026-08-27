@@ -26,10 +26,44 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Restore Dependencies
-        run: dotnet restore AIQuotaBar.slnx
+        run: dotnet restore AIQuotaBar.slnf
 
       - name: Build Solution
-        run: dotnet build AIQuotaBar.slnx -c Release --no-restore
+        run: dotnet build AIQuotaBar.slnf -c Release --no-restore
 
       - name: Run Unit Tests
-        run: dotnet test AIQuotaBar.slnx -c Release --no-build
+        run: dotnet test AIQuotaBar.slnf -c Release --no-build
+
+  msix-packaging-validation:
+    name: MSIX Packaging Validation
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build & Validate MSIX Packaging
+        shell: powershell
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            $vswhere = "vswhere.exe"
+          }
+          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\amd64\MSBuild.exe | Select-Object -First 1
+          if (-not $msbuild) {
+            $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe | Select-Object -First 1
+          }
+          if (-not $msbuild -or -not (Test-Path $msbuild)) {
+            throw "MSBuild executable could not be located via vswhere."
+          }
+          Write-Host "Discovered MSBuild: $msbuild"
+          & $msbuild src/AIQuotaBar.Package/AIQuotaBar.Package.wapproj `
+            -p:Configuration=Release `
+            -p:Platform=x64 `
+            -p:AppxPackageSigningEnabled=false `
+            -p:AppxBundlePlatforms=x64
