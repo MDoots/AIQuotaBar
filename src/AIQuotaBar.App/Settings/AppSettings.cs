@@ -1,5 +1,7 @@
 namespace AIQuotaBar.App.Settings;
 
+using AIQuotaBar.App.Layout;
+
 public sealed class AppSettings
 {
     public double? WindowLeft { get; set; }
@@ -9,12 +11,29 @@ public sealed class AppSettings
     public bool IsCompactMode { get; set; } = false;
     public bool StartWithWindows { get; set; } = false;
     public bool LowQuotaNotificationsEnabled { get; set; } = true;
+    public WidgetDockMode DockMode { get; set; } = WidgetDockMode.Floating;
+    public double DockedHorizontalAnchor { get; set; } = 0.5;
+    public bool AutoHideDockedBar { get; set; } = true;
 
     public Dictionary<string, bool> ProviderVisibility { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, bool> QuotaWindowVisibility { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public void NormalizeVisibilityDictionaries()
     {
+        if (!Enum.IsDefined(typeof(WidgetDockMode), DockMode))
+        {
+            DockMode = WidgetDockMode.Floating;
+        }
+
+        if (double.IsNaN(DockedHorizontalAnchor) || double.IsInfinity(DockedHorizontalAnchor))
+        {
+            DockedHorizontalAnchor = 0.5;
+        }
+        else
+        {
+            DockedHorizontalAnchor = Math.Clamp(DockedHorizontalAnchor, 0.0, 1.0);
+        }
+
         ProviderVisibility = new Dictionary<string, bool>(
             ProviderVisibility ?? Enumerable.Empty<KeyValuePair<string, bool>>(),
             StringComparer.OrdinalIgnoreCase);

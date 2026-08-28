@@ -101,6 +101,13 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 
     public string DisplayProviderName => ProviderLabelFormatter.Format(ProviderName, _layoutMode);
 
+    public string DockedDisplayName => ProviderId.ToLowerInvariant() switch
+    {
+        "codex" => "Codex",
+        "antigravity" => "Antigravity",
+        _ => ProviderName
+    };
+
     public string? AccountPlan
     {
         get => _accountPlan;

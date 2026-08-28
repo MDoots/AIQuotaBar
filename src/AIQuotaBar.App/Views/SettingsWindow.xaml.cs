@@ -10,6 +10,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        Closed += (s, e) => (DataContext as IDisposable)?.Dispose();
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

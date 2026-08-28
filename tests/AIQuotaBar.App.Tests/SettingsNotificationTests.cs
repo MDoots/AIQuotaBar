@@ -95,12 +95,12 @@ public class SettingsNotificationTests
             var reloaded = manager.Load();
             Assert.False(reloaded.LowQuotaNotificationsEnabled);
 
-            // Reset defaults restores to true
+            // Reset visibility defaults must preserve notification preference
             vm.ResetDefaults();
-            Assert.True(vm.LowQuotaNotificationsEnabled);
+            Assert.False(vm.LowQuotaNotificationsEnabled);
 
             var reloadedAfterReset = manager.Load();
-            Assert.True(reloadedAfterReset.LowQuotaNotificationsEnabled);
+            Assert.False(reloadedAfterReset.LowQuotaNotificationsEnabled);
         }
         finally
         {

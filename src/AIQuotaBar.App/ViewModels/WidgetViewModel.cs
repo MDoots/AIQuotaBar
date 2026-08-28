@@ -19,6 +19,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
     private bool _isAlwaysOnTop = true;
     private bool _isCompactMode;
+    private WidgetDockMode _dockMode = WidgetDockMode.Floating;
     private double _widgetWidth = ResponsiveLayoutHelper.DefaultWidgetWidth;
     private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
     private string _lastUpdatedText = "Not updated yet";
@@ -26,10 +27,106 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
     public Action<bool>? AlwaysOnTopChanged { get; set; }
     public Action<bool>? CompactModeChanged { get; set; }
+    private double _dockedHorizontalAnchor = 0.5;
+    private bool _autoHideDockedBar = true;
+    private bool _isDockCollapsed;
+
     public Action<double>? WidgetWidthChanged { get; set; }
+    public Action<WidgetDockMode>? DockModeChanged { get; set; }
+    public Action<double>? DockedHorizontalAnchorChanged { get; set; }
+    public Action<bool>? AutoHideDockedBarChanged { get; set; }
 
     public event Action? QuotaStateUpdated;
     public event Action? VisibilityStateUpdated;
+    public event Action? DockCollapseStateChanged;
+
+    public WidgetDockMode DockMode
+    {
+        get => _dockMode;
+        set
+        {
+            if (SetProperty(ref _dockMode, value))
+            {
+                OnPropertyChanged(nameof(IsFloatingMode));
+                OnPropertyChanged(nameof(IsDockedMode));
+                OnPropertyChanged(nameof(IsDockedTop));
+                OnPropertyChanged(nameof(IsDockedBottom));
+                OnPropertyChanged(nameof(IsAutoHideActive));
+                OnPropertyChanged(nameof(DockedRootCornerRadius));
+                OnPropertyChanged(nameof(DockedHandleCornerRadius));
+                OnPropertyChanged(nameof(DockedHandleVerticalAlignment));
+                DockModeChanged?.Invoke(value);
+            }
+        }
+    }
+
+    public double DockedHorizontalAnchor
+    {
+        get => _dockedHorizontalAnchor;
+        set
+        {
+            var clamped = Math.Clamp(double.IsNaN(value) || double.IsInfinity(value) ? 0.5 : value, 0.0, 1.0);
+            if (SetProperty(ref _dockedHorizontalAnchor, clamped))
+            {
+                DockedHorizontalAnchorChanged?.Invoke(clamped);
+            }
+        }
+    }
+
+    public bool AutoHideDockedBar
+    {
+        get => _autoHideDockedBar;
+        set
+        {
+            if (SetProperty(ref _autoHideDockedBar, value))
+            {
+                OnPropertyChanged(nameof(IsAutoHideActive));
+                AutoHideDockedBarChanged?.Invoke(value);
+            }
+        }
+    }
+
+    public bool IsAutoHideActive => IsDockedMode && AutoHideDockedBar;
+
+    public bool IsDockCollapsed
+    {
+        get => _isDockCollapsed;
+        set
+        {
+            if (SetProperty(ref _isDockCollapsed, value))
+            {
+                OnPropertyChanged(nameof(IsDockExpanded));
+                OnPropertyChanged(nameof(DockedRootMargin));
+                OnPropertyChanged(nameof(DockedRootCornerRadius));
+                DockCollapseStateChanged?.Invoke();
+            }
+        }
+    }
+
+    public bool IsDockExpanded => !IsDockCollapsed;
+
+    public Thickness DockedRootMargin => new Thickness(0);
+
+    public CornerRadius DockedRootCornerRadius
+    {
+        get
+        {
+            if (IsDockCollapsed)
+            {
+                return IsDockedTop ? new CornerRadius(0, 0, 4, 4) : new CornerRadius(4, 4, 0, 0);
+            }
+            return IsDockedTop ? new CornerRadius(0, 0, 8, 8) : new CornerRadius(8, 8, 0, 0);
+        }
+    }
+
+    public CornerRadius DockedHandleCornerRadius => IsDockedTop ? new CornerRadius(0, 0, 4, 4) : new CornerRadius(4, 4, 0, 0);
+
+    public VerticalAlignment DockedHandleVerticalAlignment => IsDockedTop ? VerticalAlignment.Top : VerticalAlignment.Bottom;
+
+    public bool IsFloatingMode => DockMode == WidgetDockMode.Floating;
+    public bool IsDockedMode => DockMode != WidgetDockMode.Floating;
+    public bool IsDockedTop => DockMode == WidgetDockMode.Top;
+    public bool IsDockedBottom => DockMode == WidgetDockMode.Bottom;
 
     public ObservableCollection<ProviderSectionViewModel> Providers { get; } = new();
     public ObservableCollection<ProviderSectionViewModel> VisibleProviders { get; } = new();

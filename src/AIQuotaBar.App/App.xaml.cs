@@ -2,6 +2,7 @@ namespace AIQuotaBar.App;
 
 using System.IO;
 using System.Windows;
+using System.Windows.Interop;
 using AIQuotaBar.App.Layout;
 using AIQuotaBar.App.Settings;
 using AIQuotaBar.App.Tray;
@@ -15,6 +16,7 @@ public partial class App : Application
     private WidgetViewModel? _viewModel;
     private WidgetWindow? _window;
     private TrayManager? _trayManager;
+    private WidgetDockMode _appliedDockMode = WidgetDockMode.Floating;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -25,31 +27,60 @@ public partial class App : Application
 
         var initialContentWidth = ResponsiveLayoutHelper.ClampWidth(_settings.WidgetWidth);
         var outerWindowWidth = initialContentWidth + 20.0;
+        var initialDockMode = _settings.DockMode;
+        _appliedDockMode = initialDockMode;
 
         _viewModel = new WidgetViewModel
         {
             IsAlwaysOnTop = _settings.IsAlwaysOnTop,
             IsCompactMode = _settings.IsCompactMode,
-            WidgetWidth = initialContentWidth
+            WidgetWidth = initialContentWidth,
+            DockMode = initialDockMode,
+            DockedHorizontalAnchor = _settings.DockedHorizontalAnchor,
+            AutoHideDockedBar = _settings.AutoHideDockedBar
         };
         _viewModel.UpdateVisibility(_settings);
 
-        var safePos = PositionHelper.GetSafePosition(_settings.WindowLeft, _settings.WindowTop, windowWidth: outerWindowWidth);
+        double initialLeft;
+        double initialTop;
+
+        if (initialDockMode == WidgetDockMode.Floating)
+        {
+            // Floating startup remains frozen: uses PositionHelper
+            var safePos = PositionHelper.GetSafePosition(_settings.WindowLeft, _settings.WindowTop, windowWidth: outerWindowWidth);
+            initialLeft = safePos.Left;
+            initialTop = safePos.Top;
+        }
+        else
+        {
+            // Docked startup: use saved raw WPF floating coordinates directly to establish monitor affinity without PositionHelper clamping
+            var hostPos = DockingHelper.ResolveInitialDockedHostPosition(_settings.WindowLeft, _settings.WindowTop);
+            initialLeft = hostPos.Left;
+            initialTop = hostPos.Top;
+        }
 
         _window = new WidgetWindow
         {
             DataContext = _viewModel,
             WindowStartupLocation = WindowStartupLocation.Manual,
             Width = outerWindowWidth,
-            Left = safePos.Left,
-            Top = safePos.Top,
+            Left = initialLeft,
+            Top = initialTop,
             OpenSettingsRequested = ShowSettingsWindow
         };
 
-        // Persist position and width when moved or resized
+        // Create HWND at initial host coordinates so MonitorFromWindow accurately resolves the target monitor
+        new WindowInteropHelper(_window).EnsureHandle();
+
+        if (initialDockMode != WidgetDockMode.Floating)
+        {
+            _window.ApplyDockMode(initialDockMode);
+        }
+
+        // Persist position and width when moved or resized (Floating mode only)
         _window.SizeOrPositionChanged = (left, top, width) =>
         {
-            if (_settings != null && _settingsManager != null)
+            if (_settings != null && _settingsManager != null && _appliedDockMode == WidgetDockMode.Floating)
             {
                 _settings.WindowLeft = left;
                 _settings.WindowTop = top;
@@ -77,6 +108,62 @@ public partial class App : Application
             }
         };
 
+        _viewModel.DockedHorizontalAnchorChanged = anchor =>
+        {
+            if (_settings != null && _settingsManager != null)
+            {
+                _settings.DockedHorizontalAnchor = anchor;
+                _settingsManager.Save(_settings);
+            }
+        };
+
+        _viewModel.AutoHideDockedBarChanged = autoHide =>
+        {
+            if (_settings != null && _settingsManager != null)
+            {
+                _settings.AutoHideDockedBar = autoHide;
+                _settingsManager.Save(_settings);
+            }
+        };
+
+        _viewModel.DockModeChanged = mode =>
+        {
+            if (_settings != null && _settingsManager != null && _window != null)
+            {
+                var previousMode = _appliedDockMode;
+                _appliedDockMode = mode;
+
+                if (mode != WidgetDockMode.Floating)
+                {
+                    // If transitioning FROM Floating mode, capture the floating geometry BEFORE applying dock changes
+                    if (previousMode == WidgetDockMode.Floating)
+                    {
+                        _settings.WindowLeft = _window.Left;
+                        _settings.WindowTop = _window.Top;
+                        _settings.WidgetWidth = _window.WidgetContentWidth;
+                    }
+
+                    _settings.DockMode = mode;
+                    _settings.DockedHorizontalAnchor = _viewModel.DockedHorizontalAnchor;
+                    _settingsManager.Save(_settings);
+
+                    _window.ApplyDockMode(mode);
+                }
+                else
+                {
+                    // Returning to floating: restore saved floating geometry
+                    _settings.DockMode = WidgetDockMode.Floating;
+                    _settingsManager.Save(_settings);
+
+                    _window.ApplyDockMode(
+                        WidgetDockMode.Floating,
+                        restoreFloatingLeft: _settings.WindowLeft,
+                        restoreFloatingTop: _settings.WindowTop,
+                        restoreFloatingWidth: _settings.WidgetWidth);
+                }
+            }
+        };
+
         // Initialize system tray icon
         _trayManager = new TrayManager(
             _viewModel,
@@ -88,6 +175,11 @@ public partial class App : Application
                     if (_window.WindowState == WindowState.Minimized)
                     {
                         _window.WindowState = WindowState.Normal;
+                    }
+                    if (_appliedDockMode != WidgetDockMode.Floating)
+                    {
+                        _window.ForceDockExpanded();
+                        _window.ReanchorDockedWindow();
                     }
                     _window.Activate();
                 }
@@ -119,12 +211,27 @@ public partial class App : Application
 
         if (_settingsWindow == null || !_settingsWindow.IsLoaded)
         {
+            if (_window != null)
+            {
+                _window.IsSettingsOpen = true;
+                _window.ForceDockExpanded();
+            }
+
+            var settingsVm = new SettingsViewModel(_settings, _settingsManager, _viewModel);
             _settingsWindow = new SettingsWindow
             {
-                DataContext = new SettingsViewModel(_settings, _settingsManager, _viewModel),
+                DataContext = settingsVm,
                 Owner = _window
             };
-            _settingsWindow.Closed += (s, e) => _settingsWindow = null;
+            _settingsWindow.Closed += (s, e) =>
+            {
+                if (_window != null)
+                {
+                    _window.IsSettingsOpen = false;
+                }
+                settingsVm.Dispose();
+                _settingsWindow = null;
+            };
             _settingsWindow.Show();
         }
         else
@@ -140,12 +247,22 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        // Save current window position and size before shutdown
-        if (_window != null && _settings != null && _settingsManager != null && _window.WindowState == WindowState.Normal)
+        if (_settings != null && _settingsManager != null)
         {
-            _settings.WindowLeft = _window.Left;
-            _settings.WindowTop = _window.Top;
-            _settings.WidgetWidth = _window.WidgetContentWidth;
+            // Only overwrite floating Left/Top/Width if currently in Floating mode!
+            if (_appliedDockMode == WidgetDockMode.Floating && _window != null && _window.WindowState == WindowState.Normal)
+            {
+                _settings.WindowLeft = _window.Left;
+                _settings.WindowTop = _window.Top;
+                _settings.WidgetWidth = _window.WidgetContentWidth;
+            }
+
+            _settings.DockMode = _appliedDockMode;
+            if (_viewModel != null)
+            {
+                _settings.DockedHorizontalAnchor = _viewModel.DockedHorizontalAnchor;
+                _settings.AutoHideDockedBar = _viewModel.AutoHideDockedBar;
+            }
             _settingsManager.Save(_settings);
         }
 

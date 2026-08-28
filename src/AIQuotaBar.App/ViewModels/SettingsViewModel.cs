@@ -2,18 +2,96 @@ namespace AIQuotaBar.App.ViewModels;
 
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using AIQuotaBar.App.Layout;
 using AIQuotaBar.App.Settings;
 
-public sealed class SettingsViewModel : ViewModelBase
+public sealed class SettingsViewModel : ViewModelBase, IDisposable
 {
     private readonly AppSettings _settings;
     private readonly SettingsManager _settingsManager;
     private readonly WidgetViewModel? _widgetViewModel;
     private bool _lowQuotaNotificationsEnabled;
+    private bool _disposed;
 
     public Action? RequestClose { get; set; }
 
     public ObservableCollection<ProviderVisibilityItemViewModel> Providers { get; } = new();
+
+    public WidgetDockMode DockMode
+    {
+        get => _settings.DockMode;
+        set
+        {
+            if (_settings.DockMode != value)
+            {
+                _settings.DockMode = value;
+                _settingsManager.Save(_settings);
+                if (_widgetViewModel != null && _widgetViewModel.DockMode != value)
+                {
+                    _widgetViewModel.DockMode = value;
+                }
+                OnPropertyChanged(nameof(DockMode));
+                OnPropertyChanged(nameof(IsFloatingDockMode));
+                OnPropertyChanged(nameof(IsTopDockMode));
+                OnPropertyChanged(nameof(IsBottomDockMode));
+            }
+        }
+    }
+
+    public bool IsFloatingDockMode
+    {
+        get => DockMode == WidgetDockMode.Floating;
+        set
+        {
+            if (value)
+            {
+                DockMode = WidgetDockMode.Floating;
+            }
+        }
+    }
+
+    public bool IsTopDockMode
+    {
+        get => DockMode == WidgetDockMode.Top;
+        set
+        {
+            if (value)
+            {
+                DockMode = WidgetDockMode.Top;
+            }
+        }
+    }
+
+    public bool IsBottomDockMode
+    {
+        get => DockMode == WidgetDockMode.Bottom;
+        set
+        {
+            if (value)
+            {
+                DockMode = WidgetDockMode.Bottom;
+            }
+        }
+    }
+
+    private bool _autoHideDockedBar;
+
+    public bool AutoHideDockedBar
+    {
+        get => _autoHideDockedBar;
+        set
+        {
+            if (SetProperty(ref _autoHideDockedBar, value))
+            {
+                _settings.AutoHideDockedBar = value;
+                _settingsManager.Save(_settings);
+                if (_widgetViewModel != null)
+                {
+                    _widgetViewModel.AutoHideDockedBar = value;
+                }
+            }
+        }
+    }
 
     public bool LowQuotaNotificationsEnabled
     {
@@ -40,11 +118,40 @@ public sealed class SettingsViewModel : ViewModelBase
         _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager));
         _widgetViewModel = widgetViewModel;
         _lowQuotaNotificationsEnabled = _settings.LowQuotaNotificationsEnabled;
+        _autoHideDockedBar = _settings.AutoHideDockedBar;
+
+        if (_widgetViewModel != null)
+        {
+            _widgetViewModel.DockModeChanged += OnWidgetDockModeChanged;
+        }
 
         ResetDefaultsCommand = new RelayCommand(ResetDefaults);
         CloseCommand = new RelayCommand(() => RequestClose?.Invoke());
 
         PopulateProviders();
+    }
+
+    private void OnWidgetDockModeChanged(WidgetDockMode mode)
+    {
+        _settings.DockMode = mode;
+        OnPropertyChanged(nameof(DockMode));
+        OnPropertyChanged(nameof(IsFloatingDockMode));
+        OnPropertyChanged(nameof(IsTopDockMode));
+        OnPropertyChanged(nameof(IsBottomDockMode));
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+
+        if (_widgetViewModel != null)
+        {
+            _widgetViewModel.DockModeChanged -= OnWidgetDockModeChanged;
+        }
     }
 
     private void PopulateProviders()
@@ -143,9 +250,7 @@ public sealed class SettingsViewModel : ViewModelBase
     public void ResetDefaults()
     {
         _settings.ResetVisibilityDefaults();
-        _settings.LowQuotaNotificationsEnabled = true;
         _settingsManager.Save(_settings);
-        LowQuotaNotificationsEnabled = true;
 
         foreach (var provider in Providers)
         {
