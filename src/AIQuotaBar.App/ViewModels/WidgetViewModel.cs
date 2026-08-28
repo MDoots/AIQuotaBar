@@ -5,20 +5,24 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using AIQuotaBar.App.Layout;
+using AIQuotaBar.App.Providers;
 using AIQuotaBar.App.Settings;
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
-using AIQuotaBar.Providers.Antigravity;
-using AIQuotaBar.Providers.Codex;
 
 public sealed class WidgetViewModel : ViewModelBase, IDisposable
 {
     private readonly List<DispatcherTimer> _providerTimers = new();
     private readonly DispatcherTimer _countdownTimer;
+    private readonly IReadOnlyList<ProviderDescriptor> _descriptors;
+    private readonly IProviderDiscoveryService _discoveryService;
+    private CancellationTokenSource? _discoveryCts;
+    private int _discoveryScanGeneration;
     private bool _disposed;
 
     private bool _isAlwaysOnTop = true;
     private bool _isCompactMode;
+    private bool _isDiscoveringProviders;
     private WidgetDockMode _dockMode = WidgetDockMode.Floating;
     private double _widgetWidth = ResponsiveLayoutHelper.DefaultWidgetWidth;
     private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
@@ -27,6 +31,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
     public Action<bool>? AlwaysOnTopChanged { get; set; }
     public Action<bool>? CompactModeChanged { get; set; }
+    public Action? OpenSettingsRequested { get; set; }
     private double _dockedHorizontalAnchor = 0.5;
     private bool _autoHideDockedBar = true;
     private bool _isDockCollapsed;
@@ -38,7 +43,47 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
     public event Action? QuotaStateUpdated;
     public event Action? VisibilityStateUpdated;
+    public event Action? ProviderDiscoveryUpdated;
     public event Action? DockCollapseStateChanged;
+    public event Action? InitialStartupSettled;
+
+    public IReadOnlyList<ProviderDescriptor> Descriptors => _descriptors;
+
+    public bool IsDiscoveringProviders
+    {
+        get => _isDiscoveringProviders;
+        private set
+        {
+            if (SetProperty(ref _isDiscoveringProviders, value))
+            {
+                OnPropertyChanged(nameof(ShowCheckingProviders));
+                OnPropertyChanged(nameof(ShowZeroProvidersDetected));
+                OnPropertyChanged(nameof(ShowDiscoveryError));
+                OnPropertyChanged(nameof(ShowNoQuotaRowsSelected));
+                OnPropertyChanged(nameof(ShowEmptyState));
+            }
+        }
+    }
+
+    public bool HasAnyDetectedProviders => Providers.Any(p => p.DiscoveryStatus == ProviderDiscoveryStatus.Detected);
+    public bool HasAnyDiscoveryEligibleProviders => Providers.Any(p => p.DiscoveryStatus != ProviderDiscoveryStatus.NotDetected);
+
+    public bool ShowZeroProvidersDetected => !IsDiscoveringProviders && Providers.Count > 0 && Providers.All(p => p.DiscoveryStatus == ProviderDiscoveryStatus.NotDetected);
+
+    public bool ShowCheckingProviders => IsDiscoveringProviders && !Providers.Any(p => p.HasWindows || p.HasStatusMessage);
+
+    public bool ShowDiscoveryError => !IsDiscoveringProviders &&
+                                      !ShowZeroProvidersDetected &&
+                                      !ShowCheckingProviders &&
+                                      VisibleProviders.Count == 0 &&
+                                      Providers.Any(p => p.DiscoveryStatus == ProviderDiscoveryStatus.Error);
+
+    public bool ShowNoQuotaRowsSelected => !IsDiscoveringProviders &&
+                                           !ShowZeroProvidersDetected &&
+                                           !ShowCheckingProviders &&
+                                           !ShowDiscoveryError &&
+                                           VisibleProviders.Count == 0 &&
+                                           HasAnyDetectedProviders;
 
     public WidgetDockMode DockMode
     {
@@ -222,11 +267,20 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
     public ICommand ToggleModeCommand { get; }
     public ICommand RefreshCommand { get; }
+    public ICommand OpenSettingsCommand { get; }
 
-    public WidgetViewModel(IEnumerable<ProviderSectionViewModel>? providerSections = null)
+    public WidgetViewModel(
+        IReadOnlyList<ProviderDescriptor>? descriptors = null,
+        IProviderDiscoveryService? discoveryService = null,
+        IEnumerable<ProviderSectionViewModel>? providerSections = null)
     {
+        _descriptors = descriptors ?? (providerSections == null ? ProviderCatalog.All : Array.Empty<ProviderDescriptor>());
+        _discoveryService = discoveryService ?? new ProviderDiscoveryService();
+        _isDiscoveringProviders = false;
+
         ToggleModeCommand = new RelayCommand(() => IsCompactMode = !IsCompactMode);
         RefreshCommand = new RelayCommand(async () => await RefreshAllAsync(), () => CanRefresh);
+        OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke());
 
         if (providerSections != null)
         {
@@ -237,11 +291,14 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         }
         else
         {
-            // Default production configuration:
-            // 1. OpenAI Codex: 60s auto-refresh
-            // 2. Google Antigravity: 180s auto-refresh
-            Providers.Add(new ProviderSectionViewModel(new CodexUsageProvider(), TimeSpan.FromSeconds(60)));
-            Providers.Add(new ProviderSectionViewModel(new AntigravityUsageProvider(), TimeSpan.FromSeconds(180)));
+            foreach (var descriptor in _descriptors)
+            {
+                Providers.Add(new ProviderSectionViewModel(
+                    descriptor.CreateProvider(),
+                    descriptor.RefreshInterval,
+                    descriptor.ShortDisplayName,
+                    ProviderDiscoveryStatus.Unknown));
+            }
         }
 
         // Set up individual auto-refresh timers for each provider
@@ -258,7 +315,10 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             };
             timer.Tick += async (s, e) =>
             {
-                if (!_disposed && !provider.IsLoading)
+                if (!_disposed && !provider.IsLoading &&
+                    provider.DiscoveryStatus != ProviderDiscoveryStatus.NotDetected &&
+                    provider.DiscoveryStatus != ProviderDiscoveryStatus.Checking &&
+                    provider.DiscoveryStatus != ProviderDiscoveryStatus.Unknown)
                 {
                     await provider.RefreshAsync().ConfigureAwait(true);
                     UpdateLastUpdated();
@@ -275,6 +335,11 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             Interval = TimeSpan.FromSeconds(30)
         };
         _countdownTimer.Tick += OnCountdownTimerTick;
+    }
+
+    public WidgetViewModel(IEnumerable<ProviderSectionViewModel>? providerSections)
+        : this(null, null, providerSections)
+    {
     }
 
     public WidgetViewModel(IUsageProvider provider, TimeSpan? refreshInterval = null)
@@ -304,7 +369,10 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             or nameof(ProviderSectionViewModel.HasVisibleWindows)
             or nameof(ProviderSectionViewModel.IsLoading)
             or nameof(ProviderSectionViewModel.HasStatusMessage)
-            or nameof(ProviderSectionViewModel.IsVisibleByPreference))
+            or nameof(ProviderSectionViewModel.IsVisibleByPreference)
+            or nameof(ProviderSectionViewModel.DiscoveryStatus)
+            or nameof(ProviderSectionViewModel.IsProviderDetected)
+            or nameof(ProviderSectionViewModel.IsProviderNotDetected))
         {
             UpdateVisibleProvidersCollection();
         }
@@ -340,6 +408,11 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             }
 
             OnPropertyChanged(nameof(ShowEmptyState));
+            OnPropertyChanged(nameof(ShowZeroProvidersDetected));
+            OnPropertyChanged(nameof(ShowCheckingProviders));
+            OnPropertyChanged(nameof(ShowDiscoveryError));
+            OnPropertyChanged(nameof(ShowNoQuotaRowsSelected));
+            OnPropertyChanged(nameof(HasAnyDetectedProviders));
         }
 
         if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
@@ -365,7 +438,130 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         }
 
         _countdownTimer.Start();
-        _ = RefreshAllAsync();
+
+        if (_descriptors.Count > 0)
+        {
+            BeginProviderDiscovery(isStartup: true);
+        }
+        else
+        {
+            _ = RefreshAllAsync();
+        }
+    }
+
+    public void BeginProviderDiscovery(bool isStartup = false)
+    {
+        if (_disposed || _descriptors.Count == 0)
+        {
+            return;
+        }
+
+        IsDiscoveringProviders = true;
+        foreach (var provider in Providers)
+        {
+            if (provider.DiscoveryStatus == ProviderDiscoveryStatus.Unknown)
+            {
+                provider.ApplyDiscoveryStatus(ProviderDiscoveryStatus.Checking);
+            }
+        }
+        UpdateVisibleProvidersCollection();
+
+        _ = DiscoverProvidersAsync(isStartup);
+    }
+
+    public async Task DiscoverProvidersAsync(bool isStartup = false, CancellationToken cancellationToken = default)
+    {
+        if (_disposed || _descriptors.Count == 0)
+        {
+            return;
+        }
+
+        _discoveryCts?.Cancel();
+        _discoveryCts?.Dispose();
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _discoveryCts = cts;
+        var currentGeneration = Interlocked.Increment(ref _discoveryScanGeneration);
+
+        IsDiscoveringProviders = true;
+        try
+        {
+            var results = await _discoveryService.DiscoverAsync(_descriptors, cts.Token).ConfigureAwait(true);
+            if (_disposed || cts.IsCancellationRequested || currentGeneration != _discoveryScanGeneration)
+            {
+                return;
+            }
+
+            var providersToRefresh = new List<ProviderSectionViewModel>();
+
+            foreach (var result in results)
+            {
+                var provider = Providers.FirstOrDefault(p => string.Equals(p.ProviderId, result.ProviderId, StringComparison.OrdinalIgnoreCase));
+                if (provider != null)
+                {
+                    var previousStatus = provider.DiscoveryStatus;
+                    provider.ApplyDiscoveryStatus(result.Status);
+
+                    if (result.Status == ProviderDiscoveryStatus.Detected)
+                    {
+                        var isConnectedHealthy = provider.Status == ProviderStatus.Available && provider.HasWindows && provider.LastRefreshedAt != null;
+                        var needsRefresh = isStartup ||
+                                           previousStatus == ProviderDiscoveryStatus.NotDetected ||
+                                           provider.LastRefreshedAt == null ||
+                                           provider.Status is ProviderStatus.Unauthenticated
+                                                           or ProviderStatus.Error
+                                                           or ProviderStatus.Timeout
+                                                           or ProviderStatus.Unavailable ||
+                                           !isConnectedHealthy;
+
+                        if (needsRefresh)
+                        {
+                            providersToRefresh.Add(provider);
+                        }
+                    }
+                }
+            }
+
+            if (_disposed || cts.IsCancellationRequested || currentGeneration != _discoveryScanGeneration)
+            {
+                return;
+            }
+
+            UpdateVisibleProvidersCollection();
+            ProviderDiscoveryUpdated?.Invoke();
+
+            if (providersToRefresh.Count > 0)
+            {
+                await Task.WhenAll(providersToRefresh.Select(p => p.RefreshAsync(cts.Token))).ConfigureAwait(true);
+                if (_disposed || cts.IsCancellationRequested || currentGeneration != _discoveryScanGeneration)
+                {
+                    return;
+                }
+                UpdateLastUpdated();
+                QuotaStateUpdated?.Invoke();
+            }
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested || cancellationToken.IsCancellationRequested)
+        {
+            // Intentional cancellation
+        }
+        finally
+        {
+            if (currentGeneration == _discoveryScanGeneration)
+            {
+                _discoveryCts = null;
+                IsDiscoveringProviders = false;
+                UpdateVisibleProvidersCollection();
+                if (isStartup)
+                {
+                    InitialStartupSettled?.Invoke();
+                }
+            }
+        }
+    }
+
+    public Task RescanProvidersAsync(CancellationToken cancellationToken = default)
+    {
+        return DiscoverProvidersAsync(isStartup: false, cancellationToken);
     }
 
     public async Task RefreshAllAsync(CancellationToken cancellationToken = default)
@@ -381,8 +577,12 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
         try
         {
-            var refreshTasks = Providers.Select(p => p.RefreshAsync(cancellationToken)).ToArray();
-            await Task.WhenAll(refreshTasks).ConfigureAwait(true);
+            var eligible = Providers.Where(p => p.DiscoveryStatus != ProviderDiscoveryStatus.NotDetected).ToArray();
+            if (eligible.Length > 0)
+            {
+                var refreshTasks = eligible.Select(p => p.RefreshAsync(cancellationToken)).ToArray();
+                await Task.WhenAll(refreshTasks).ConfigureAwait(true);
+            }
         }
         finally
         {
@@ -428,6 +628,10 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             return;
         }
         _disposed = true;
+
+        _discoveryCts?.Cancel();
+        _discoveryCts?.Dispose();
+        _discoveryCts = null;
 
         foreach (var timer in _providerTimers)
         {

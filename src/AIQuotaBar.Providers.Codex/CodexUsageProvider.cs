@@ -97,12 +97,22 @@ public sealed class CodexUsageProvider : IUsageProvider
         }
         catch (Exception ex)
         {
+            var isAuth = IsAuthError(ex);
             return new ProviderSnapshot(
                 providerId: Id,
                 providerDisplayName: DisplayName,
-                status: ProviderStatus.Error,
+                status: isAuth ? ProviderStatus.Unauthenticated : ProviderStatus.Error,
                 statusMessage: SafeErrorMessage(ex));
         }
+    }
+
+    private static bool IsAuthError(Exception ex)
+    {
+        return ex is CodexRpcException rpcEx &&
+            (rpcEx.ErrorMessage?.Contains("auth", StringComparison.OrdinalIgnoreCase) == true ||
+             rpcEx.ErrorMessage?.Contains("login", StringComparison.OrdinalIgnoreCase) == true ||
+             rpcEx.ErrorMessage?.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase) == true ||
+             rpcEx.ErrorMessage?.Contains("not logged in", StringComparison.OrdinalIgnoreCase) == true);
     }
 
     private static string SafeErrorMessage(Exception ex)
@@ -114,8 +124,7 @@ public sealed class CodexUsageProvider : IUsageProvider
             System.Text.Json.JsonException => "Codex returned an unexpected response",
             CodexRpcException rpcEx when rpcEx.ErrorCode == -32600 => "Codex rejected the request",
             CodexRpcException rpcEx when rpcEx.ErrorCode == -32601 => "Codex method not found",
-            CodexRpcException rpcEx when (rpcEx.ErrorMessage?.Contains("auth", StringComparison.OrdinalIgnoreCase) == true ||
-                                         rpcEx.ErrorMessage?.Contains("login", StringComparison.OrdinalIgnoreCase) == true) => "Codex is not authenticated",
+            CodexRpcException rpcEx when IsAuthError(rpcEx) => "Codex is not authenticated",
             CodexRpcException => "Codex returned an unexpected response",
             _ => "Unable to communicate with Codex"
         };

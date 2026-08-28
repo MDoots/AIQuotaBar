@@ -109,7 +109,7 @@ public class AntigravityUsageProviderTests
 
         var authSnapshot = await authProvider.GetUsageAsync();
 
-        Assert.Equal(ProviderStatus.Error, authSnapshot.Status);
+        Assert.Equal(ProviderStatus.Unauthenticated, authSnapshot.Status);
         Assert.Equal("Antigravity CLI requires authentication", authSnapshot.StatusMessage);
         Assert.DoesNotContain("secret_user", authSnapshot.StatusMessage);
         Assert.DoesNotContain("sk-token123", authSnapshot.StatusMessage);

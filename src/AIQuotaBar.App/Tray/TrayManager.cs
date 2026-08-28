@@ -175,6 +175,7 @@ public sealed class TrayManager : IDisposable
         // Event-driven tray updates
         _viewModel.QuotaStateUpdated += OnQuotaStateUpdated;
         _viewModel.VisibilityStateUpdated += OnVisibilityStateUpdated;
+        _viewModel.ProviderDiscoveryUpdated += OnProviderDiscoveryUpdated;
     }
 
     private void OnDockModeChanged(WidgetDockMode mode)
@@ -206,6 +207,16 @@ public sealed class TrayManager : IDisposable
     }
 
     private void OnVisibilityStateUpdated()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        UpdateTrayState(evaluateNotifications: false);
+    }
+
+    private void OnProviderDiscoveryUpdated()
     {
         if (_disposed)
         {
@@ -281,6 +292,7 @@ public sealed class TrayManager : IDisposable
         _viewModel.DockModeChanged -= OnDockModeChanged;
         _viewModel.QuotaStateUpdated -= OnQuotaStateUpdated;
         _viewModel.VisibilityStateUpdated -= OnVisibilityStateUpdated;
+        _viewModel.ProviderDiscoveryUpdated -= OnProviderDiscoveryUpdated;
 
         _notifyIcon.Visible = false;
         _notifyIcon.Icon = null;

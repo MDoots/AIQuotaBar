@@ -23,11 +23,12 @@ public partial class App : Application
         base.OnStartup(e);
 
         _settingsManager = new SettingsManager();
+        var isFirstRun = !_settingsManager.SettingsFileExists;
         _settings = _settingsManager.Load();
 
         var initialContentWidth = ResponsiveLayoutHelper.ClampWidth(_settings.WidgetWidth);
         var outerWindowWidth = initialContentWidth + 20.0;
-        var initialDockMode = _settings.DockMode;
+        var initialDockMode = isFirstRun ? WidgetDockMode.Floating : _settings.DockMode;
         _appliedDockMode = initialDockMode;
 
         _viewModel = new WidgetViewModel
@@ -37,23 +38,31 @@ public partial class App : Application
             WidgetWidth = initialContentWidth,
             DockMode = initialDockMode,
             DockedHorizontalAnchor = _settings.DockedHorizontalAnchor,
-            AutoHideDockedBar = _settings.AutoHideDockedBar
+            AutoHideDockedBar = _settings.AutoHideDockedBar,
+            OpenSettingsRequested = ShowSettingsWindow
         };
         _viewModel.UpdateVisibility(_settings);
 
         double initialLeft;
         double initialTop;
 
-        if (initialDockMode == WidgetDockMode.Floating)
+        if (isFirstRun)
         {
-            // Floating startup remains frozen: uses PositionHelper
+            // First run: explicitly centred in the primary monitor working area
+            var centeredPos = PositionHelper.GetCenteredPosition(windowWidth: outerWindowWidth, windowHeight: 160);
+            initialLeft = centeredPos.Left;
+            initialTop = centeredPos.Top;
+        }
+        else if (initialDockMode == WidgetDockMode.Floating)
+        {
+            // Returning Floating user: uses safe position fallback
             var safePos = PositionHelper.GetSafePosition(_settings.WindowLeft, _settings.WindowTop, windowWidth: outerWindowWidth);
             initialLeft = safePos.Left;
             initialTop = safePos.Top;
         }
         else
         {
-            // Docked startup: use saved raw WPF floating coordinates directly to establish monitor affinity without PositionHelper clamping
+            // Returning Docked user: use saved raw WPF floating coordinates directly to establish monitor affinity without PositionHelper clamping
             var hostPos = DockingHelper.ResolveInitialDockedHostPosition(_settings.WindowLeft, _settings.WindowTop);
             initialLeft = hostPos.Left;
             initialTop = hostPos.Top;
@@ -71,6 +80,11 @@ public partial class App : Application
 
         // Create HWND at initial host coordinates so MonitorFromWindow accurately resolves the target monitor
         new WindowInteropHelper(_window).EnsureHandle();
+
+        if (isFirstRun)
+        {
+            _window.EnableFirstRunAutoCentering();
+        }
 
         if (initialDockMode != WidgetDockMode.Floating)
         {
@@ -197,7 +211,18 @@ public partial class App : Application
             isNotificationsEnabled: () => _settings?.LowQuotaNotificationsEnabled ?? true);
 
         _viewModel.Start();
+
+        if (isFirstRun)
+        {
+            _window.Measure(new System.Windows.Size(outerWindowWidth, double.PositiveInfinity));
+            _window.Arrange(new System.Windows.Rect(0, 0, outerWindowWidth, _window.DesiredSize.Height));
+            _window.UpdateLayout();
+            _window.RecenterInPrimaryWorkingArea();
+        }
+
+        _window.WindowState = WindowState.Normal;
         _window.Show();
+        _window.Activate();
     }
 
     private SettingsWindow? _settingsWindow;

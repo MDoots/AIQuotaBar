@@ -8,7 +8,6 @@
         xmlns:vm="clr-namespace:AIQuotaBar.App.ViewModels"
         mc:Ignorable="d"
         Title="AIQuotaBar"
-        Icon="/Assets/AIQuotaBar.ico"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -319,9 +318,102 @@
                 </Grid>
 
                 <!-- 2. Stacked Provider Sections / Empty State -->
-                <!-- Empty State (When all providers/rows are hidden) -->
+                <!-- Checking Providers State (Startup discovery in progress) -->
                 <Border Grid.Row="1"
-                        Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisConverter}}"
+                        Visibility="{Binding ShowCheckingProviders, Converter={StaticResource BoolToVisConverter}}"
+                        Background="#1C1C20"
+                        CornerRadius="8"
+                        BorderBrush="#27272A"
+                        BorderThickness="1"
+                        Padding="10,14"
+                        Margin="0,2,0,4">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="Checking local providers..."
+                                   FontSize="11"
+                                   FontWeight="Medium"
+                                   Foreground="#A1A1AA"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Zero Providers Detected Onboarding State -->
+                <Border Grid.Row="1"
+                        Visibility="{Binding ShowZeroProvidersDetected, Converter={StaticResource BoolToVisConverter}}"
+                        Background="#1C1C20"
+                        CornerRadius="8"
+                        BorderBrush="#27272A"
+                        BorderThickness="1"
+                        Padding="12,12"
+                        Margin="0,2,0,4">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="No supported providers detected"
+                                   FontSize="11.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="#E4E4E7"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="Install or sign in to Codex or Antigravity, then rescan."
+                                   FontSize="10"
+                                   Foreground="#71717A"
+                                   Margin="0,4,0,8"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <Button Style="{StaticResource WidgetButtonStyle}"
+                                Background="#27272A"
+                                BorderBrush="#3F3F46"
+                                BorderThickness="1"
+                                Padding="10,4"
+                                Command="{Binding OpenSettingsCommand}"
+                                HorizontalAlignment="Center"
+                                AutomationProperties.Name="Set up providers">
+                            <TextBlock Text="Set up providers" FontSize="11" FontWeight="Medium" Foreground="#FAFAFA" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- Discovery Error State -->
+                <Border Grid.Row="1"
+                        Visibility="{Binding ShowDiscoveryError, Converter={StaticResource BoolToVisConverter}}"
+                        Background="#1C1C20"
+                        CornerRadius="8"
+                        BorderBrush="#27272A"
+                        BorderThickness="1"
+                        Padding="12,12"
+                        Margin="0,2,0,4">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="Provider check needs attention"
+                                   FontSize="11.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="#E4E4E7"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="Open Settings to review provider setup."
+                                   FontSize="10"
+                                   Foreground="#71717A"
+                                   Margin="0,4,0,8"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <Button Style="{StaticResource WidgetButtonStyle}"
+                                Background="#27272A"
+                                BorderBrush="#3F3F46"
+                                BorderThickness="1"
+                                Padding="10,4"
+                                Command="{Binding OpenSettingsCommand}"
+                                HorizontalAlignment="Center"
+                                AutomationProperties.Name="Open Settings">
+                            <TextBlock Text="Open Settings" FontSize="11" FontWeight="Medium" Foreground="#FAFAFA" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- User Hid All Rows Empty State -->
+                <Border Grid.Row="1"
+                        Visibility="{Binding ShowNoQuotaRowsSelected, Converter={StaticResource BoolToVisConverter}}"
                         Background="#1C1C20"
                         CornerRadius="8"
                         BorderBrush="#27272A"
@@ -521,27 +613,87 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Column 1: Inline Empty State (When all rows are hidden) -->
+                    <!-- Column 1: Inline Empty State -->
                     <Border x:Name="DockedEmptyStateBorder"
                             Grid.Column="1"
                             Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisConverter}}"
                             VerticalAlignment="Center"
                             Margin="4,0,4,0">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="No quota rows selected"
-                                       FontSize="11"
-                                       FontWeight="SemiBold"
-                                       Foreground="#E4E4E7"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Text="—"
-                                       FontSize="11"
-                                       Foreground="#52525B"
-                                       Margin="6,0"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Text="Configure in Settings"
+                            <!-- Checking -->
+                            <TextBlock Text="Checking local providers..."
                                        FontSize="10.5"
                                        Foreground="#71717A"
-                                       VerticalAlignment="Center" />
+                                       VerticalAlignment="Center"
+                                       Visibility="{Binding ShowCheckingProviders, Converter={StaticResource BoolToVisConverter}}" />
+
+                            <!-- Zero detected -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding ShowZeroProvidersDetected, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="No providers detected"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="#E4E4E7"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="·"
+                                           FontSize="11"
+                                           Foreground="#52525B"
+                                           Margin="6,0"
+                                           VerticalAlignment="Center" />
+                                <Button Style="{StaticResource WidgetButtonStyle}"
+                                        Padding="2,0"
+                                        Command="{Binding OpenSettingsCommand}"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.Name="Set up providers">
+                                    <TextBlock Text="Set up"
+                                               FontSize="10.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="#38BDF8"
+                                               VerticalAlignment="Center" />
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Discovery error -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding ShowDiscoveryError, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="Provider check needs attention"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="#E4E4E7"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="·"
+                                           FontSize="11"
+                                           Foreground="#52525B"
+                                           Margin="6,0"
+                                           VerticalAlignment="Center" />
+                                <Button Style="{StaticResource WidgetButtonStyle}"
+                                        Padding="2,0"
+                                        Command="{Binding OpenSettingsCommand}"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.Name="Open settings">
+                                    <TextBlock Text="Set up"
+                                               FontSize="10.5"
+                                               FontWeight="SemiBold"
+                                               Foreground="#38BDF8"
+                                               VerticalAlignment="Center" />
+                                </Button>
+                            </StackPanel>
+
+                            <!-- User hid all rows -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding ShowNoQuotaRowsSelected, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="No quota rows selected"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="#E4E4E7"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="—"
+                                           FontSize="11"
+                                           Foreground="#52525B"
+                                           Margin="6,0"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="Configure in Settings"
+                                           FontSize="10.5"
+                                           Foreground="#71717A"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

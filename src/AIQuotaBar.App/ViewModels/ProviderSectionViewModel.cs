@@ -3,6 +3,7 @@ namespace AIQuotaBar.App.ViewModels;
 using System.Collections.ObjectModel;
 using System.Windows;
 using AIQuotaBar.App.Layout;
+using AIQuotaBar.App.Providers;
 using AIQuotaBar.App.Settings;
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
@@ -11,10 +12,12 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 {
     private readonly IUsageProvider _provider;
     private readonly TimeSpan _refreshInterval;
+    private readonly string? _shortDisplayName;
     private CancellationTokenSource? _currentRefreshCts;
     private bool _disposed;
     private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
 
+    private ProviderDiscoveryStatus _discoveryStatus = ProviderDiscoveryStatus.Unknown;
     private bool _isCompactMode;
     private bool _isVisibleByPreference = true;
     private bool _isLoading;
@@ -32,6 +35,23 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 
     public event Action? SnapshotApplied;
 
+    public ProviderDiscoveryStatus DiscoveryStatus
+    {
+        get => _discoveryStatus;
+        set
+        {
+            if (SetProperty(ref _discoveryStatus, value))
+            {
+                OnPropertyChanged(nameof(IsProviderDetected));
+                OnPropertyChanged(nameof(IsProviderNotDetected));
+                OnPropertyChanged(nameof(ShouldDisplayInWidget));
+            }
+        }
+    }
+
+    public bool IsProviderDetected => DiscoveryStatus == ProviderDiscoveryStatus.Detected;
+    public bool IsProviderNotDetected => DiscoveryStatus == ProviderDiscoveryStatus.NotDetected;
+
     public bool IsVisibleByPreference
     {
         get => _isVisibleByPreference;
@@ -44,7 +64,11 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         }
     }
 
-    public bool ShouldDisplayInWidget => IsVisibleByPreference && (VisibleWindows.Count > 0 || (_allWindows.Count == 0 && (HasStatusMessage || IsLoading)));
+    public bool ShouldDisplayInWidget =>
+        IsVisibleByPreference &&
+        DiscoveryStatus != ProviderDiscoveryStatus.NotDetected &&
+        DiscoveryStatus != ProviderDiscoveryStatus.Checking &&
+        (VisibleWindows.Count > 0 || (_allWindows.Count == 0 && (HasStatusMessage || IsLoading)));
 
     public bool IsCompactMode
     {
@@ -101,12 +125,14 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 
     public string DisplayProviderName => ProviderLabelFormatter.Format(ProviderName, _layoutMode);
 
-    public string DockedDisplayName => ProviderId.ToLowerInvariant() switch
+    public string ShortDisplayName => _shortDisplayName ?? (ProviderId.ToLowerInvariant() switch
     {
         "codex" => "Codex",
         "antigravity" => "Antigravity",
         _ => ProviderName
-    };
+    });
+
+    public string DockedDisplayName => ShortDisplayName;
 
     public string? AccountPlan
     {
@@ -179,16 +205,69 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     public bool HasWindows => Windows.Count > 0;
     public bool HasVisibleWindows => VisibleWindows.Count > 0;
 
-    public ProviderSectionViewModel(IUsageProvider provider, TimeSpan refreshInterval)
+    public ProviderSectionViewModel(
+        IUsageProvider provider,
+        TimeSpan refreshInterval,
+        string? shortDisplayName = null,
+        ProviderDiscoveryStatus initialDiscoveryStatus = ProviderDiscoveryStatus.Detected)
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         _refreshInterval = refreshInterval;
         _providerName = provider.DisplayName;
+        _shortDisplayName = shortDisplayName;
+        _discoveryStatus = initialDiscoveryStatus;
+    }
+
+    public void ApplyDiscoveryStatus(ProviderDiscoveryStatus status)
+    {
+        var wasDetectedOrHasWindows = _discoveryStatus == ProviderDiscoveryStatus.Detected || _allWindows.Count > 0;
+        DiscoveryStatus = status;
+
+        if (status == ProviderDiscoveryStatus.NotDetected)
+        {
+            _currentRefreshCts?.Cancel();
+            _currentRefreshCts?.Dispose();
+            _currentRefreshCts = null;
+
+            if (wasDetectedOrHasWindows)
+            {
+                void Clear()
+                {
+                    _allWindows.Clear();
+                    Windows.Clear();
+                    VisibleWindows.Clear();
+                    AccountPlan = null;
+                    Status = ProviderStatus.Unavailable;
+                    StatusMessage = null;
+                    LastRefreshedAt = null;
+
+                    OnPropertyChanged(nameof(HasWindows));
+                    OnPropertyChanged(nameof(HasVisibleWindows));
+                    OnPropertyChanged(nameof(HasAccountPlan));
+                    OnPropertyChanged(nameof(HasStatusMessage));
+                    OnPropertyChanged(nameof(ShouldDisplayInWidget));
+                }
+
+                if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+                {
+                    Application.Current.Dispatcher.Invoke(Clear);
+                }
+                else
+                {
+                    Clear();
+                }
+            }
+        }
+        else if (status == ProviderDiscoveryStatus.Error)
+        {
+            Status = ProviderStatus.Unavailable;
+            StatusMessage = "Local provider check encountered an error.";
+        }
     }
 
     public async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
-        if (_disposed || IsLoading)
+        if (_disposed || IsLoading || DiscoveryStatus == ProviderDiscoveryStatus.NotDetected)
         {
             return;
         }
@@ -203,7 +282,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         {
             var snapshot = await _provider.GetUsageAsync(cts.Token).ConfigureAwait(true);
 
-            if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts))
+            if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts) && DiscoveryStatus != ProviderDiscoveryStatus.NotDetected)
             {
                 ApplySnapshot(snapshot);
             }
@@ -214,7 +293,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         }
         catch (Exception)
         {
-            if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts))
+            if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts) && DiscoveryStatus != ProviderDiscoveryStatus.NotDetected)
             {
                 Status = ProviderStatus.Error;
                 StatusMessage = $"Unable to communicate with {_provider.DisplayName}";
@@ -224,6 +303,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         {
             if (ReferenceEquals(_currentRefreshCts, cts))
             {
+                _currentRefreshCts = null;
                 IsLoading = false;
                 OnPropertyChanged(nameof(ShouldDisplayInWidget));
             }
@@ -245,8 +325,23 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 
     public void ApplySnapshot(ProviderSnapshot snapshot)
     {
+        if (_disposed || DiscoveryStatus == ProviderDiscoveryStatus.NotDetected)
+        {
+            return;
+        }
+
         void Apply()
         {
+            if (_disposed || DiscoveryStatus == ProviderDiscoveryStatus.NotDetected)
+            {
+                return;
+            }
+
+            if (_discoveryStatus is ProviderDiscoveryStatus.Checking or ProviderDiscoveryStatus.Unknown)
+            {
+                DiscoveryStatus = ProviderDiscoveryStatus.Detected;
+            }
+
             ProviderName = snapshot.ProviderDisplayName;
             AccountPlan = snapshot.AccountPlan;
             Status = snapshot.Status;
@@ -279,7 +374,10 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             Apply();
         }
 
-        SnapshotApplied?.Invoke();
+        if (DiscoveryStatus != ProviderDiscoveryStatus.NotDetected)
+        {
+            SnapshotApplied?.Invoke();
+        }
     }
 
     public void ApplyVisibilityFilter(AppSettings? settings)
