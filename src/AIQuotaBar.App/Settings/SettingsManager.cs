@@ -44,7 +44,12 @@ public sealed class SettingsManager
             }
 
             var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions);
-            return settings ?? new AppSettings();
+            if (settings != null)
+            {
+                settings.NormalizeVisibilityDictionaries();
+                return settings;
+            }
+            return new AppSettings();
         }
         catch
         {

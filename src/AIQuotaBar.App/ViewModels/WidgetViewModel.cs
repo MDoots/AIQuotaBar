@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using AIQuotaBar.App.Layout;
+using AIQuotaBar.App.Settings;
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
 using AIQuotaBar.Providers.Antigravity;
@@ -21,12 +22,16 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     private double _widgetWidth = ResponsiveLayoutHelper.DefaultWidgetWidth;
     private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
     private string _lastUpdatedText = "Not updated yet";
+    private AppSettings? _appSettings;
 
     public Action<bool>? AlwaysOnTopChanged { get; set; }
     public Action<bool>? CompactModeChanged { get; set; }
     public Action<double>? WidgetWidthChanged { get; set; }
 
     public ObservableCollection<ProviderSectionViewModel> Providers { get; } = new();
+    public ObservableCollection<ProviderSectionViewModel> VisibleProviders { get; } = new();
+
+    public bool ShowEmptyState => VisibleProviders.Count == 0;
 
     public double WidgetWidth
     {
@@ -53,6 +58,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(AppTitleText));
                 OnPropertyChanged(nameof(ShowAppTitle));
                 OnPropertyChanged(nameof(ShowModeToggle));
+                OnPropertyChanged(nameof(ShowSettingsButton));
                 OnPropertyChanged(nameof(MainCardMargin));
                 foreach (var provider in Providers)
                 {
@@ -65,6 +71,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     public string AppTitleText => "AIQuotaBar";
     public bool ShowAppTitle => LayoutMode != WidgetLayoutMode.Micro;
     public bool ShowModeToggle => LayoutMode != WidgetLayoutMode.Micro;
+    public bool ShowSettingsButton => LayoutMode is WidgetLayoutMode.Full or WidgetLayoutMode.Compact;
     public Thickness MainCardMargin => LayoutMode == WidgetLayoutMode.Micro ? new Thickness(6, 6, 6, 6) : new Thickness(10, 8, 10, 8);
 
     public bool ShowFooter => !IsCompactMode && LayoutMode != WidgetLayoutMode.Micro;
@@ -142,6 +149,8 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         {
             provider.LayoutMode = _layoutMode;
             provider.IsCompactMode = _isCompactMode;
+            provider.PropertyChanged += OnProviderPropertyChanged;
+
             var timer = new DispatcherTimer
             {
                 Interval = provider.RefreshInterval
@@ -157,6 +166,8 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             _providerTimers.Add(timer);
         }
 
+        UpdateVisibility(_appSettings);
+
         // Local countdown display refresh every 30 seconds (no process spawn)
         _countdownTimer = new DispatcherTimer
         {
@@ -168,6 +179,59 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     public WidgetViewModel(IUsageProvider provider, TimeSpan? refreshInterval = null)
         : this(new[] { new ProviderSectionViewModel(provider, refreshInterval ?? TimeSpan.FromSeconds(60)) })
     {
+    }
+
+    private void OnProviderPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ProviderSectionViewModel.ShouldDisplayInWidget)
+            or nameof(ProviderSectionViewModel.HasVisibleWindows)
+            or nameof(ProviderSectionViewModel.IsLoading)
+            or nameof(ProviderSectionViewModel.HasStatusMessage)
+            or nameof(ProviderSectionViewModel.IsVisibleByPreference))
+        {
+            UpdateVisibleProvidersCollection();
+        }
+    }
+
+    public void UpdateVisibility(AppSettings? settings = null)
+    {
+        if (settings != null)
+        {
+            _appSettings = settings;
+        }
+
+        foreach (var provider in Providers)
+        {
+            provider.ApplyVisibilityFilter(_appSettings);
+        }
+
+        UpdateVisibleProvidersCollection();
+    }
+
+    private void UpdateVisibleProvidersCollection()
+    {
+        void Update()
+        {
+            VisibleProviders.Clear();
+            foreach (var provider in Providers)
+            {
+                if (provider.ShouldDisplayInWidget)
+                {
+                    VisibleProviders.Add(provider);
+                }
+            }
+
+            OnPropertyChanged(nameof(ShowEmptyState));
+        }
+
+        if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+        {
+            Application.Current.Dispatcher.Invoke(Update);
+        }
+        else
+        {
+            Update();
+        }
     }
 
     public void Start()
@@ -255,6 +319,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
 
         foreach (var provider in Providers)
         {
+            provider.PropertyChanged -= OnProviderPropertyChanged;
             provider.Dispose();
         }
 

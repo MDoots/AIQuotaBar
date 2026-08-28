@@ -56,6 +56,7 @@ public partial class WidgetWindow : Window
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
     public Action<double, double, double>? SizeOrPositionChanged { get; set; }
+    public Action? OpenSettingsRequested { get; set; }
 
     public double WidgetContentWidth => Math.Max(ResponsiveLayoutHelper.MinWidgetWidth, ActualWidth - 20.0);
 
@@ -276,6 +277,11 @@ public partial class WidgetWindow : Window
             var contentWidth = WidgetContentWidth;
             SizeOrPositionChanged?.Invoke(Left, Top, contentWidth);
         }
+    }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        OpenSettingsRequested?.Invoke();
     }
 
     private void MinimizeButton_Click(object sender, RoutedEventArgs e)

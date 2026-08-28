@@ -12,6 +12,7 @@ public sealed class TrayManager : IDisposable
     private readonly ContextMenuStrip _contextMenu;
     private readonly ToolStripMenuItem _showMenuItem;
     private readonly ToolStripMenuItem _refreshMenuItem;
+    private readonly ToolStripMenuItem _settingsMenuItem;
     private readonly ToolStripMenuItem _compactModeMenuItem;
     private readonly ToolStripMenuItem _alwaysOnTopMenuItem;
     private readonly ToolStripMenuItem _startWithWindowsMenuItem;
@@ -19,6 +20,7 @@ public sealed class TrayManager : IDisposable
 
     private readonly WidgetViewModel _viewModel;
     private readonly Action _showWindowAction;
+    private readonly Action _showSettingsAction;
     private readonly Action _exitAction;
     private readonly Action<bool>? _startWithWindowsChanged;
     private bool _disposed;
@@ -26,11 +28,13 @@ public sealed class TrayManager : IDisposable
     public TrayManager(
         WidgetViewModel viewModel,
         Action showWindowAction,
+        Action showSettingsAction,
         Action exitAction,
         Action<bool>? startWithWindowsChanged = null)
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _showWindowAction = showWindowAction ?? throw new ArgumentNullException(nameof(showWindowAction));
+        _showSettingsAction = showSettingsAction ?? throw new ArgumentNullException(nameof(showSettingsAction));
         _exitAction = exitAction ?? throw new ArgumentNullException(nameof(exitAction));
         _startWithWindowsChanged = startWithWindowsChanged;
 
@@ -49,6 +53,8 @@ public sealed class TrayManager : IDisposable
                 _viewModel.RefreshCommand.Execute(null);
             }
         });
+
+        _settingsMenuItem = new ToolStripMenuItem("Settings...", null, (s, e) => _showSettingsAction());
 
         _compactModeMenuItem = new ToolStripMenuItem("Compact Mode", null, (s, e) =>
         {
@@ -93,6 +99,8 @@ public sealed class TrayManager : IDisposable
 
         _contextMenu.Items.Add(_showMenuItem);
         _contextMenu.Items.Add(_refreshMenuItem);
+        _contextMenu.Items.Add(new ToolStripSeparator());
+        _contextMenu.Items.Add(_settingsMenuItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_compactModeMenuItem);
         _contextMenu.Items.Add(_alwaysOnTopMenuItem);

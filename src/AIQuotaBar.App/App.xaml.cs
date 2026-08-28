@@ -1,5 +1,6 @@
 namespace AIQuotaBar.App;
 
+using System.IO;
 using System.Windows;
 using AIQuotaBar.App.Layout;
 using AIQuotaBar.App.Settings;
@@ -31,6 +32,7 @@ public partial class App : Application
             IsCompactMode = _settings.IsCompactMode,
             WidgetWidth = initialContentWidth
         };
+        _viewModel.UpdateVisibility(_settings);
 
         var safePos = PositionHelper.GetSafePosition(_settings.WindowLeft, _settings.WindowTop, windowWidth: outerWindowWidth);
 
@@ -40,7 +42,8 @@ public partial class App : Application
             WindowStartupLocation = WindowStartupLocation.Manual,
             Width = outerWindowWidth,
             Left = safePos.Left,
-            Top = safePos.Top
+            Top = safePos.Top,
+            OpenSettingsRequested = ShowSettingsWindow
         };
 
         // Persist position and width when moved or resized
@@ -89,6 +92,7 @@ public partial class App : Application
                     _window.Activate();
                 }
             },
+            showSettingsAction: ShowSettingsWindow,
             exitAction: () => Shutdown(),
             startWithWindowsChanged: enabled =>
             {
@@ -101,6 +105,36 @@ public partial class App : Application
 
         _viewModel.Start();
         _window.Show();
+    }
+
+    private SettingsWindow? _settingsWindow;
+
+    private void ShowSettingsWindow()
+    {
+        if (_settings == null || _settingsManager == null || _viewModel == null)
+        {
+            return;
+        }
+
+        if (_settingsWindow == null || !_settingsWindow.IsLoaded)
+        {
+            _settingsWindow = new SettingsWindow
+            {
+                DataContext = new SettingsViewModel(_settings, _settingsManager, _viewModel),
+                Owner = _window
+            };
+            _settingsWindow.Closed += (s, e) => _settingsWindow = null;
+            _settingsWindow.Show();
+        }
+        else
+        {
+            if (_settingsWindow.WindowState == WindowState.Minimized)
+            {
+                _settingsWindow.WindowState = WindowState.Normal;
+            }
+            _settingsWindow.Activate();
+            _settingsWindow.Focus();
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

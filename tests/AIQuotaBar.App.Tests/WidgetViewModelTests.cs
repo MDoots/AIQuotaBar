@@ -313,4 +313,22 @@ public class WidgetViewModelTests
         Assert.False(section.IsCompactMode);
         Assert.True(section.ShowAccountPlan);
     }
+
+    [Theory]
+    [InlineData(330, AIQuotaBar.App.Layout.WidgetLayoutMode.Full, true)]
+    [InlineData(400, AIQuotaBar.App.Layout.WidgetLayoutMode.Full, true)]
+    [InlineData(270, AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, true)]
+    [InlineData(300, AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, true)]
+    [InlineData(220, AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, false)]
+    [InlineData(269, AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, false)]
+    [InlineData(150, AIQuotaBar.App.Layout.WidgetLayoutMode.Micro, false)]
+    [InlineData(200, AIQuotaBar.App.Layout.WidgetLayoutMode.Micro, false)]
+    public void ShowSettingsButton_RespectsResponsiveBreakpointModes(double width, AIQuotaBar.App.Layout.WidgetLayoutMode expectedMode, bool expectedShowSettings)
+    {
+        using var vm = new WidgetViewModel();
+        vm.WidgetWidth = width;
+
+        Assert.Equal(expectedMode, vm.LayoutMode);
+        Assert.Equal(expectedShowSettings, vm.ShowSettingsButton);
+    }
 }
