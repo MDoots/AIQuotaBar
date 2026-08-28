@@ -1,6 +1,7 @@
 namespace AIQuotaBar.App.ViewModels;
 
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using AIQuotaBar.App.Layout;
@@ -50,6 +51,9 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             {
                 OnPropertyChanged(nameof(ShowFooter));
                 OnPropertyChanged(nameof(AppTitleText));
+                OnPropertyChanged(nameof(ShowAppTitle));
+                OnPropertyChanged(nameof(ShowModeToggle));
+                OnPropertyChanged(nameof(MainCardMargin));
                 foreach (var provider in Providers)
                 {
                     provider.LayoutMode = value;
@@ -59,6 +63,9 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     }
 
     public string AppTitleText => "AIQuotaBar";
+    public bool ShowAppTitle => LayoutMode != WidgetLayoutMode.Micro;
+    public bool ShowModeToggle => LayoutMode != WidgetLayoutMode.Micro;
+    public Thickness MainCardMargin => LayoutMode == WidgetLayoutMode.Micro ? new Thickness(6, 6, 6, 6) : new Thickness(10, 8, 10, 8);
 
     public bool ShowFooter => !IsCompactMode && LayoutMode != WidgetLayoutMode.Micro;
 

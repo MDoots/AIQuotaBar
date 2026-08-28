@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:conv="clr-namespace:AIQuotaBar.App.Converters"
+        xmlns:ctrl="clr-namespace:AIQuotaBar.App.Controls"
         xmlns:vm="clr-namespace:AIQuotaBar.App.ViewModels"
         mc:Ignorable="d"
         Title="AIQuotaBar"
@@ -15,12 +16,15 @@
         ShowInTaskbar="False"
         ResizeMode="CanResize"
         SizeToContent="Height"
-        MinWidth="200"
-        MaxWidth="1220"
+        MinWidth="170"
+        MaxWidth="580"
         MaxHeight="620"
         SnapsToDevicePixels="True"
         UseLayoutRounding="True"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        MouseMove="Window_MouseMove"
+        MouseLeftButtonUp="Window_MouseLeftButtonUp"
+        LostMouseCapture="Window_LostMouseCapture"
         FontFamily="Segoe UI Variable, Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif"
         d:DataContext="{d:DesignInstance vm:WidgetViewModel}">
 
@@ -71,10 +75,10 @@
             <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.45" />
         </Border.Effect>
 
-        <Grid Margin="10,8,10,8">
+        <Grid Margin="{Binding MainCardMargin}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" /> <!-- Top Action Bar -->
-                <RowDefinition Height="*" MaxHeight="520" />  <!-- Stacked Provider Sections -->
+                <RowDefinition Height="Auto" /> <!-- Stacked Provider Sections -->
                 <RowDefinition Height="Auto" /> <!-- Footer (Expanded mode) -->
             </Grid.RowDefinitions>
 
@@ -85,14 +89,15 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- App Title / Brand -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- App Title / Brand (Hidden in Micro mode) -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding ShowAppTitle, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding AppTitleText}" FontWeight="Bold" FontSize="12.5" Foreground="#E4E4E7" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
 
                 <!-- Window Action Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding ToggleModeCommand}" ToolTip="{Binding ModeToggleTooltip}" Width="22" Height="22" Margin="0,0,2,0">
+                    <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding ToggleModeCommand}" ToolTip="{Binding ModeToggleTooltip}" Width="22" Height="22" Margin="0,0,2,0"
+                            Visibility="{Binding ShowModeToggle, Converter={StaticResource BoolToVisConverter}}">
                         <TextBlock Text="{Binding ModeToggleText}" FontSize="12" FontWeight="Bold" Margin="0,-1,0,0" />
                     </Button>
                     <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding RefreshCommand}" ToolTip="Refresh Quotas" Width="22" Height="22" Margin="0,0,2,0">
@@ -108,11 +113,11 @@
             </Grid>
 
             <!-- 2. Stacked Provider Sections -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
+            <ScrollViewer Grid.Row="1" MaxHeight="520" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
                 <ItemsControl ItemsSource="{Binding Providers}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Border Margin="0,2,0,6" Background="#1C1C20" CornerRadius="8" BorderBrush="#27272A" BorderThickness="1" Padding="8,6">
+                            <Border Margin="0,2,0,6" Background="#1C1C20" CornerRadius="8" BorderBrush="#27272A" BorderThickness="1" Padding="{Binding CardPadding}">
                                 <StackPanel>
                                     <!-- Provider Section Header -->
                                     <Grid Margin="0,0,0,4">
@@ -126,7 +131,7 @@
                                             <Border Background="{Binding ProviderAccentColor}" Width="6" Height="6" CornerRadius="3" Margin="0,0,5,0" VerticalAlignment="Center" />
                                             <TextBlock Text="{Binding DisplayProviderName}" FontWeight="SemiBold" FontSize="11.5" Foreground="#FAFAFA" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
-                                            <!-- Plan Badge (Full mode + Expanded view only) -->
+                                             <!-- Plan Badge (Full mode + Expanded view only) -->
                                             <Border Background="#27272A" CornerRadius="4" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
                                                     Visibility="{Binding ShowAccountPlan, Converter={StaticResource BoolToVisConverter}}">
                                                 <TextBlock Text="{Binding AccountPlan}" FontSize="10" Foreground="#A1A1AA" FontWeight="Medium" />
@@ -138,7 +143,7 @@
                                     <ItemsControl ItemsSource="{Binding Windows}" Visibility="{Binding HasWindows, Converter={StaticResource BoolToVisConverter}}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Margin="0,1,0,3" Background="#242429" CornerRadius="5" Padding="7,5" 
+                                                <Border Margin="0,1,0,3" Background="#242429" CornerRadius="5" Padding="{Binding WindowPadding}"
                                                         ToolTip="{Binding TooltipText}"
                                                         AutomationProperties.Name="{Binding AccessibilityText}">
                                                     <StackPanel>
@@ -149,11 +154,16 @@
                                                                 <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
 
-                                                            <!-- Window Title -->
-                                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Medium" FontSize="11" Foreground="#F4F4F5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                            <!-- Window Title (Adaptive Candidate Fitting) -->
+                                                            <ctrl:AdaptiveLabelPresenter CandidateLabels="{Binding CandidateLabels}"
+                                                                                         FontFamily="Segoe UI Variable, Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif"
+                                                                                         FontSize="11"
+                                                                                         FontWeight="Medium"
+                                                                                         Foreground="#F4F4F5"
+                                                                                         VerticalAlignment="Center" />
 
-                                                            <!-- Remaining & Countdown info -->
-                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="4,0,0,0">
+                                                            <!-- Remaining & Countdown info (Column 1 with deliberate 8px gap) -->
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0">
                                                                 <TextBlock Text="{Binding RemainingText}" 
                                                                            FontWeight="Bold" 
                                                                            FontSize="11" 

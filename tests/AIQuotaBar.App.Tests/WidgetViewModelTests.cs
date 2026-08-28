@@ -217,6 +217,8 @@ public class WidgetViewModelTests
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.LayoutMode);
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.Windows[0].LayoutMode);
         Assert.Equal("Gemini · 5-Hour", section.Windows[0].DisplayName);
+        Assert.True(vm.ShowAppTitle);
+        Assert.True(vm.ShowModeToggle);
 
         // Change width to 500px -> Full
         vm.WidgetWidth = 500;
@@ -225,6 +227,8 @@ public class WidgetViewModelTests
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.LayoutMode);
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Full, section.Windows[0].LayoutMode);
         Assert.Equal("Gemini · 5-Hour", section.Windows[0].DisplayName);
+        Assert.True(vm.ShowAppTitle);
+        Assert.True(vm.ShowModeToggle);
 
         // Change width to 300px -> Compact
         vm.WidgetWidth = 300;
@@ -232,6 +236,8 @@ public class WidgetViewModelTests
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, section.LayoutMode);
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Compact, section.Windows[0].LayoutMode);
         Assert.Equal("Gemini · 5h", section.Windows[0].DisplayName);
+        Assert.True(vm.ShowAppTitle);
+        Assert.True(vm.ShowModeToggle);
 
         // Change width to 250px -> Minimal
         vm.WidgetWidth = 250;
@@ -239,6 +245,8 @@ public class WidgetViewModelTests
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, section.LayoutMode);
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Minimal, section.Windows[0].LayoutMode);
         Assert.Equal("Gemini · 5h", section.Windows[0].DisplayName);
+        Assert.True(vm.ShowAppTitle);
+        Assert.True(vm.ShowModeToggle);
 
         // Change width to 200px -> Micro
         vm.WidgetWidth = 200;
@@ -247,6 +255,8 @@ public class WidgetViewModelTests
         Assert.Equal(AIQuotaBar.App.Layout.WidgetLayoutMode.Micro, section.Windows[0].LayoutMode);
         Assert.Equal("G · 5h", section.Windows[0].DisplayName);
         Assert.False(vm.ShowFooter);
+        Assert.False(vm.ShowAppTitle);
+        Assert.False(vm.ShowModeToggle);
     }
 
     [Theory]

@@ -2,6 +2,194 @@ namespace AIQuotaBar.App.Layout;
 
 public static class QuotaLabelFormatter
 {
+    public static IReadOnlyList<string> GetCandidateLabels(string? displayName, string? providerId = null, string? windowId = null)
+    {
+        if (string.IsNullOrWhiteSpace(displayName))
+        {
+            return Array.Empty<string>();
+        }
+
+        var isCodex = !string.IsNullOrWhiteSpace(providerId) &&
+                      providerId.Contains("codex", StringComparison.OrdinalIgnoreCase);
+
+        if (isCodex)
+        {
+            return GetCodexCandidateLabels(displayName, windowId);
+        }
+
+        if (displayName.Contains(" · "))
+        {
+            return GetCompoundCandidateLabels(displayName);
+        }
+
+        return GetStandaloneCandidateLabels(displayName);
+    }
+
+    public static string SelectFittingLabel(IReadOnlyList<string> candidates, double availableWidth, Func<string, double> measureWidth)
+    {
+        if (candidates == null || candidates.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        if (measureWidth == null)
+        {
+            return candidates[0];
+        }
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            var candidate = candidates[i];
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                continue;
+            }
+
+            var width = measureWidth(candidate);
+            if (width <= availableWidth || i == candidates.Count - 1)
+            {
+                return candidate;
+            }
+        }
+
+        return candidates[^1];
+    }
+
+    private static IReadOnlyList<string> GetCodexCandidateLabels(string displayName, string? windowId)
+    {
+        var raw = displayName.Trim();
+        var list = new List<string>();
+
+        if (raw.Contains("5-Hour", StringComparison.OrdinalIgnoreCase) || raw.Contains("5 Hour", StringComparison.OrdinalIgnoreCase))
+        {
+            list.Add("5-Hour");
+            list.Add("5h");
+        }
+        else if (raw.Contains("Weekly", StringComparison.OrdinalIgnoreCase) || raw.Contains("Week", StringComparison.OrdinalIgnoreCase))
+        {
+            list.Add("Weekly");
+            list.Add("Week");
+            list.Add("W");
+        }
+        else if (raw.Contains("Primary", StringComparison.OrdinalIgnoreCase))
+        {
+            list.Add("Primary");
+            list.Add("Pri");
+        }
+        else if (raw.Contains("Secondary", StringComparison.OrdinalIgnoreCase))
+        {
+            list.Add("Secondary");
+            list.Add("Sec");
+        }
+        else
+        {
+            var clean = raw.EndsWith(" Window", StringComparison.OrdinalIgnoreCase)
+                ? raw[..^7].Trim()
+                : raw;
+            list.Add(clean);
+            list.Add(AbbreviateSuffix(clean, micro: true));
+        }
+
+        return list.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+    }
+
+    private static IReadOnlyList<string> GetCompoundCandidateLabels(string displayName)
+    {
+        var parts = displayName.Split(new[] { " · " }, 2, StringSplitOptions.None);
+        var prefix = parts[0].Trim();
+        var suffix = parts[1].Trim();
+        var list = new List<string>();
+
+        if (prefix.Contains("Gemini", StringComparison.OrdinalIgnoreCase))
+        {
+            if (suffix.Contains("5-Hour", StringComparison.OrdinalIgnoreCase) || suffix.Contains("5 Hour", StringComparison.OrdinalIgnoreCase))
+            {
+                list.Add("Gemini · 5-Hour");
+                list.Add("Gemini · 5h");
+                list.Add("Gemini 5h");
+                list.Add("G · 5h");
+                list.Add("G 5h");
+            }
+            else if (suffix.Contains("Weekly", StringComparison.OrdinalIgnoreCase) || suffix.Contains("Week", StringComparison.OrdinalIgnoreCase))
+            {
+                list.Add("Gemini · Weekly");
+                list.Add("Gemini · Week");
+                list.Add("Gemini · W");
+                list.Add("Gemini W");
+                list.Add("G · W");
+                list.Add("G W");
+            }
+            else
+            {
+                list.Add($"{prefix} · {suffix}");
+                list.Add($"{prefix} · {AbbreviateSuffix(suffix, compact: true)}");
+                list.Add($"G · {AbbreviateSuffix(suffix, micro: true)}");
+            }
+        }
+        else if (prefix.Contains("Claude", StringComparison.OrdinalIgnoreCase) && prefix.Contains("GPT", StringComparison.OrdinalIgnoreCase))
+        {
+            if (suffix.Contains("5-Hour", StringComparison.OrdinalIgnoreCase) || suffix.Contains("5 Hour", StringComparison.OrdinalIgnoreCase))
+            {
+                list.Add("Claude & GPT · 5-Hour");
+                list.Add("Claude & GPT · 5h");
+                list.Add("Claude/GPT · 5h");
+                list.Add("Claude/GPT 5h");
+                list.Add("Claude · 5h");
+                list.Add("C/G · 5h");
+                list.Add("CG · 5h");
+                list.Add("CG 5h");
+            }
+            else if (suffix.Contains("Weekly", StringComparison.OrdinalIgnoreCase) || suffix.Contains("Week", StringComparison.OrdinalIgnoreCase))
+            {
+                list.Add("Claude & GPT · Weekly");
+                list.Add("Claude & GPT · Week");
+                list.Add("Claude/GPT · Week");
+                list.Add("Claude/GPT Week");
+                list.Add("Claude/GPT - W");
+                list.Add("Claude · Week");
+                list.Add("C/G · W");
+                list.Add("CG · W");
+                list.Add("CG W");
+            }
+            else
+            {
+                list.Add($"{prefix} · {suffix}");
+                list.Add($"{prefix} · {AbbreviateSuffix(suffix, compact: true)}");
+                list.Add($"CG · {AbbreviateSuffix(suffix, micro: true)}");
+            }
+        }
+        else
+        {
+            list.Add($"{prefix} · {suffix}");
+            list.Add($"{prefix} · {AbbreviateSuffix(suffix, compact: true)}");
+            list.Add($"{AbbreviatePrefix(prefix, minimal: true)} · {AbbreviateSuffix(suffix, minimal: true)}");
+            list.Add($"{AbbreviatePrefix(prefix, micro: true)} · {AbbreviateSuffix(suffix, micro: true)}");
+        }
+
+        return list.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+    }
+
+    private static IReadOnlyList<string> GetStandaloneCandidateLabels(string name)
+    {
+        var raw = name.Trim();
+        var list = new List<string> { raw };
+
+        if (raw.EndsWith(" Window", StringComparison.OrdinalIgnoreCase))
+        {
+            var stripped = raw[..^7].Trim();
+            list.Add(stripped);
+            list.Add(AbbreviateSuffix(stripped, minimal: true));
+            list.Add(AbbreviateSuffix(stripped, micro: true));
+        }
+        else
+        {
+            list.Add(AbbreviateSuffix(raw, minimal: true));
+            list.Add(AbbreviateSuffix(raw, micro: true));
+        }
+
+        return list.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
+    }
+
     public static string Format(string? displayName, WidgetLayoutMode mode, string? providerId = null, string? windowId = null)
     {
         if (string.IsNullOrWhiteSpace(displayName))
@@ -22,64 +210,27 @@ public static class QuotaLabelFormatter
 
             return mode switch
             {
-                WidgetLayoutMode.Compact => FormatCompactCompound(prefix, suffix),
-                WidgetLayoutMode.Minimal => FormatMinimalCompound(prefix, suffix),
-                WidgetLayoutMode.Micro => FormatMicroCompound(prefix, suffix),
+                WidgetLayoutMode.Compact => $"{prefix} · {AbbreviateSuffix(suffix, compact: true)}",
+                WidgetLayoutMode.Minimal => $"{AbbreviatePrefix(prefix, minimal: true)} · {AbbreviateSuffix(suffix, minimal: true)}",
+                WidgetLayoutMode.Micro => $"{AbbreviatePrefix(prefix, micro: true)} · {AbbreviateSuffix(suffix, micro: true)}",
                 _ => displayName
             };
         }
 
-        return mode switch
-        {
-            WidgetLayoutMode.Compact => FormatCompactStandalone(displayName),
-            WidgetLayoutMode.Minimal => FormatMinimalStandalone(displayName),
-            WidgetLayoutMode.Micro => FormatMicroStandalone(displayName, providerId),
-            _ => displayName
-        };
-    }
-
-    private static string FormatCompactCompound(string prefix, string suffix)
-    {
-        var shortSuffix = AbbreviateSuffix(suffix, compact: true);
-        return $"{prefix} · {shortSuffix}";
-    }
-
-    private static string FormatMinimalCompound(string prefix, string suffix)
-    {
-        var minPrefix = AbbreviatePrefix(prefix, minimal: true);
-        var minSuffix = AbbreviateSuffix(suffix, minimal: true);
-        return $"{minPrefix} · {minSuffix}";
-    }
-
-    private static string FormatMicroCompound(string prefix, string suffix)
-    {
-        var microPrefix = AbbreviatePrefix(prefix, micro: true);
-        var microSuffix = AbbreviateSuffix(suffix, micro: true);
-        return $"{microPrefix} · {microSuffix}";
-    }
-
-    private static string FormatCompactStandalone(string name)
-    {
-        if (name.EndsWith(" Window", StringComparison.OrdinalIgnoreCase))
-        {
-            return name[..^7].Trim();
-        }
-        return name;
-    }
-
-    private static string FormatMinimalStandalone(string name)
-    {
-        var clean = FormatCompactStandalone(name);
-        return AbbreviateSuffix(clean, minimal: true);
-    }
-
-    private static string FormatMicroStandalone(string name, string? providerId)
-    {
-        var clean = FormatCompactStandalone(name);
         var isCodex = !string.IsNullOrWhiteSpace(providerId) &&
                       providerId.Contains("codex", StringComparison.OrdinalIgnoreCase);
-        var microSuffix = AbbreviateSuffix(clean, micro: true);
-        return isCodex ? $"C · {microSuffix}" : microSuffix;
+
+        var clean = displayName.EndsWith(" Window", StringComparison.OrdinalIgnoreCase)
+            ? displayName[..^7].Trim()
+            : displayName;
+
+        return mode switch
+        {
+            WidgetLayoutMode.Compact => clean,
+            WidgetLayoutMode.Minimal => AbbreviateSuffix(clean, minimal: true),
+            WidgetLayoutMode.Micro => isCodex ? $"C · {AbbreviateSuffix(clean, micro: true)}" : AbbreviateSuffix(clean, micro: true),
+            _ => displayName
+        };
     }
 
     private static string AbbreviatePrefix(string prefix, bool minimal = false, bool micro = false)

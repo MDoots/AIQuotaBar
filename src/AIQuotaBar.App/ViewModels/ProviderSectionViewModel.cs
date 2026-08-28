@@ -1,6 +1,7 @@
 namespace AIQuotaBar.App.ViewModels;
 
 using System.Collections.ObjectModel;
+using System.Windows;
 using AIQuotaBar.App.Layout;
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
@@ -48,6 +49,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(LayoutMode));
                 OnPropertyChanged(nameof(DisplayProviderName));
                 OnPropertyChanged(nameof(ShowAccountPlan));
+                OnPropertyChanged(nameof(CardPadding));
                 foreach (var window in Windows)
                 {
                     window.LayoutMode = value;
@@ -55,6 +57,8 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             }
         }
     }
+
+    public Thickness CardPadding => _layoutMode == WidgetLayoutMode.Micro ? new Thickness(5, 5, 5, 5) : new Thickness(8, 6, 8, 6);
 
     public string ProviderAccentColor => ProviderId.ToLowerInvariant() switch
     {

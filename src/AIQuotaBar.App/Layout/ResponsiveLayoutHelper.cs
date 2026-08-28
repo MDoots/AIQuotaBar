@@ -10,15 +10,15 @@ public enum WidgetLayoutMode
 
 public static class ResponsiveLayoutHelper
 {
-    public const double MinWidgetWidth = 180.0;
-    public const double MaxWidgetWidth = 1200.0;
+    public const double MinWidgetWidth = 150.0;
+    public const double MaxWidgetWidth = 560.0;
     public const double DefaultWidgetWidth = 330.0;
 
     // Breakpoint thresholds for client widget width (excluding window shadow margins)
     public const double FullBreakpoint = 330.0;
     public const double CompactBreakpoint = 270.0;
     public const double MinimalBreakpoint = 220.0;
-    public const double MicroBreakpoint = 180.0;
+    public const double MicroBreakpoint = 150.0;
 
     public static WidgetLayoutMode GetLayoutMode(double width)
     {

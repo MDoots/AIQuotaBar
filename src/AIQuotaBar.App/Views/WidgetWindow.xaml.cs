@@ -1,8 +1,13 @@
 namespace AIQuotaBar.App.Views;
 
+using System;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using AIQuotaBar.App.Layout;
 using AIQuotaBar.App.ViewModels;
 
@@ -14,13 +19,50 @@ public partial class WidgetWindow : Window
     private const int HTLEFT = 10;
     private const int HTRIGHT = 11;
 
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOZORDER = 0x0004;
+    private const uint SWP_NOACTIVATE = 0x0010;
+
     // Outer window padding for drop shadow is 10px on each side.
     // Resize grip zone: from outer window edge through the 10px shadow margin + 4px inside the visible border.
     private const double ResizeHitThickness = 14.0;
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
     public Action<double, double, double>? SizeOrPositionChanged { get; set; }
 
     public double WidgetContentWidth => Math.Max(ResponsiveLayoutHelper.MinWidgetWidth, ActualWidth - 20.0);
+
+    private bool _isDraggingWindow;
+    private POINT _initialCursorPos;
+    private RECT _initialWindowRect;
+    private IntPtr _hwnd;
 
     public WidgetWindow()
     {
@@ -30,18 +72,26 @@ public partial class WidgetWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        var hwnd = new WindowInteropHelper(this).Handle;
-        var source = HwndSource.FromHwnd(hwnd);
+        _hwnd = new WindowInteropHelper(this).Handle;
+        var source = HwndSource.FromHwnd(_hwnd);
         source?.AddHook(WndProc);
     }
 
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
     {
         base.OnRenderSizeChanged(sizeInfo);
-        if (sizeInfo.WidthChanged && DataContext is WidgetViewModel vm)
+        if (sizeInfo.WidthChanged)
         {
-            var contentWidth = Math.Max(ResponsiveLayoutHelper.MinWidgetWidth, sizeInfo.NewSize.Width - 20.0);
-            vm.WidgetWidth = contentWidth;
+            if (DataContext is WidgetViewModel vm)
+            {
+                var contentWidth = Math.Max(ResponsiveLayoutHelper.MinWidgetWidth, sizeInfo.NewSize.Width - 20.0);
+                vm.WidgetWidth = contentWidth;
+            }
+
+            if (SizeToContent != SizeToContent.Height)
+            {
+                SizeToContent = SizeToContent.Height;
+            }
         }
     }
 
@@ -92,6 +142,12 @@ public partial class WidgetWindow : Window
         {
             if (WindowState == WindowState.Normal)
             {
+                if (SizeToContent != SizeToContent.Height)
+                {
+                    SizeToContent = SizeToContent.Height;
+                }
+                InvalidateMeasure();
+
                 var contentWidth = WidgetContentWidth;
                 SizeOrPositionChanged?.Invoke(Left, Top, contentWidth);
             }
@@ -100,31 +156,136 @@ public partial class WidgetWindow : Window
         return IntPtr.Zero;
     }
 
+    public static (int newLeft, int newTop) CalculateNewPosition(int initialWindowLeft, int initialWindowTop, int initialCursorX, int initialCursorY, int currentCursorX, int currentCursorY)
+    {
+        int deltaX = currentCursorX - initialCursorX;
+        int deltaY = currentCursorY - initialCursorY;
+        return (initialWindowLeft + deltaX, initialWindowTop + deltaY);
+    }
+
+    private static bool IsInteractiveElement(DependencyObject? element)
+    {
+        while (element != null && element is not Window)
+        {
+            if (element is ButtonBase ||
+                element is TextBox ||
+                element is ScrollBar ||
+                element is Thumb ||
+                element is Slider ||
+                element is ProgressBar)
+            {
+                return true;
+            }
+
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return false;
+    }
+
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ButtonState == MouseButtonState.Pressed)
+        if (e.ButtonState != MouseButtonState.Pressed)
         {
-            DragMove();
+            return;
+        }
 
-            // DragMove blocks until mouse button is released.
-            // Persist the settled position and size once dragging completes.
-            if (WindowState == WindowState.Normal)
+        // Do not initiate window drag if clicking an interactive control
+        if (IsInteractiveElement(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        if (_hwnd == IntPtr.Zero)
+        {
+            _hwnd = new WindowInteropHelper(this).Handle;
+        }
+
+        if (_hwnd != IntPtr.Zero && GetCursorPos(out _initialCursorPos) && GetWindowRect(_hwnd, out _initialWindowRect))
+        {
+            _isDraggingWindow = true;
+            CaptureMouse();
+            e.Handled = true;
+        }
+    }
+
+    private void Window_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingWindow || _hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            EndDrag();
+            return;
+        }
+
+        if (GetCursorPos(out var currentCursor))
+        {
+            var (newLeft, newTop) = CalculateNewPosition(
+                _initialWindowRect.Left,
+                _initialWindowRect.Top,
+                _initialCursorPos.X,
+                _initialCursorPos.Y,
+                currentCursor.X,
+                currentCursor.Y);
+
+            SetWindowPos(_hwnd, IntPtr.Zero, newLeft, newTop, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+    }
+
+    private void Window_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isDraggingWindow)
+        {
+            EndDrag();
+        }
+    }
+
+    private void Window_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        if (_isDraggingWindow)
+        {
+            EndDrag();
+        }
+    }
+
+    private void EndDrag()
+    {
+        if (!_isDraggingWindow)
+        {
+            return;
+        }
+
+        _isDraggingWindow = false;
+        if (IsMouseCaptured)
+        {
+            ReleaseMouseCapture();
+        }
+
+        if (WindowState == WindowState.Normal)
+        {
+            if (_hwnd != IntPtr.Zero && GetWindowRect(_hwnd, out var rect))
             {
-                var contentWidth = WidgetContentWidth;
-                SizeOrPositionChanged?.Invoke(Left, Top, contentWidth);
+                var dpi = VisualTreeHelper.GetDpi(this);
+                Left = rect.Left / dpi.DpiScaleX;
+                Top = rect.Top / dpi.DpiScaleY;
             }
+
+            var contentWidth = WidgetContentWidth;
+            SizeOrPositionChanged?.Invoke(Left, Top, contentWidth);
         }
     }
 
     private void MinimizeButton_Click(object sender, RoutedEventArgs e)
     {
-        // Hide to system tray
         Hide();
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
-        // Genuine application shutdown
         Application.Current.Shutdown();
     }
 }

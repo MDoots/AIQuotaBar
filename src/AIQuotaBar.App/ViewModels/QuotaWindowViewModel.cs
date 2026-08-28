@@ -40,10 +40,13 @@ public sealed class QuotaWindowViewModel : ViewModelBase
                 OnPropertyChanged(nameof(DisplayName));
                 OnPropertyChanged(nameof(ShowCountdown));
                 OnPropertyChanged(nameof(RemainingMargin));
+                OnPropertyChanged(nameof(WindowPadding));
                 OnPropertyChanged(nameof(TooltipText));
             }
         }
     }
+
+    public Thickness WindowPadding => _layoutMode == WidgetLayoutMode.Micro ? new Thickness(4, 4, 4, 4) : new Thickness(7, 5, 7, 5);
 
     public string FormattedRemainingPercent
     {
@@ -96,10 +99,13 @@ public sealed class QuotaWindowViewModel : ViewModelBase
     public QuotaWindowStatus Status => _model.Status;
     public bool IsExhausted => _model.Status == QuotaWindowStatus.Exhausted;
 
+    public IReadOnlyList<string> CandidateLabels { get; }
+
     public QuotaWindowViewModel(QuotaWindow model, string? providerId = null)
     {
         _model = model ?? throw new ArgumentNullException(nameof(model));
         _providerId = providerId;
+        CandidateLabels = QuotaLabelFormatter.GetCandidateLabels(_model.DisplayName, _providerId, _model.Id);
     }
 
     public void RefreshCountdown()
