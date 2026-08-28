@@ -28,6 +28,9 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     public Action<bool>? CompactModeChanged { get; set; }
     public Action<double>? WidgetWidthChanged { get; set; }
 
+    public event Action? QuotaStateUpdated;
+    public event Action? VisibilityStateUpdated;
+
     public ObservableCollection<ProviderSectionViewModel> Providers { get; } = new();
     public ObservableCollection<ProviderSectionViewModel> VisibleProviders { get; } = new();
 
@@ -150,6 +153,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             provider.LayoutMode = _layoutMode;
             provider.IsCompactMode = _isCompactMode;
             provider.PropertyChanged += OnProviderPropertyChanged;
+            provider.SnapshotApplied += OnProviderSnapshotApplied;
 
             var timer = new DispatcherTimer
             {
@@ -181,6 +185,22 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     {
     }
 
+    private int _batchRefreshCount;
+
+    private void OnProviderSnapshotApplied()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        UpdateLastUpdated();
+        if (_batchRefreshCount == 0)
+        {
+            QuotaStateUpdated?.Invoke();
+        }
+    }
+
     private void OnProviderPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ProviderSectionViewModel.ShouldDisplayInWidget)
@@ -206,6 +226,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         }
 
         UpdateVisibleProvidersCollection();
+        VisibilityStateUpdated?.Invoke();
     }
 
     private void UpdateVisibleProvidersCollection()
@@ -257,6 +278,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        Interlocked.Increment(ref _batchRefreshCount);
         OnPropertyChanged(nameof(IsLoading));
         OnPropertyChanged(nameof(CanRefresh));
 
@@ -267,9 +289,11 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         }
         finally
         {
+            Interlocked.Decrement(ref _batchRefreshCount);
             UpdateLastUpdated();
             OnPropertyChanged(nameof(IsLoading));
             OnPropertyChanged(nameof(CanRefresh));
+            QuotaStateUpdated?.Invoke();
         }
     }
 
@@ -320,6 +344,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
         foreach (var provider in Providers)
         {
             provider.PropertyChanged -= OnProviderPropertyChanged;
+            provider.SnapshotApplied -= OnProviderSnapshotApplied;
             provider.Dispose();
         }
 

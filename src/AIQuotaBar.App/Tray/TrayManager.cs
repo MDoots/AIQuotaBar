@@ -1,7 +1,6 @@
 namespace AIQuotaBar.App.Tray;
 
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using AIQuotaBar.App.Settings;
 using AIQuotaBar.App.ViewModels;
@@ -11,6 +10,7 @@ public sealed class TrayManager : IDisposable
     private readonly NotifyIcon _notifyIcon;
     private readonly ContextMenuStrip _contextMenu;
     private readonly ToolStripMenuItem _showMenuItem;
+    private readonly ToolStripMenuItem _statusMenuItem;
     private readonly ToolStripMenuItem _refreshMenuItem;
     private readonly ToolStripMenuItem _settingsMenuItem;
     private readonly ToolStripMenuItem _compactModeMenuItem;
@@ -23,6 +23,10 @@ public sealed class TrayManager : IDisposable
     private readonly Action _showSettingsAction;
     private readonly Action _exitAction;
     private readonly Action<bool>? _startWithWindowsChanged;
+    private readonly Func<bool>? _isNotificationsEnabled;
+    private readonly QuotaNotificationEvaluator _notificationEvaluator;
+
+    private Icon? _currentDynamicIcon;
     private bool _disposed;
 
     public TrayManager(
@@ -30,13 +34,16 @@ public sealed class TrayManager : IDisposable
         Action showWindowAction,
         Action showSettingsAction,
         Action exitAction,
-        Action<bool>? startWithWindowsChanged = null)
+        Action<bool>? startWithWindowsChanged = null,
+        Func<bool>? isNotificationsEnabled = null)
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _showWindowAction = showWindowAction ?? throw new ArgumentNullException(nameof(showWindowAction));
         _showSettingsAction = showSettingsAction ?? throw new ArgumentNullException(nameof(showSettingsAction));
         _exitAction = exitAction ?? throw new ArgumentNullException(nameof(exitAction));
         _startWithWindowsChanged = startWithWindowsChanged;
+        _isNotificationsEnabled = isNotificationsEnabled;
+        _notificationEvaluator = new QuotaNotificationEvaluator();
 
         _contextMenu = new ContextMenuStrip();
 
@@ -44,6 +51,11 @@ public sealed class TrayManager : IDisposable
         _showMenuItem = new ToolStripMenuItem("Show AIQuotaBar", null, (s, e) => _showWindowAction())
         {
             Font = new Font(baseFont, FontStyle.Bold)
+        };
+
+        _statusMenuItem = new ToolStripMenuItem("Waiting for quota data")
+        {
+            Enabled = false
         };
 
         _refreshMenuItem = new ToolStripMenuItem("Refresh", null, (s, e) =>
@@ -98,6 +110,7 @@ public sealed class TrayManager : IDisposable
         _exitMenuItem = new ToolStripMenuItem("Exit", null, (s, e) => _exitAction());
 
         _contextMenu.Items.Add(_showMenuItem);
+        _contextMenu.Items.Add(_statusMenuItem);
         _contextMenu.Items.Add(_refreshMenuItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_settingsMenuItem);
@@ -114,54 +127,111 @@ public sealed class TrayManager : IDisposable
             _startWithWindowsMenuItem.Checked = isEnabled;
         };
 
+        var initialState = TrayHealthCalculator.Calculate(_viewModel.Providers);
+        _currentDynamicIcon = TrayIconFactory.CreateIcon(initialState.HealthLevel);
+        _statusMenuItem.Text = initialState.StatusMenuText;
+
         _notifyIcon = new NotifyIcon
         {
-            Text = "AIQuotaBar",
-            Icon = CreateDefaultIcon(),
+            Text = initialState.TooltipText,
+            Icon = _currentDynamicIcon,
             ContextMenuStrip = _contextMenu,
             Visible = true
         };
 
         _notifyIcon.DoubleClick += (s, e) => _showWindowAction();
+        _notifyIcon.BalloonTipClicked += (s, e) => _showWindowAction();
 
         // Subscribe to ViewModel property changes to keep tray checkmarks synchronized
-        _viewModel.CompactModeChanged += isCompact => _compactModeMenuItem.Checked = isCompact;
-        _viewModel.AlwaysOnTopChanged += isTopmost => _alwaysOnTopMenuItem.Checked = isTopmost;
+        _viewModel.CompactModeChanged += OnCompactModeChanged;
+        _viewModel.AlwaysOnTopChanged += OnAlwaysOnTopChanged;
+
+        // Event-driven tray updates
+        _viewModel.QuotaStateUpdated += OnQuotaStateUpdated;
+        _viewModel.VisibilityStateUpdated += OnVisibilityStateUpdated;
+    }
+
+    private void OnCompactModeChanged(bool isCompact)
+    {
+        _compactModeMenuItem.Checked = isCompact;
+    }
+
+    private void OnAlwaysOnTopChanged(bool isTopmost)
+    {
+        _alwaysOnTopMenuItem.Checked = isTopmost;
+    }
+
+    private void OnQuotaStateUpdated()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        UpdateTrayState(evaluateNotifications: true);
+    }
+
+    private void OnVisibilityStateUpdated()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        UpdateTrayState(evaluateNotifications: false);
+    }
+
+    private void UpdateTrayState(bool evaluateNotifications)
+    {
+        var state = TrayHealthCalculator.Calculate(_viewModel.Providers);
+
+        // 1. Update tooltip safely
+        _notifyIcon.Text = state.TooltipText;
+
+        // 2. Update context menu status line
+        _statusMenuItem.Text = state.StatusMenuText;
+
+        // 3. Update dynamic icon with leak-free management
+        var newIcon = TrayIconFactory.CreateIcon(state.HealthLevel);
+        var oldIcon = _currentDynamicIcon;
+
+        _notifyIcon.Icon = newIcon;
+        _currentDynamicIcon = newIcon;
+
+        oldIcon?.Dispose();
+
+        // 4. Extract visible quota observations
+        var visibleObservations = _viewModel.Providers
+            .Where(p => p.IsVisibleByPreference)
+            .SelectMany(p => p.VisibleWindows.Select(w => new QuotaObservation(
+                p.ProviderId,
+                p.ProviderName,
+                w.Id,
+                w.RawDisplayName,
+                w.RemainingPercent,
+                w.Status)))
+            .ToList();
+
+        var isEnabled = _isNotificationsEnabled?.Invoke() ?? true;
+
+        if (evaluateNotifications)
+        {
+            var notification = _notificationEvaluator.Evaluate(visibleObservations, isEnabled);
+            if (notification != null)
+            {
+                _notifyIcon.ShowBalloonTip(3000, notification.Title, notification.Message, notification.Icon);
+            }
+        }
+        else
+        {
+            // Visibility change only: synchronize evaluator state silently without firing alerts
+            _notificationEvaluator.Evaluate(visibleObservations, notificationsEnabled: false);
+        }
     }
 
     public void UpdateStartWithWindowsChecked(bool enabled)
     {
         _startWithWindowsMenuItem.Checked = enabled;
-    }
-
-    private static Icon CreateDefaultIcon()
-    {
-        using var bitmap = new Bitmap(32, 32);
-        using (var g = Graphics.FromImage(bitmap))
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(Color.Transparent);
-
-            // Dark rounded background
-            using var bgBrush = new SolidBrush(Color.FromArgb(24, 24, 27));
-            using var borderPen = new Pen(Color.FromArgb(63, 63, 70), 1.5f);
-            
-            var rect = new Rectangle(1, 1, 29, 29);
-            g.FillEllipse(bgBrush, rect);
-            g.DrawEllipse(borderPen, rect);
-
-            // Three horizontal quota level bars (emerald, cyan, amber)
-            using var barBrush1 = new SolidBrush(Color.FromArgb(16, 185, 129)); // Emerald
-            using var barBrush2 = new SolidBrush(Color.FromArgb(56, 189, 248)); // Cyan
-            using var barBrush3 = new SolidBrush(Color.FromArgb(245, 158, 11)); // Amber
-
-            g.FillRoundedRectangle(barBrush1, new Rectangle(6, 8, 19, 3), 1);
-            g.FillRoundedRectangle(barBrush2, new Rectangle(6, 14, 15, 3), 1);
-            g.FillRoundedRectangle(barBrush3, new Rectangle(6, 20, 11, 3), 1);
-        }
-
-        var hIcon = bitmap.GetHicon();
-        return Icon.FromHandle(hIcon);
     }
 
     public void Dispose()
@@ -172,22 +242,17 @@ public sealed class TrayManager : IDisposable
         }
         _disposed = true;
 
+        _viewModel.CompactModeChanged -= OnCompactModeChanged;
+        _viewModel.AlwaysOnTopChanged -= OnAlwaysOnTopChanged;
+        _viewModel.QuotaStateUpdated -= OnQuotaStateUpdated;
+        _viewModel.VisibilityStateUpdated -= OnVisibilityStateUpdated;
+
         _notifyIcon.Visible = false;
+        _notifyIcon.Icon = null;
         _notifyIcon.Dispose();
         _contextMenu.Dispose();
-    }
-}
 
-internal static class GraphicsExtensions
-{
-    public static void FillRoundedRectangle(this Graphics g, Brush brush, Rectangle bounds, int radius)
-    {
-        using var path = new GraphicsPath();
-        path.AddArc(bounds.X, bounds.Y, radius * 2, radius * 2, 180, 90);
-        path.AddArc(bounds.Right - radius * 2, bounds.Y, radius * 2, radius * 2, 270, 90);
-        path.AddArc(bounds.Right - radius * 2, bounds.Bottom - radius * 2, radius * 2, radius * 2, 0, 90);
-        path.AddArc(bounds.X, bounds.Bottom - radius * 2, radius * 2, radius * 2, 90, 90);
-        path.CloseFigure();
-        g.FillPath(brush, path);
+        _currentDynamicIcon?.Dispose();
+        _currentDynamicIcon = null;
     }
 }

@@ -194,54 +194,85 @@
                        Foreground="#71717A"
                        Margin="0,0,0,8" />
 
-            <!-- 3. Providers & Rows List -->
+            <!-- 3. Scrollable Settings Content -->
             <ScrollViewer Grid.Row="2"
-                          MaxHeight="400"
+                          MaxHeight="420"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Margin="0,0,0,12"
                           FocusVisualStyle="{x:Null}">
-                <ItemsControl ItemsSource="{Binding Providers}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Margin="0,0,0,10"
-                                    Background="#1C1C20"
-                                    CornerRadius="7"
-                                    BorderBrush="#27272A"
-                                    BorderThickness="1"
-                                    Padding="10,8">
-                                <StackPanel>
-                                    <!-- Provider Section Title & CheckBox -->
-                                    <TextBlock Text="{Binding DisplayName}"
-                                               FontWeight="SemiBold"
-                                               FontSize="12"
-                                               Foreground="#E4E4E7"
-                                               Margin="0,0,0,4" />
+                <StackPanel>
+                    <!-- Providers & Rows List -->
+                    <ItemsControl ItemsSource="{Binding Providers}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,0,0,10"
+                                        Background="#1C1C20"
+                                        CornerRadius="7"
+                                        BorderBrush="#27272A"
+                                        BorderThickness="1"
+                                        Padding="10,8">
+                                    <StackPanel>
+                                        <!-- Provider Section Title & CheckBox -->
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12"
+                                                   Foreground="#E4E4E7"
+                                                   Margin="0,0,0,4" />
 
-                                    <CheckBox Style="{StaticResource DarkCheckBoxStyle}"
-                                              IsChecked="{Binding IsVisible, Mode=TwoWay}"
-                                              Content="Show provider"
-                                              FontWeight="Medium"
-                                              Margin="4,2,0,4"
-                                              AutomationProperties.Name="{Binding DisplayName, StringFormat='Show {0}'}" />
+                                        <CheckBox Style="{StaticResource DarkCheckBoxStyle}"
+                                                  IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                                                  Content="Show provider"
+                                                  FontWeight="Medium"
+                                                  Margin="4,2,0,4"
+                                                  AutomationProperties.Name="{Binding DisplayName, StringFormat='Show {0}'}" />
 
-                                    <!-- Quota Window Rows -->
-                                    <ItemsControl ItemsSource="{Binding Windows}" Margin="18,2,0,0">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <CheckBox Style="{StaticResource DarkCheckBoxStyle}"
-                                                          IsChecked="{Binding IsVisible, Mode=TwoWay}"
-                                                          Content="{Binding DisplayName}"
-                                                          Margin="0,2,0,2"
-                                                          AutomationProperties.Name="{Binding DisplayName, StringFormat='Show {0} quota'}" />
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                                        <!-- Quota Window Rows -->
+                                        <ItemsControl ItemsSource="{Binding Windows}" Margin="18,2,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox Style="{StaticResource DarkCheckBoxStyle}"
+                                                              IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                                                              Content="{Binding DisplayName}"
+                                                              Margin="0,2,0,2"
+                                                              AutomationProperties.Name="{Binding DisplayName, StringFormat='Show {0} quota'}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Notifications Subheading -->
+                    <TextBlock Text="Notifications"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="#71717A"
+                               Margin="0,4,0,8" />
+
+                    <!-- Notifications Card -->
+                    <Border Margin="0,0,0,6"
+                            Background="#1C1C20"
+                            CornerRadius="7"
+                            BorderBrush="#27272A"
+                            BorderThickness="1"
+                            Padding="10,8">
+                        <StackPanel>
+                            <CheckBox Style="{StaticResource DarkCheckBoxStyle}"
+                                      IsChecked="{Binding LowQuotaNotificationsEnabled, Mode=TwoWay}"
+                                      Content="Low quota notifications"
+                                      FontWeight="Medium"
+                                      Margin="4,2,0,2"
+                                      AutomationProperties.Name="Low quota notifications" />
+                            <TextBlock Text="Notify when visible quota drops below 10%."
+                                       FontSize="10.5"
+                                       Foreground="#71717A"
+                                       Margin="28,0,0,2" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
             </ScrollViewer>
 
             <!-- 4. Bottom Action Buttons -->
