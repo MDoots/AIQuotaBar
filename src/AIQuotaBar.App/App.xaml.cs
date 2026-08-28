@@ -1,6 +1,7 @@
 namespace AIQuotaBar.App;
 
 using System.Windows;
+using AIQuotaBar.App.Layout;
 using AIQuotaBar.App.Settings;
 using AIQuotaBar.App.Tray;
 using AIQuotaBar.App.ViewModels;
@@ -21,29 +22,35 @@ public partial class App : Application
         _settingsManager = new SettingsManager();
         _settings = _settingsManager.Load();
 
+        var initialContentWidth = ResponsiveLayoutHelper.ClampWidth(_settings.WidgetWidth);
+        var outerWindowWidth = initialContentWidth + 20.0;
+
         _viewModel = new WidgetViewModel
         {
             IsAlwaysOnTop = _settings.IsAlwaysOnTop,
-            IsCompactMode = _settings.IsCompactMode
+            IsCompactMode = _settings.IsCompactMode,
+            WidgetWidth = initialContentWidth
         };
 
-        var safePos = PositionHelper.GetSafePosition(_settings.WindowLeft, _settings.WindowTop);
+        var safePos = PositionHelper.GetSafePosition(_settings.WindowLeft, _settings.WindowTop, windowWidth: outerWindowWidth);
 
         _window = new WidgetWindow
         {
             DataContext = _viewModel,
             WindowStartupLocation = WindowStartupLocation.Manual,
+            Width = outerWindowWidth,
             Left = safePos.Left,
             Top = safePos.Top
         };
 
-        // Persist position when moved
-        _window.PositionChanged = (left, top) =>
+        // Persist position and width when moved or resized
+        _window.SizeOrPositionChanged = (left, top, width) =>
         {
             if (_settings != null && _settingsManager != null)
             {
                 _settings.WindowLeft = left;
                 _settings.WindowTop = top;
+                _settings.WidgetWidth = width;
                 _settingsManager.Save(_settings);
             }
         };
@@ -98,11 +105,12 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        // Save current window position before shutdown
+        // Save current window position and size before shutdown
         if (_window != null && _settings != null && _settingsManager != null && _window.WindowState == WindowState.Normal)
         {
             _settings.WindowLeft = _window.Left;
             _settings.WindowTop = _window.Top;
+            _settings.WidgetWidth = _window.WidgetContentWidth;
             _settingsManager.Save(_settings);
         }
 

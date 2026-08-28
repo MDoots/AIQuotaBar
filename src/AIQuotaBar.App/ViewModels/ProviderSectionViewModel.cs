@@ -1,6 +1,8 @@
 namespace AIQuotaBar.App.ViewModels;
 
 using System.Collections.ObjectModel;
+using System.Windows;
+using AIQuotaBar.App.Layout;
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
 
@@ -10,7 +12,9 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     private readonly TimeSpan _refreshInterval;
     private CancellationTokenSource? _currentRefreshCts;
     private bool _disposed;
+    private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
 
+    private bool _isCompactMode;
     private bool _isLoading;
     private string _providerName;
     private string? _accountPlan;
@@ -22,6 +26,40 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     public IUsageProvider Provider => _provider;
     public TimeSpan RefreshInterval => _refreshInterval;
 
+    public bool IsCompactMode
+    {
+        get => _isCompactMode;
+        set
+        {
+            if (SetProperty(ref _isCompactMode, value))
+            {
+                OnPropertyChanged(nameof(ShowAccountPlan));
+            }
+        }
+    }
+
+    public WidgetLayoutMode LayoutMode
+    {
+        get => _layoutMode;
+        set
+        {
+            if (_layoutMode != value)
+            {
+                _layoutMode = value;
+                OnPropertyChanged(nameof(LayoutMode));
+                OnPropertyChanged(nameof(DisplayProviderName));
+                OnPropertyChanged(nameof(ShowAccountPlan));
+                OnPropertyChanged(nameof(CardPadding));
+                foreach (var window in Windows)
+                {
+                    window.LayoutMode = value;
+                }
+            }
+        }
+    }
+
+    public Thickness CardPadding => _layoutMode == WidgetLayoutMode.Micro ? new Thickness(5, 5, 5, 5) : new Thickness(8, 6, 8, 6);
+
     public string ProviderAccentColor => ProviderId.ToLowerInvariant() switch
     {
         "codex" => "#10B981",       // Emerald green
@@ -32,8 +70,16 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     public string ProviderName
     {
         get => _providerName;
-        private set => SetProperty(ref _providerName, value);
+        private set
+        {
+            if (SetProperty(ref _providerName, value))
+            {
+                OnPropertyChanged(nameof(DisplayProviderName));
+            }
+        }
     }
+
+    public string DisplayProviderName => ProviderLabelFormatter.Format(ProviderName, _layoutMode);
 
     public string? AccountPlan
     {
@@ -43,11 +89,13 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             if (SetProperty(ref _accountPlan, value))
             {
                 OnPropertyChanged(nameof(HasAccountPlan));
+                OnPropertyChanged(nameof(ShowAccountPlan));
             }
         }
     }
 
     public bool HasAccountPlan => !string.IsNullOrWhiteSpace(AccountPlan);
+    public bool ShowAccountPlan => _layoutMode == WidgetLayoutMode.Full && !_isCompactMode && HasAccountPlan;
 
     public ProviderStatus Status
     {
@@ -168,7 +216,11 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         Windows.Clear();
         foreach (var window in snapshot.Windows)
         {
-            Windows.Add(new QuotaWindowViewModel(window));
+            var windowVm = new QuotaWindowViewModel(window, ProviderId)
+            {
+                LayoutMode = _layoutMode
+            };
+            Windows.Add(windowVm);
         }
 
         OnPropertyChanged(nameof(HasWindows));
