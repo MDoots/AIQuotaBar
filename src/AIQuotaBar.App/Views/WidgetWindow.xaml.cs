@@ -163,7 +163,7 @@ public partial class WidgetWindow : Window
         return (initialWindowLeft + deltaX, initialWindowTop + deltaY);
     }
 
-    private static bool IsInteractiveElement(DependencyObject? element)
+    public static bool IsInteractiveElement(DependencyObject? element)
     {
         while (element != null && element is not Window)
         {
@@ -171,8 +171,7 @@ public partial class WidgetWindow : Window
                 element is TextBox ||
                 element is ScrollBar ||
                 element is Thumb ||
-                element is Slider ||
-                element is ProgressBar)
+                element is Slider)
             {
                 return true;
             }

@@ -8,6 +8,18 @@ using System.Windows.Media;
 
 public sealed class AdaptiveLabelPresenter : FrameworkElement
 {
+    static AdaptiveLabelPresenter()
+    {
+        ClipToBoundsProperty.OverrideMetadata(
+            typeof(AdaptiveLabelPresenter),
+            new FrameworkPropertyMetadata(true));
+    }
+
+    public AdaptiveLabelPresenter()
+    {
+        ClipToBounds = true;
+    }
+
     public static readonly DependencyProperty CandidateLabelsProperty =
         DependencyProperty.Register(
             nameof(CandidateLabels),

@@ -1,5 +1,8 @@
-﻿namespace AIQuotaBar.App.Tests;
+namespace AIQuotaBar.App.Tests;
 
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using AIQuotaBar.App.Controls;
 using AIQuotaBar.App.Views;
 using Xunit;
 
@@ -23,5 +26,75 @@ public class WidgetWindowPositionTests
 
         Assert.Equal(expectedLeft, newLeft);
         Assert.Equal(expectedTop, newTop);
+    }
+
+    [Fact]
+    public void IsInteractiveElement_ProgressBar_ReturnsFalse()
+    {
+        RunOnSta(() =>
+        {
+            var progressBar = new ProgressBar();
+            Assert.False(WidgetWindow.IsInteractiveElement(progressBar));
+        });
+    }
+
+    [Fact]
+    public void IsInteractiveElement_InteractiveControls_ReturnsTrue()
+    {
+        RunOnSta(() =>
+        {
+            Assert.True(WidgetWindow.IsInteractiveElement(new Button()));
+            Assert.True(WidgetWindow.IsInteractiveElement(new TextBox()));
+            Assert.True(WidgetWindow.IsInteractiveElement(new ScrollBar()));
+            Assert.True(WidgetWindow.IsInteractiveElement(new Thumb()));
+            Assert.True(WidgetWindow.IsInteractiveElement(new Slider()));
+        });
+    }
+
+    [Fact]
+    public void IsInteractiveElement_DisplayElements_ReturnsFalse()
+    {
+        RunOnSta(() =>
+        {
+            Assert.False(WidgetWindow.IsInteractiveElement(null));
+            Assert.False(WidgetWindow.IsInteractiveElement(new TextBlock()));
+            Assert.False(WidgetWindow.IsInteractiveElement(new Border()));
+            Assert.False(WidgetWindow.IsInteractiveElement(new Grid()));
+            Assert.False(WidgetWindow.IsInteractiveElement(new AdaptiveLabelPresenter()));
+        });
+    }
+
+    [Fact]
+    public void AdaptiveLabelPresenter_HasClipToBoundsSetToTrue()
+    {
+        RunOnSta(() =>
+        {
+            var presenter = new AdaptiveLabelPresenter();
+            Assert.True(presenter.ClipToBounds);
+        });
+    }
+
+    private static void RunOnSta(Action action)
+    {
+        Exception? exception = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                exception = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (exception != null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(exception).Throw();
+        }
     }
 }
