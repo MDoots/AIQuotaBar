@@ -3,6 +3,7 @@ namespace AIQuotaBar.App.ViewModels;
 using System.Collections.ObjectModel;
 using System.Windows;
 using AIQuotaBar.App.Layout;
+using AIQuotaBar.App.Settings;
 using AIQuotaBar.Core.Interfaces;
 using AIQuotaBar.Core.Models;
 
@@ -15,16 +16,33 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
 
     private bool _isCompactMode;
+    private bool _isVisibleByPreference = true;
     private bool _isLoading;
     private string _providerName;
     private string? _accountPlan;
     private ProviderStatus _status = ProviderStatus.Available;
     private string? _statusMessage;
     private DateTimeOffset? _lastRefreshedAt;
+    private AppSettings? _lastSettings;
+    private readonly List<QuotaWindowViewModel> _allWindows = new();
 
     public string ProviderId => _provider.Id;
     public IUsageProvider Provider => _provider;
     public TimeSpan RefreshInterval => _refreshInterval;
+
+    public bool IsVisibleByPreference
+    {
+        get => _isVisibleByPreference;
+        set
+        {
+            if (SetProperty(ref _isVisibleByPreference, value))
+            {
+                OnPropertyChanged(nameof(ShouldDisplayInWidget));
+            }
+        }
+    }
+
+    public bool ShouldDisplayInWidget => IsVisibleByPreference && (VisibleWindows.Count > 0 || (_allWindows.Count == 0 && (HasStatusMessage || IsLoading)));
 
     public bool IsCompactMode
     {
@@ -50,7 +68,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(DisplayProviderName));
                 OnPropertyChanged(nameof(ShowAccountPlan));
                 OnPropertyChanged(nameof(CardPadding));
-                foreach (var window in Windows)
+                foreach (var window in _allWindows)
                 {
                     window.LayoutMode = value;
                 }
@@ -121,6 +139,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             if (SetProperty(ref _statusMessage, value))
             {
                 OnPropertyChanged(nameof(HasStatusMessage));
+                OnPropertyChanged(nameof(ShouldDisplayInWidget));
             }
         }
     }
@@ -130,7 +149,13 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     public bool IsLoading
     {
         get => _isLoading;
-        private set => SetProperty(ref _isLoading, value);
+        private set
+        {
+            if (SetProperty(ref _isLoading, value))
+            {
+                OnPropertyChanged(nameof(ShouldDisplayInWidget));
+            }
+        }
     }
 
     public DateTimeOffset? LastRefreshedAt
@@ -139,8 +164,11 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _lastRefreshedAt, value);
     }
 
+    public IReadOnlyList<QuotaWindowViewModel> AllWindows => _allWindows;
     public ObservableCollection<QuotaWindowViewModel> Windows { get; } = new();
+    public ObservableCollection<QuotaWindowViewModel> VisibleWindows { get; } = new();
     public bool HasWindows => Windows.Count > 0;
+    public bool HasVisibleWindows => VisibleWindows.Count > 0;
 
     public ProviderSectionViewModel(IUsageProvider provider, TimeSpan refreshInterval)
     {
@@ -188,6 +216,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             if (ReferenceEquals(_currentRefreshCts, cts))
             {
                 IsLoading = false;
+                OnPropertyChanged(nameof(ShouldDisplayInWidget));
             }
         }
     }
@@ -199,7 +228,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        foreach (var window in Windows)
+        foreach (var window in _allWindows)
         {
             window.RefreshCountdown();
         }
@@ -207,23 +236,78 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 
     public void ApplySnapshot(ProviderSnapshot snapshot)
     {
-        ProviderName = snapshot.ProviderDisplayName;
-        AccountPlan = snapshot.AccountPlan;
-        Status = snapshot.Status;
-        StatusMessage = snapshot.StatusMessage;
-        LastRefreshedAt = snapshot.Timestamp;
-
-        Windows.Clear();
-        foreach (var window in snapshot.Windows)
+        void Apply()
         {
-            var windowVm = new QuotaWindowViewModel(window, ProviderId)
+            ProviderName = snapshot.ProviderDisplayName;
+            AccountPlan = snapshot.AccountPlan;
+            Status = snapshot.Status;
+            StatusMessage = snapshot.StatusMessage;
+            LastRefreshedAt = snapshot.Timestamp;
+
+            _allWindows.Clear();
+            Windows.Clear();
+            foreach (var window in snapshot.Windows)
             {
-                LayoutMode = _layoutMode
-            };
-            Windows.Add(windowVm);
+                var windowVm = new QuotaWindowViewModel(window, ProviderId)
+                {
+                    LayoutMode = _layoutMode
+                };
+                _allWindows.Add(windowVm);
+                Windows.Add(windowVm);
+            }
+
+            ApplyVisibilityFilterInternal(_lastSettings);
+
+            OnPropertyChanged(nameof(HasWindows));
         }
 
-        OnPropertyChanged(nameof(HasWindows));
+        if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+        {
+            Application.Current.Dispatcher.Invoke(Apply);
+        }
+        else
+        {
+            Apply();
+        }
+    }
+
+    public void ApplyVisibilityFilter(AppSettings? settings)
+    {
+        _lastSettings = settings;
+        ApplyVisibilityFilterInternal(settings);
+    }
+
+    private void ApplyVisibilityFilterInternal(AppSettings? settings)
+    {
+        void Filter()
+        {
+            if (settings != null)
+            {
+                IsVisibleByPreference = settings.IsProviderVisible(ProviderId);
+            }
+
+            VisibleWindows.Clear();
+            foreach (var window in _allWindows)
+            {
+                var isVisible = settings == null || settings.IsQuotaWindowVisible(ProviderId, window.Id);
+                if (isVisible)
+                {
+                    VisibleWindows.Add(window);
+                }
+            }
+
+            OnPropertyChanged(nameof(HasVisibleWindows));
+            OnPropertyChanged(nameof(ShouldDisplayInWidget));
+        }
+
+        if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+        {
+            Application.Current.Dispatcher.Invoke(Filter);
+        }
+        else
+        {
+            Filter();
+        }
     }
 
     public void Dispose()
