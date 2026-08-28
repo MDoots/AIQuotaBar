@@ -43,4 +43,36 @@ public static class PositionHelper
 
         return (Math.Max(primaryArea.Left, defaultLeft), Math.Max(primaryArea.Top, defaultTop));
     }
+
+    public static (double Left, double Top) GetCenteredPosition(
+        double windowWidth = 300,
+        double windowHeight = 160,
+        Func<Rectangle>? getPrimaryScreenBounds = null)
+    {
+        var primaryArea = getPrimaryScreenBounds?.Invoke()
+            ?? (Screen.PrimaryScreen?.WorkingArea
+                ?? new Rectangle(0, 0, 1920, 1080));
+
+        var centeredLeft = primaryArea.Left + (primaryArea.Width - windowWidth) / 2.0;
+        var centeredTop = primaryArea.Top + (primaryArea.Height - windowHeight) / 2.0;
+
+        return (Math.Max(primaryArea.Left, centeredLeft), Math.Max(primaryArea.Top, centeredTop));
+    }
+
+    public static (int TargetX, int TargetY) CalculateCenteredPhysicalPosition(
+        int windowWidthPx,
+        int windowHeightPx,
+        int workAreaLeft,
+        int workAreaTop,
+        int workAreaRight,
+        int workAreaBottom)
+    {
+        int workAreaWidth = workAreaRight - workAreaLeft;
+        int workAreaHeight = workAreaBottom - workAreaTop;
+
+        int targetX = workAreaLeft + (workAreaWidth - windowWidthPx) / 2;
+        int targetY = workAreaTop + (workAreaHeight - windowHeightPx) / 2;
+
+        return (targetX, targetY);
+    }
 }

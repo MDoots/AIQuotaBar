@@ -90,4 +90,18 @@ public class CodexUsageProviderTests
         Assert.DoesNotContain("secret_user", snapshot.StatusMessage);
         Assert.DoesNotContain("sk-secret123", snapshot.StatusMessage);
     }
+
+    [Fact]
+    public async Task GetUsageAsync_ReturnsUnauthenticated_WhenRpcExceptionIndicatesAuthRequired()
+    {
+        var runner = new MockRunner((_, _) => throw new CodexRpcException(-32000, "User is unauthenticated: login required"));
+        var provider = new CodexUsageProvider(
+            processRunner: runner,
+            executableLocator: () => @"C:\codex.exe");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Unauthenticated, snapshot.Status);
+        Assert.Equal("Codex is not authenticated", snapshot.StatusMessage);
+    }
 }

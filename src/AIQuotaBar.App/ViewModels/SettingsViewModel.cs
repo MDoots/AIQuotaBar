@@ -1,8 +1,10 @@
 namespace AIQuotaBar.App.ViewModels;
 
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows.Input;
 using AIQuotaBar.App.Layout;
+using AIQuotaBar.App.Providers;
 using AIQuotaBar.App.Settings;
 
 public sealed class SettingsViewModel : ViewModelBase, IDisposable
@@ -10,12 +12,29 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     private readonly AppSettings _settings;
     private readonly SettingsManager _settingsManager;
     private readonly WidgetViewModel? _widgetViewModel;
+    private readonly Action<Uri>? _urlLauncher;
     private bool _lowQuotaNotificationsEnabled;
+    private bool _isRescanning;
     private bool _disposed;
 
     public Action? RequestClose { get; set; }
 
+    public ObservableCollection<ProviderSetupItemViewModel> ProviderSetupItems { get; } = new();
     public ObservableCollection<ProviderVisibilityItemViewModel> Providers { get; } = new();
+
+    public bool IsRescanning
+    {
+        get => _isRescanning;
+        private set
+        {
+            if (SetProperty(ref _isRescanning, value))
+            {
+                OnPropertyChanged(nameof(CanRescan));
+            }
+        }
+    }
+
+    public bool CanRescan => !IsRescanning && (_widgetViewModel == null || !_widgetViewModel.IsDiscoveringProviders);
 
     public WidgetDockMode DockMode
     {
@@ -107,28 +126,40 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     public ICommand ResetDefaultsCommand { get; }
+    public ICommand RescanCommand { get; }
     public ICommand CloseCommand { get; }
 
     public SettingsViewModel(
         AppSettings settings,
         SettingsManager settingsManager,
-        WidgetViewModel? widgetViewModel = null)
+        WidgetViewModel? widgetViewModel = null,
+        Action<Uri>? urlLauncher = null)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager));
         _widgetViewModel = widgetViewModel;
+        _urlLauncher = urlLauncher;
         _lowQuotaNotificationsEnabled = _settings.LowQuotaNotificationsEnabled;
         _autoHideDockedBar = _settings.AutoHideDockedBar;
 
         if (_widgetViewModel != null)
         {
             _widgetViewModel.DockModeChanged += OnWidgetDockModeChanged;
+            _widgetViewModel.ProviderDiscoveryUpdated += OnProviderDiscoveryUpdated;
+            _widgetViewModel.QuotaStateUpdated += OnQuotaStateUpdated;
+            foreach (var provider in _widgetViewModel.Providers)
+            {
+                provider.PropertyChanged += OnProviderSectionPropertyChanged;
+            }
         }
 
         ResetDefaultsCommand = new RelayCommand(ResetDefaults);
+        RescanCommand = new RelayCommand(async () => await RescanProvidersAsync(), () => CanRescan);
         CloseCommand = new RelayCommand(() => RequestClose?.Invoke());
 
+        PopulateSetupItems();
         PopulateProviders();
+        UpdateProviderSetupStatus();
     }
 
     private void OnWidgetDockModeChanged(WidgetDockMode mode)
@@ -138,6 +169,81 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsFloatingDockMode));
         OnPropertyChanged(nameof(IsTopDockMode));
         OnPropertyChanged(nameof(IsBottomDockMode));
+    }
+
+    private void OnProviderDiscoveryUpdated()
+    {
+        UpdateProviderSetupStatus();
+        OnPropertyChanged(nameof(CanRescan));
+    }
+
+    private void OnQuotaStateUpdated()
+    {
+        UpdateProviderSetupStatus();
+    }
+
+    private void OnProviderSectionPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ProviderSectionViewModel.Status)
+            or nameof(ProviderSectionViewModel.StatusMessage)
+            or nameof(ProviderSectionViewModel.IsLoading)
+            or nameof(ProviderSectionViewModel.HasWindows)
+            or nameof(ProviderSectionViewModel.DiscoveryStatus))
+        {
+            UpdateProviderSetupStatus();
+        }
+    }
+
+    public async Task RescanProvidersAsync()
+    {
+        if (IsRescanning || (_widgetViewModel != null && _widgetViewModel.IsDiscoveringProviders))
+        {
+            return;
+        }
+
+        IsRescanning = true;
+        try
+        {
+            if (_widgetViewModel != null)
+            {
+                await _widgetViewModel.RescanProvidersAsync();
+            }
+        }
+        finally
+        {
+            IsRescanning = false;
+            UpdateProviderSetupStatus();
+        }
+    }
+
+    public void UpdateProviderSetupStatus()
+    {
+        foreach (var item in ProviderSetupItems)
+        {
+            var section = _widgetViewModel?.Providers.FirstOrDefault(p => string.Equals(p.ProviderId, item.ProviderId, StringComparison.OrdinalIgnoreCase));
+            var discoveryStatus = section?.DiscoveryStatus ?? ProviderDiscoveryStatus.Unknown;
+            if (_widgetViewModel?.IsDiscoveringProviders == true && discoveryStatus == ProviderDiscoveryStatus.Unknown)
+            {
+                discoveryStatus = ProviderDiscoveryStatus.Checking;
+            }
+            item.UpdateStatus(discoveryStatus, section);
+        }
+    }
+
+    private void PopulateSetupItems()
+    {
+        ProviderSetupItems.Clear();
+        var descriptors = _widgetViewModel?.Descriptors ?? ProviderCatalog.All;
+        if (descriptors.Count == 0)
+        {
+            descriptors = ProviderCatalog.All;
+        }
+
+        foreach (var descriptor in descriptors)
+        {
+            var setupItem = new ProviderSetupItemViewModel(descriptor, _urlLauncher);
+            ProviderSetupItems.Add(setupItem);
+        }
     }
 
     public void Dispose()
@@ -151,6 +257,12 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
         if (_widgetViewModel != null)
         {
             _widgetViewModel.DockModeChanged -= OnWidgetDockModeChanged;
+            _widgetViewModel.ProviderDiscoveryUpdated -= OnProviderDiscoveryUpdated;
+            _widgetViewModel.QuotaStateUpdated -= OnQuotaStateUpdated;
+            foreach (var provider in _widgetViewModel.Providers)
+            {
+                provider.PropertyChanged -= OnProviderSectionPropertyChanged;
+            }
         }
     }
 
@@ -192,44 +304,34 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
         }
         else
         {
-            // Fallback default provider configuration if WidgetViewModel has no providers loaded yet
-            var codexItem = new ProviderVisibilityItemViewModel(
-                "codex",
-                "OpenAI Codex",
-                _settings.IsProviderVisible("codex"),
-                OnProviderVisibilityChanged);
-            AddFallbackWindows(codexItem, "codex");
-            Providers.Add(codexItem);
-
-            var antigravityItem = new ProviderVisibilityItemViewModel(
-                "antigravity",
-                "Google Antigravity",
-                _settings.IsProviderVisible("antigravity"),
-                OnProviderVisibilityChanged);
-            AddFallbackWindows(antigravityItem, "antigravity");
-            Providers.Add(antigravityItem);
+            // Fallback default provider configuration using ProviderCatalog
+            foreach (var descriptor in ProviderCatalog.All)
+            {
+                var item = new ProviderVisibilityItemViewModel(
+                    descriptor.Id,
+                    descriptor.DisplayName,
+                    _settings.IsProviderVisible(descriptor.Id),
+                    OnProviderVisibilityChanged);
+                AddFallbackWindows(item, descriptor.Id);
+                Providers.Add(item);
+            }
         }
     }
 
     private void AddFallbackWindows(ProviderVisibilityItemViewModel providerItem, string providerId)
     {
-        if (string.Equals(providerId, "codex", StringComparison.OrdinalIgnoreCase))
+        var descriptor = ProviderCatalog.GetDescriptor(providerId);
+        if (descriptor != null)
         {
-            providerItem.Windows.Add(new QuotaWindowVisibilityItemViewModel(
-                "codex", "primary", "5-Hour", _settings.IsQuotaWindowVisible("codex", "primary"), OnWindowVisibilityChanged));
-            providerItem.Windows.Add(new QuotaWindowVisibilityItemViewModel(
-                "codex", "secondary", "Weekly", _settings.IsQuotaWindowVisible("codex", "secondary"), OnWindowVisibilityChanged));
-        }
-        else if (string.Equals(providerId, "antigravity", StringComparison.OrdinalIgnoreCase))
-        {
-            providerItem.Windows.Add(new QuotaWindowVisibilityItemViewModel(
-                "antigravity", "gemini_gemini-5h", "Gemini · 5-Hour", _settings.IsQuotaWindowVisible("antigravity", "gemini_gemini-5h"), OnWindowVisibilityChanged));
-            providerItem.Windows.Add(new QuotaWindowVisibilityItemViewModel(
-                "antigravity", "gemini_gemini-weekly", "Gemini · Weekly", _settings.IsQuotaWindowVisible("antigravity", "gemini_gemini-weekly"), OnWindowVisibilityChanged));
-            providerItem.Windows.Add(new QuotaWindowVisibilityItemViewModel(
-                "antigravity", "claude_and_gpt_3p-5h", "Claude & GPT · 5-Hour", _settings.IsQuotaWindowVisible("antigravity", "claude_and_gpt_3p-5h"), OnWindowVisibilityChanged));
-            providerItem.Windows.Add(new QuotaWindowVisibilityItemViewModel(
-                "antigravity", "claude_and_gpt_3p-weekly", "Claude & GPT · Weekly", _settings.IsQuotaWindowVisible("antigravity", "claude_and_gpt_3p-weekly"), OnWindowVisibilityChanged));
+            foreach (var known in descriptor.KnownQuotaWindows)
+            {
+                providerItem.Windows.Add(new QuotaWindowVisibilityItemViewModel(
+                    descriptor.Id,
+                    known.Id,
+                    known.DisplayName,
+                    _settings.IsQuotaWindowVisible(descriptor.Id, known.Id),
+                    OnWindowVisibilityChanged));
+            }
         }
     }
 

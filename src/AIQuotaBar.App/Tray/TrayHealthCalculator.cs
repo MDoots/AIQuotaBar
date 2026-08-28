@@ -1,6 +1,7 @@
 namespace AIQuotaBar.App.Tray;
 
 using AIQuotaBar.App.Health;
+using AIQuotaBar.App.Providers;
 using AIQuotaBar.App.ViewModels;
 
 public static class TrayHealthCalculator
@@ -11,15 +12,21 @@ public static class TrayHealthCalculator
     {
         if (providers == null)
         {
-            return CreateEmptyState(hasVisibleProviders: false, isWaitingForData: false);
+            return CreateEmptyState(hasVisibleProviders: false, isWaitingForData: false, isZeroDetected: false);
         }
 
         var providerList = providers.ToList();
-        var visibleProviders = providerList.Where(p => p.IsVisibleByPreference).ToList();
+        if (providerList.Count > 0 && providerList.All(p => p.DiscoveryStatus == ProviderDiscoveryStatus.NotDetected))
+        {
+            return CreateEmptyState(hasVisibleProviders: false, isWaitingForData: false, isZeroDetected: true);
+        }
+
+        var eligibleProviders = providerList.Where(p => p.DiscoveryStatus != ProviderDiscoveryStatus.NotDetected).ToList();
+        var visibleProviders = eligibleProviders.Where(p => p.IsVisibleByPreference).ToList();
 
         if (visibleProviders.Count == 0)
         {
-            return CreateEmptyState(hasVisibleProviders: false, isWaitingForData: false);
+            return CreateEmptyState(hasVisibleProviders: false, isWaitingForData: false, isZeroDetected: false);
         }
 
         // Check if any visible providers have loaded windows
@@ -33,7 +40,7 @@ public static class TrayHealthCalculator
             // If providers have loaded windows but none are visible, user deselected all rows.
             // If providers have not loaded windows yet (e.g. startup / loading), we are waiting for data.
             var isWaiting = !hasAnyLoadedWindows;
-            return CreateEmptyState(hasVisibleProviders: true, isWaitingForData: isWaiting);
+            return CreateEmptyState(hasVisibleProviders: true, isWaitingForData: isWaiting, isZeroDetected: false);
         }
 
         // Filter for valid quota values
@@ -43,7 +50,7 @@ public static class TrayHealthCalculator
 
         if (validCandidates.Count == 0)
         {
-            return CreateEmptyState(hasVisibleProviders: true, isWaitingForData: true);
+            return CreateEmptyState(hasVisibleProviders: true, isWaitingForData: true, isZeroDetected: false);
         }
 
         // Determine the lowest RemainingPercent using actual double precision
@@ -145,15 +152,26 @@ public static class TrayHealthCalculator
         return !double.IsNaN(value) && !double.IsInfinity(value);
     }
 
-    private static TrayHealthState CreateEmptyState(bool hasVisibleProviders, bool isWaitingForData)
+    private static TrayHealthState CreateEmptyState(bool hasVisibleProviders, bool isWaitingForData, bool isZeroDetected)
     {
-        var tooltip = isWaitingForData
-            ? SafeTruncate("AIQuotaBar — Waiting for quota data")
-            : SafeTruncate("AIQuotaBar — No quota rows selected");
+        string tooltip;
+        string status;
 
-        var status = isWaitingForData
-            ? "Waiting for quota data"
-            : "No quota rows selected";
+        if (isZeroDetected)
+        {
+            tooltip = SafeTruncate("AIQuotaBar — No providers detected");
+            status = "No supported providers detected";
+        }
+        else if (isWaitingForData)
+        {
+            tooltip = SafeTruncate("AIQuotaBar — Waiting for quota data");
+            status = "Waiting for quota data";
+        }
+        else
+        {
+            tooltip = SafeTruncate("AIQuotaBar — No quota rows selected");
+            status = "No quota rows selected";
+        }
 
         return new TrayHealthState(
             HealthLevel: QuotaHealthLevel.Neutral,

@@ -77,4 +77,30 @@ public class SettingsManagerTests
             if (File.Exists(tempPath)) File.Delete(tempPath);
         }
     }
+
+    [Fact]
+    public void SettingsFileExists_ReturnsFalse_WhenFileDoesNotExist()
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"aiquotabar_test_{Guid.NewGuid():N}.json");
+        var manager = new SettingsManager(tempPath);
+
+        Assert.False(manager.SettingsFileExists);
+    }
+
+    [Fact]
+    public void SettingsFileExists_ReturnsTrue_WhenFileExists()
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"aiquotabar_test_{Guid.NewGuid():N}.json");
+        File.WriteAllText(tempPath, "{}");
+
+        try
+        {
+            var manager = new SettingsManager(tempPath);
+            Assert.True(manager.SettingsFileExists);
+        }
+        finally
+        {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+        }
+    }
 }

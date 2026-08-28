@@ -14,6 +14,7 @@ public sealed class SettingsManager
     private readonly string _settingsFilePath;
 
     public string SettingsFilePath => _settingsFilePath;
+    public bool SettingsFileExists => File.Exists(_settingsFilePath);
 
     public SettingsManager(string? customPath = null)
     {

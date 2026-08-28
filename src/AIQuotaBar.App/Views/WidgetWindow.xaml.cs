@@ -29,6 +29,7 @@ public partial class WidgetWindow : Window
     private const uint SWP_NOZORDER = 0x0004;
     private const uint SWP_NOACTIVATE = 0x0010;
 
+    private const uint MONITOR_DEFAULTTOPRIMARY = 1;
     private const uint MONITOR_DEFAULTTONEAREST = 2;
 
     // Outer window padding for drop shadow is 10px on each side.
@@ -75,6 +76,9 @@ public partial class WidgetWindow : Window
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint dwFlags);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
@@ -86,6 +90,8 @@ public partial class WidgetWindow : Window
 
     public bool IsSettingsOpen { get; set; }
 
+    private bool _firstRunAutoCenterActive;
+    private bool _isProgrammaticRecenter;
     private bool _isDraggingWindow;
     private bool _isContextMenuOpen;
     private WidgetDockMode _initialDockMode = WidgetDockMode.Floating;
@@ -95,9 +101,31 @@ public partial class WidgetWindow : Window
     private bool _isReanchoring;
     private readonly DispatcherTimer _autoHideTimer;
 
+    public bool IsFirstRunAutoCenterActive => _firstRunAutoCenterActive;
+    public bool IsProgrammaticRecenter => _isProgrammaticRecenter;
+
+    public void EnableFirstRunAutoCentering()
+    {
+        _firstRunAutoCenterActive = true;
+    }
+
+    public void CancelFirstRunAutoCentering()
+    {
+        _firstRunAutoCenterActive = false;
+    }
+
     public WidgetWindow()
     {
         InitializeComponent();
+
+        try
+        {
+            Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/AIQuotaBar;component/Assets/AIQuotaBar.ico", UriKind.Absolute));
+        }
+        catch
+        {
+            // Ignored in test environment
+        }
 
         _autoHideTimer = new DispatcherTimer
         {
@@ -116,6 +144,7 @@ public partial class WidgetWindow : Window
             oldVm.QuotaStateUpdated -= OnViewModelVisibilityOrQuotaStateUpdated;
             oldVm.AutoHideDockedBarChanged -= OnAutoHideDockedBarChanged;
             oldVm.DockedHorizontalAnchorChanged -= OnDockedHorizontalAnchorChanged;
+            oldVm.InitialStartupSettled -= OnInitialStartupSettled;
         }
         if (e.NewValue is WidgetViewModel newVm)
         {
@@ -123,6 +152,7 @@ public partial class WidgetWindow : Window
             newVm.QuotaStateUpdated += OnViewModelVisibilityOrQuotaStateUpdated;
             newVm.AutoHideDockedBarChanged += OnAutoHideDockedBarChanged;
             newVm.DockedHorizontalAnchorChanged += OnDockedHorizontalAnchorChanged;
+            newVm.InitialStartupSettled += OnInitialStartupSettled;
         }
     }
 
@@ -146,9 +176,146 @@ public partial class WidgetWindow : Window
 
     private void OnViewModelVisibilityOrQuotaStateUpdated()
     {
-        if (DataContext is WidgetViewModel vm && vm.IsDockedMode && IsLoaded)
+        if (DataContext is WidgetViewModel vm)
         {
-            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => ReanchorDockedWindow()));
+            if (vm.IsDockedMode && IsLoaded)
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => ReanchorDockedWindow()));
+            }
+            else if (vm.IsFloatingMode && _firstRunAutoCenterActive && IsLoaded)
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => CheckFirstRunMeasuredRecenter()));
+            }
+        }
+    }
+
+    private void OnInitialStartupSettled()
+    {
+        if (_firstRunAutoCenterActive)
+        {
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+            {
+                if (_firstRunAutoCenterActive)
+                {
+                    RecenterInPrimaryWorkingArea();
+                    _firstRunAutoCenterActive = false;
+                }
+            }));
+        }
+    }
+
+    public static bool GetPrimaryMonitorWorkArea(out RECT rcWork, out RECT rcMonitor)
+    {
+        rcWork = new RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1080 };
+        rcMonitor = new RECT { Left = 0, Top = 0, Right = 1920, Bottom = 1080 };
+
+        var pt = new POINT { X = 0, Y = 0 };
+        var hMon = MonitorFromPoint(pt, MONITOR_DEFAULTTOPRIMARY);
+        if (hMon != IntPtr.Zero)
+        {
+            var mi = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+            if (GetMonitorInfo(hMon, ref mi))
+            {
+                rcWork = mi.rcWork;
+                rcMonitor = mi.rcMonitor;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void CheckFirstRunMeasuredRecenter()
+    {
+        if (!_firstRunAutoCenterActive || !IsLoaded)
+        {
+            return;
+        }
+
+        if (DataContext is WidgetViewModel vm && vm.IsFloatingMode && !vm.IsDiscoveringProviders)
+        {
+            if (ActualWidth > 0 && ActualHeight > 0)
+            {
+                RecenterInPrimaryWorkingArea();
+            }
+        }
+    }
+
+    public void RecenterInPrimaryWorkingArea(double? explicitWidthDip = null, double? explicitHeightDip = null)
+    {
+        if (_hwnd == IntPtr.Zero)
+        {
+            _hwnd = new WindowInteropHelper(this).Handle;
+        }
+
+        if (_hwnd != IntPtr.Zero && GetPrimaryMonitorWorkArea(out var rcWork, out _))
+        {
+            var dpi = VisualTreeHelper.GetDpi(this);
+            int windowWidthPx = 0;
+            int windowHeightPx = 0;
+
+            if (explicitWidthDip.HasValue && explicitWidthDip.Value > 0 &&
+                explicitHeightDip.HasValue && explicitHeightDip.Value > 0)
+            {
+                windowWidthPx = (int)Math.Round(explicitWidthDip.Value * dpi.DpiScaleX);
+                windowHeightPx = (int)Math.Round(explicitHeightDip.Value * dpi.DpiScaleY);
+            }
+            else if (GetWindowRect(_hwnd, out var rect))
+            {
+                windowWidthPx = rect.Right - rect.Left;
+                windowHeightPx = rect.Bottom - rect.Top;
+            }
+
+            if (windowWidthPx <= 0)
+            {
+                var w = ActualWidth > 0 ? ActualWidth : (DesiredSize.Width > 0 ? DesiredSize.Width : (Width > 0 ? Width : 300.0));
+                windowWidthPx = (int)Math.Round(w * dpi.DpiScaleX);
+            }
+            if (windowHeightPx <= 0)
+            {
+                var h = ActualHeight > 0 ? ActualHeight : (DesiredSize.Height > 0 ? DesiredSize.Height : (Height > 0 ? Height : 160.0));
+                windowHeightPx = (int)Math.Round(h * dpi.DpiScaleY);
+            }
+
+            if (windowWidthPx > 0 && windowHeightPx > 0)
+            {
+                var (targetX, targetY) = PositionHelper.CalculateCenteredPhysicalPosition(
+                    windowWidthPx,
+                    windowHeightPx,
+                    rcWork.Left,
+                    rcWork.Top,
+                    rcWork.Right,
+                    rcWork.Bottom);
+
+                _isProgrammaticRecenter = true;
+                try
+                {
+                    SetWindowPos(_hwnd, IntPtr.Zero, targetX, targetY, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+                    Left = targetX / dpi.DpiScaleX;
+                    Top = targetY / dpi.DpiScaleY;
+                }
+                finally
+                {
+                    _isProgrammaticRecenter = false;
+                }
+                return;
+            }
+        }
+
+        // Fallback for environment without HWND (e.g. unit tests)
+        var actualWidth = explicitWidthDip ?? (ActualWidth > 0 ? ActualWidth : (Width > 0 ? Width : 300.0));
+        var actualHeight = explicitHeightDip ?? (ActualHeight > 0 ? ActualHeight : 160.0);
+        var (newLeft, newTop) = PositionHelper.GetCenteredPosition(actualWidth, actualHeight);
+        _isProgrammaticRecenter = true;
+        try
+        {
+            Left = newLeft;
+            Top = newTop;
+        }
+        finally
+        {
+            _isProgrammaticRecenter = false;
         }
     }
 
@@ -186,6 +353,11 @@ public partial class WidgetWindow : Window
                         SizeToContent = SizeToContent.Height;
                     }
                 }
+
+                if (_firstRunAutoCenterActive && (sizeInfo.HeightChanged || sizeInfo.WidthChanged) && IsLoaded)
+                {
+                    RecenterInPrimaryWorkingArea(sizeInfo.NewSize.Width, sizeInfo.NewSize.Height);
+                }
             }
             else if (vm.IsDockedMode)
             {
@@ -218,15 +390,16 @@ public partial class WidgetWindow : Window
 
             int screenX = unchecked((short)(long)lParam);
             int screenY = unchecked((short)((long)lParam >> 16));
+            var clientPoint = PointFromScreen(new Point(screenX, screenY));
 
-            Point clientPoint;
-            try
+            // Corners: return HTCLIENT so no diagonal resizing occurs
+            if ((clientPoint.X <= ResizeHitThickness && clientPoint.Y <= ResizeHitThickness) ||
+                (clientPoint.X <= ResizeHitThickness && clientPoint.Y >= ActualHeight - ResizeHitThickness) ||
+                (clientPoint.X >= ActualWidth - ResizeHitThickness && clientPoint.Y <= ResizeHitThickness) ||
+                (clientPoint.X >= ActualWidth - ResizeHitThickness && clientPoint.Y >= ActualHeight - ResizeHitThickness))
             {
-                clientPoint = PointFromScreen(new Point(screenX, screenY));
-            }
-            catch
-            {
-                return IntPtr.Zero;
+                handled = true;
+                return new IntPtr(HTCLIENT);
             }
 
             // Left resize border (horizontal only, floating mode only)
@@ -252,6 +425,7 @@ public partial class WidgetWindow : Window
 
         if (msg == WM_EXITSIZEMOVE)
         {
+            _firstRunAutoCenterActive = false;
             if (WindowState == WindowState.Normal)
             {
                 if (DataContext is WidgetViewModel vm && vm.IsFloatingMode)
@@ -576,6 +750,7 @@ public partial class WidgetWindow : Window
 
         var vm = DataContext as WidgetViewModel;
         _initialDockMode = vm?.DockMode ?? WidgetDockMode.Floating;
+        _firstRunAutoCenterActive = false;
 
         _autoHideTimer.Stop();
         if (vm != null && vm.IsDockCollapsed)

@@ -606,4 +606,97 @@ public class WidgetDockModeTests
         using var vm = new WidgetViewModel();
         Assert.Equal("AIQuotaBar", vm.AppTitleText);
     }
+
+    [Fact]
+    public void FirstRun_WithNoSettingsFile_ResolvesFloatingDockModeAndCenteredPosition()
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"aiquotabar_firstrun_{Guid.NewGuid():N}.json");
+        var manager = new SettingsManager(tempPath);
+
+        var isFirstRun = !manager.SettingsFileExists;
+        Assert.True(isFirstRun);
+
+        var settings = manager.Load();
+        var initialDockMode = isFirstRun ? WidgetDockMode.Floating : settings.DockMode;
+        Assert.Equal(WidgetDockMode.Floating, initialDockMode);
+
+        var primaryBounds = new System.Drawing.Rectangle(0, 0, 1920, 1040);
+        var (left, top) = PositionHelper.GetCenteredPosition(
+            windowWidth: 300,
+            windowHeight: 160,
+            getPrimaryScreenBounds: () => primaryBounds);
+
+        Assert.Equal(810, left);
+        Assert.Equal(440, top);
+    }
+
+    [Fact]
+    public void ReturningUser_WithPersistedBottomDockMode_PreservesBottomMode()
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"aiquotabar_returning_dock_{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var manager = new SettingsManager(tempPath);
+            manager.Save(new AppSettings
+            {
+                DockMode = WidgetDockMode.Bottom,
+                WindowLeft = 100,
+                WindowTop = 200
+            });
+
+            var isFirstRun = !manager.SettingsFileExists;
+            Assert.False(isFirstRun);
+
+            var settings = manager.Load();
+            var initialDockMode = isFirstRun ? WidgetDockMode.Floating : settings.DockMode;
+            Assert.Equal(WidgetDockMode.Bottom, initialDockMode);
+
+            var hostPos = DockingHelper.ResolveInitialDockedHostPosition(settings.WindowLeft, settings.WindowTop);
+            Assert.Equal(100, hostPos.Left);
+            Assert.Equal(200, hostPos.Top);
+        }
+        finally
+        {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+        }
+    }
+
+    [Fact]
+    public void ReturningUser_WithPersistedFloatingCoordinates_PreservesSavedPosition()
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"aiquotabar_returning_float_{Guid.NewGuid():N}.json");
+
+        try
+        {
+            var manager = new SettingsManager(tempPath);
+            manager.Save(new AppSettings
+            {
+                DockMode = WidgetDockMode.Floating,
+                WindowLeft = 450,
+                WindowTop = 150
+            });
+
+            var isFirstRun = !manager.SettingsFileExists;
+            Assert.False(isFirstRun);
+
+            var settings = manager.Load();
+            var initialDockMode = isFirstRun ? WidgetDockMode.Floating : settings.DockMode;
+            Assert.Equal(WidgetDockMode.Floating, initialDockMode);
+
+            var safePos = PositionHelper.GetSafePosition(
+                settings.WindowLeft,
+                settings.WindowTop,
+                windowWidth: 300,
+                getScreenBounds: () => new[] { new System.Drawing.Rectangle(0, 0, 1920, 1080) },
+                getPrimaryScreenBounds: () => new System.Drawing.Rectangle(0, 0, 1920, 1080));
+
+            Assert.Equal(450, safePos.Left);
+            Assert.Equal(150, safePos.Top);
+        }
+        finally
+        {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+        }
+    }
 }

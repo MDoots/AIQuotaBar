@@ -99,22 +99,27 @@ public sealed class AntigravityUsageProvider : IUsageProvider
         }
         catch (Exception ex)
         {
+            var isAuth = IsAuthError(ex);
             return new ProviderSnapshot(
                 providerId: Id,
                 providerDisplayName: DisplayName,
-                status: ProviderStatus.Error,
+                status: isAuth ? ProviderStatus.Unauthenticated : ProviderStatus.Error,
                 statusMessage: SafeErrorMessage(ex));
         }
     }
 
-    private static string SafeErrorMessage(Exception ex)
+    private static bool IsAuthError(Exception ex)
     {
         var msg = ex.Message ?? string.Empty;
+        return msg.Contains("auth", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("login", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase) ||
+               msg.Contains("not logged in", StringComparison.OrdinalIgnoreCase);
+    }
 
-        if (msg.Contains("auth", StringComparison.OrdinalIgnoreCase) ||
-            msg.Contains("login", StringComparison.OrdinalIgnoreCase) ||
-            msg.Contains("unauthenticated", StringComparison.OrdinalIgnoreCase) ||
-            msg.Contains("not logged in", StringComparison.OrdinalIgnoreCase))
+    private static string SafeErrorMessage(Exception ex)
+    {
+        if (IsAuthError(ex))
         {
             return "Antigravity CLI requires authentication";
         }
