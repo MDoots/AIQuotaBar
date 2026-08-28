@@ -63,219 +63,658 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Dark Horizontal ScrollBar Styles for Docked Mode -->
+        <Style x:Key="DarkHorizontalThumbStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border Background="#3F3F46"
+                                CornerRadius="2.5"
+                                Height="5"
+                                VerticalAlignment="Center" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#52525B" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter Property="Background" Value="#71717A" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkHorizontalScrollBarStyle" TargetType="{x:Type ScrollBar}">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Height" Value="6" />
+            <Setter Property="MinHeight" Value="6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Track x:Name="PART_Track" IsDirectionReversed="False">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkHorizontalThumbStyle}" />
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkHorizontalScrollViewerStyle" TargetType="{x:Type ScrollViewer}">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <ScrollContentPresenter Grid.Row="0" CanContentScroll="{TemplateBinding CanContentScroll}" />
+                            <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                       Grid.Row="1"
+                                       Orientation="Horizontal"
+                                       Style="{StaticResource DarkHorizontalScrollBarStyle}"
+                                       Value="{TemplateBinding HorizontalOffset}"
+                                       Maximum="{TemplateBinding ScrollableWidth}"
+                                       ViewportSize="{TemplateBinding ViewportWidth}"
+                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Dark Context Menu and MenuItem Styles for Docked Overflow Menu -->
+        <Style x:Key="DarkContextMenuStyle" TargetType="ContextMenu">
+            <Setter Property="Background" Value="#18181B" />
+            <Setter Property="BorderBrush" Value="#27272A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="4,4" />
+            <Setter Property="Foreground" Value="#E4E4E7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontFamily" Value="Segoe UI Variable, Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif" />
+            <Setter Property="HasDropShadow" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.55" />
+                            </Border.Effect>
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#E4E4E7" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Padding" Value="8,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="ItemBorder"
+                                Background="Transparent"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18" SharedSizeGroup="MenuItemIconColumnGroup" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="MenuItemArrowColumnGroup" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Checkmark -->
+                                <Path x:Name="CheckMark"
+                                      Data="M 3,7 L 6,10 L 12,3"
+                                      Stroke="#10B981"
+                                      StrokeThickness="1.5"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Left"
+                                      Visibility="Collapsed" />
+
+                                <ContentPresenter Grid.Column="1"
+                                                  ContentSource="Header"
+                                                  RecognizesAccessKey="True"
+                                                  VerticalAlignment="Center"
+                                                  Margin="2,0,8,0" />
+
+                                <!-- Submenu Arrow -->
+                                <TextBlock x:Name="SubmenuArrow"
+                                           Grid.Column="2"
+                                           Text="›"
+                                           FontWeight="Bold"
+                                           FontSize="13"
+                                           Foreground="#71717A"
+                                           VerticalAlignment="Center"
+                                           Margin="6,0,2,0"
+                                           Visibility="Collapsed" />
+
+                                <Popup x:Name="PART_Popup"
+                                       AllowsTransparency="True"
+                                       Placement="Right"
+                                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Focusable="False"
+                                       PopupAnimation="Fade">
+                                    <Border Background="#18181B"
+                                            BorderBrush="#27272A"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="4,4">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.55" />
+                                        </Border.Effect>
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="SubmenuArrow" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#27272A" />
+                                <Setter Property="Foreground" Value="#FAFAFA" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#52525B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkSeparatorStyle" TargetType="Separator">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Separator">
+                        <Border Height="1" Background="#27272A" Margin="4,3" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
-    <Border Margin="10"
-            Background="#18181B"
-            BorderBrush="#27272A"
-            BorderThickness="1"
-            CornerRadius="10"
-            HorizontalAlignment="Stretch">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.45" />
-        </Border.Effect>
+    <Grid>
+        <!-- 1. Floating Presentation (Unchanged) -->
+        <Border Margin="10"
+                Background="#18181B"
+                BorderBrush="#27272A"
+                BorderThickness="1"
+                CornerRadius="10"
+                HorizontalAlignment="Stretch"
+                Visibility="{Binding IsFloatingMode, Converter={StaticResource BoolToVisConverter}}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Color="#000000" Opacity="0.45" />
+            </Border.Effect>
 
-        <Grid Margin="{Binding MainCardMargin}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" /> <!-- Top Action Bar -->
-                <RowDefinition Height="Auto" /> <!-- Stacked Provider Sections -->
-                <RowDefinition Height="Auto" /> <!-- Footer (Expanded mode) -->
-            </Grid.RowDefinitions>
+            <Grid Margin="{Binding MainCardMargin}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" /> <!-- Top Action Bar -->
+                    <RowDefinition Height="Auto" /> <!-- Stacked Provider Sections -->
+                    <RowDefinition Height="Auto" /> <!-- Footer (Expanded mode) -->
+                </Grid.RowDefinitions>
 
-            <!-- 1. Top Action Bar -->
-            <Grid Grid.Row="0" Margin="0,0,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                <!-- 1. Top Action Bar -->
+                <Grid Grid.Row="0" Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <!-- App Title / Brand (Hidden in Micro mode) -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding ShowAppTitle, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="{Binding AppTitleText}" FontWeight="Bold" FontSize="12.5" Foreground="#E4E4E7" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
+                    <!-- App Title / Brand (Hidden in Micro mode) -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding ShowAppTitle, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding AppTitleText}" FontWeight="Bold" FontSize="12.5" Foreground="#E4E4E7" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
 
-                <!-- Window Action Buttons -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding ToggleModeCommand}" ToolTip="{Binding ModeToggleTooltip}" Width="22" Height="22" Margin="0,0,2,0"
-                            Visibility="{Binding ShowModeToggle, Converter={StaticResource BoolToVisConverter}}"
-                            AutomationProperties.Name="{Binding ModeToggleTooltip}">
-                        <TextBlock Text="{Binding ModeToggleText}" FontSize="12" FontWeight="Bold" Margin="0,-1,0,0" />
-                    </Button>
-                    <Button Style="{StaticResource WidgetButtonStyle}" Click="SettingsButton_Click" ToolTip="Settings" Width="22" Height="22" Margin="0,0,2,0"
-                            Visibility="{Binding ShowSettingsButton, Converter={StaticResource BoolToVisConverter}}"
-                            AutomationProperties.Name="Open Settings">
-                        <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE713;" FontSize="12" Margin="0,0,0,0" />
-                    </Button>
-                    <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding RefreshCommand}" ToolTip="Refresh Quotas" Width="22" Height="22" Margin="0,0,2,0"
-                            AutomationProperties.Name="Refresh Quotas">
-                        <TextBlock Text="⟳" FontSize="13" FontWeight="Bold" RenderTransformOrigin="0.5,0.5" />
-                    </Button>
-                    <Button Style="{StaticResource WidgetButtonStyle}" Click="MinimizeButton_Click" ToolTip="Hide to System Tray" Width="22" Height="22" Margin="0,0,2,0"
-                            AutomationProperties.Name="Hide to System Tray">
-                        <TextBlock Text="−" FontSize="13" FontWeight="Bold" Margin="0,-2,0,0" />
-                    </Button>
-                    <Button Style="{StaticResource WidgetButtonStyle}" Click="CloseButton_Click" ToolTip="Exit AIQuotaBar" Width="22" Height="22"
-                            AutomationProperties.Name="Exit AIQuotaBar">
-                        <TextBlock Text="✕" FontSize="11" FontWeight="Bold" />
-                    </Button>
-                </StackPanel>
+                    <!-- Window Action Buttons -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding ToggleModeCommand}" ToolTip="{Binding ModeToggleTooltip}" Width="22" Height="22" Margin="0,0,2,0"
+                                Visibility="{Binding ShowModeToggle, Converter={StaticResource BoolToVisConverter}}"
+                                AutomationProperties.Name="{Binding ModeToggleTooltip}">
+                            <TextBlock Text="{Binding ModeToggleText}" FontSize="12" FontWeight="Bold" Margin="0,-1,0,0" />
+                        </Button>
+                        <Button Style="{StaticResource WidgetButtonStyle}" Click="SettingsButton_Click" ToolTip="Settings" Width="22" Height="22" Margin="0,0,2,0"
+                                Visibility="{Binding ShowSettingsButton, Converter={StaticResource BoolToVisConverter}}"
+                                AutomationProperties.Name="Open Settings">
+                            <TextBlock FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Text="&#xE713;" FontSize="12" Margin="0,0,0,0" />
+                        </Button>
+                        <Button Style="{StaticResource WidgetButtonStyle}" Command="{Binding RefreshCommand}" ToolTip="Refresh Quotas" Width="22" Height="22" Margin="0,0,2,0"
+                                AutomationProperties.Name="Refresh Quotas">
+                            <TextBlock Text="⟳" FontSize="13" FontWeight="Bold" RenderTransformOrigin="0.5,0.5" />
+                        </Button>
+                        <Button Style="{StaticResource WidgetButtonStyle}" Click="MinimizeButton_Click" ToolTip="Hide to System Tray" Width="22" Height="22" Margin="0,0,2,0"
+                                AutomationProperties.Name="Hide to System Tray">
+                            <TextBlock Text="−" FontSize="13" FontWeight="Bold" Margin="0,-2,0,0" />
+                        </Button>
+                        <Button Style="{StaticResource WidgetButtonStyle}" Click="CloseButton_Click" ToolTip="Exit AIQuotaBar" Width="22" Height="22"
+                                AutomationProperties.Name="Exit AIQuotaBar">
+                            <TextBlock Text="✕" FontSize="11" FontWeight="Bold" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 2. Stacked Provider Sections / Empty State -->
+                <!-- Empty State (When all providers/rows are hidden) -->
+                <Border Grid.Row="1"
+                        Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisConverter}}"
+                        Background="#1C1C20"
+                        CornerRadius="8"
+                        BorderBrush="#27272A"
+                        BorderThickness="1"
+                        Padding="10,12"
+                        Margin="0,2,0,4">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="No quota rows selected"
+                                   FontSize="11.5"
+                                   FontWeight="SemiBold"
+                                   Foreground="#E4E4E7"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="Configure from the tray menu"
+                                   FontSize="10"
+                                   Foreground="#71717A"
+                                   Margin="0,3,0,0"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Grid.Row="1"
+                              MaxHeight="520"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              FocusVisualStyle="{x:Null}"
+                              Visibility="{Binding ShowEmptyState, Converter={StaticResource InvBoolToVisConverter}}">
+                    <ItemsControl ItemsSource="{Binding VisibleProviders}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Margin="0,2,0,6" Background="#1C1C20" CornerRadius="8" BorderBrush="#27272A" BorderThickness="1" Padding="{Binding CardPadding}">
+                                    <StackPanel>
+                                        <!-- Provider Section Header -->
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Provider Name & Status Dot -->
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border Background="{Binding ProviderAccentColor}" Width="6" Height="6" CornerRadius="3" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding DisplayProviderName}" FontWeight="SemiBold" FontSize="11.5" Foreground="#FAFAFA" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+
+                                                 <!-- Plan Badge (Full mode + Expanded view only) -->
+                                                <Border Background="#27272A" CornerRadius="4" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                        Visibility="{Binding ShowAccountPlan, Converter={StaticResource BoolToVisConverter}}">
+                                                    <TextBlock Text="{Binding AccountPlan}" FontSize="10" Foreground="#A1A1AA" FontWeight="Medium" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Provider Quota Windows -->
+                                        <ItemsControl ItemsSource="{Binding VisibleWindows}" Visibility="{Binding HasVisibleWindows, Converter={StaticResource BoolToVisConverter}}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Margin="0,1,0,3" Background="#242429" CornerRadius="5" Padding="{Binding WindowPadding}"
+                                                            ToolTip="{Binding TooltipText}"
+                                                            AutomationProperties.Name="{Binding AccessibilityText}">
+                                                        <StackPanel>
+                                                            <!-- Window Header -->
+                                                            <Grid Margin="0,0,0,3">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <!-- Window Title (Adaptive Candidate Fitting) -->
+                                                                <ctrl:AdaptiveLabelPresenter CandidateLabels="{Binding CandidateLabels}"
+                                                                                             FontFamily="Segoe UI Variable, Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif"
+                                                                                             FontSize="11"
+                                                                                             FontWeight="Medium"
+                                                                                             Foreground="#F4F4F5"
+                                                                                             VerticalAlignment="Center" />
+
+                                                                <!-- Remaining & Countdown info (Column 1 with deliberate 8px gap) -->
+                                                                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0">
+                                                                    <TextBlock Text="{Binding RemainingText}"
+                                                                               FontWeight="Bold"
+                                                                               FontSize="11"
+                                                                               Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}"
+                                                                               Margin="{Binding RemainingMargin}" />
+
+                                                                    <TextBlock Text="{Binding ResetCountdown}"
+                                                                               FontSize="10"
+                                                                               Foreground="#71717A"
+                                                                               Visibility="{Binding ShowCountdown, Converter={StaticResource BoolToVisConverter}}" />
+                                                                </StackPanel>
+                                                            </Grid>
+
+                                                            <!-- Progress Bar (Showing Remaining Quota) -->
+                                                            <Grid Height="4" Margin="0,1,0,1">
+                                                                <ProgressBar Value="{Binding RemainingPercent, Mode=OneWay}"
+                                                                             Minimum="0"
+                                                                             Maximum="100"
+                                                                             Height="4"
+                                                                             BorderThickness="0"
+                                                                             Background="#333338"
+                                                                             Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}">
+                                                                    <ProgressBar.Template>
+                                                                        <ControlTemplate TargetType="ProgressBar">
+                                                                            <Grid x:Name="TemplateRoot" Height="{TemplateBinding Height}">
+                                                                                <Border x:Name="PART_Track"
+                                                                                        Background="{TemplateBinding Background}"
+                                                                                        CornerRadius="2" />
+                                                                                <Border x:Name="PART_Indicator"
+                                                                                        HorizontalAlignment="Left"
+                                                                                        Background="{TemplateBinding Foreground}"
+                                                                                        CornerRadius="2" />
+                                                                            </Grid>
+                                                                        </ControlTemplate>
+                                                                    </ProgressBar.Template>
+                                                                </ProgressBar>
+                                                            </Grid>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <!-- Provider Status / Error Message -->
+                                        <Border Background="#27272A" CornerRadius="5" Padding="7,5" Margin="0,2,0,2"
+                                                Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVisConverter}}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="ℹ" FontSize="11" Foreground="#F59E0B" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding StatusMessage}" FontSize="10.5" Foreground="#D4D4D8" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- 3. Footer (Expanded mode only) -->
+                <Grid Grid.Row="2" Margin="0,4,0,0" Visibility="{Binding ShowFooter, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="{Binding LastUpdatedText}" FontSize="9.5" Foreground="#71717A" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="Refreshing..." FontSize="9.5" Foreground="#10B981" FontWeight="Medium" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
             </Grid>
+        </Border>
 
-            <!-- 2. Stacked Provider Sections / Empty State -->
-            <!-- Empty State (When all providers/rows are hidden) -->
-            <Border Grid.Row="1"
-                    Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisConverter}}"
-                    Background="#1C1C20"
-                    CornerRadius="8"
-                    BorderBrush="#27272A"
-                    BorderThickness="1"
-                    Padding="10,12"
-                    Margin="0,2,0,4">
-                <StackPanel HorizontalAlignment="Center">
-                    <TextBlock Text="No quota rows selected"
-                               FontSize="11.5"
-                               FontWeight="SemiBold"
-                               Foreground="#E4E4E7"
-                               HorizontalAlignment="Center"
-                               TextAlignment="Center"
-                               TextWrapping="Wrap" />
-                    <TextBlock Text="Configure from the tray menu"
-                               FontSize="10"
-                               Foreground="#71717A"
-                               Margin="0,3,0,0"
-                               HorizontalAlignment="Center"
-                               TextAlignment="Center"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-            </Border>
+        <!-- 2. Docked Presentation (Horizontal Strip / Reveal Handle) -->
+        <Border x:Name="DockedRootBorder"
+                Margin="{Binding DockedRootMargin}"
+                Background="#18181B"
+                BorderBrush="#27272A"
+                BorderThickness="1"
+                CornerRadius="{Binding DockedRootCornerRadius}"
+                HorizontalAlignment="Stretch"
+                Visibility="{Binding IsDockedMode, Converter={StaticResource BoolToVisConverter}}"
+                MouseEnter="DockedRootBorder_MouseEnter"
+                MouseLeave="DockedRootBorder_MouseLeave">
 
-            <ScrollViewer Grid.Row="1"
-                          MaxHeight="520"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          FocusVisualStyle="{x:Null}"
-                          Visibility="{Binding ShowEmptyState, Converter={StaticResource InvBoolToVisConverter}}">
-                <ItemsControl ItemsSource="{Binding VisibleProviders}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Margin="0,2,0,6" Background="#1C1C20" CornerRadius="8" BorderBrush="#27272A" BorderThickness="1" Padding="{Binding CardPadding}">
-                                <StackPanel>
-                                    <!-- Provider Section Header -->
-                                    <Grid Margin="0,0,0,4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+            <Grid>
+                <!-- 2A. Full Dock Content Grid (Visible when Expanded) -->
+                <Grid x:Name="DockedContentGrid" Margin="4,2,4,2"
+                      Visibility="{Binding IsDockExpanded, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" /> <!-- Drag Grip Affordance -->
+                        <ColumnDefinition Width="*" />    <!-- Horizontal Quota Groups / Empty State -->
+                        <ColumnDefinition Width="Auto" /> <!-- Overflow Menu Button -->
+                    </Grid.ColumnDefinitions>
 
-                                        <!-- Provider Name & Status Dot -->
+                    <!-- Column 0: Drag Affordance Grip (Compact subtle 6-dot indicator) -->
+                    <Border x:Name="DockedDragGrip"
+                            Grid.Column="0"
+                            Width="16" Height="22"
+                            Background="Transparent"
+                            Margin="2,0,2,0"
+                            VerticalAlignment="Center"
+                            ToolTip="Drag AIQuotaBar"
+                            AutomationProperties.Name="Drag AIQuotaBar">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                            <StackPanel Margin="0,0,2,0">
+                                <Ellipse Width="2" Height="2" Fill="#71717A" Margin="0,1" />
+                                <Ellipse Width="2" Height="2" Fill="#71717A" Margin="0,1" />
+                                <Ellipse Width="2" Height="2" Fill="#71717A" Margin="0,1" />
+                            </StackPanel>
+                            <StackPanel>
+                                <Ellipse Width="2" Height="2" Fill="#71717A" Margin="0,1" />
+                                <Ellipse Width="2" Height="2" Fill="#71717A" Margin="0,1" />
+                                <Ellipse Width="2" Height="2" Fill="#71717A" Margin="0,1" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Column 1: Inline Empty State (When all rows are hidden) -->
+                    <Border x:Name="DockedEmptyStateBorder"
+                            Grid.Column="1"
+                            Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisConverter}}"
+                            VerticalAlignment="Center"
+                            Margin="4,0,4,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="No quota rows selected"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       Foreground="#E4E4E7"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="—"
+                                       FontSize="11"
+                                       Foreground="#52525B"
+                                       Margin="6,0"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="Configure in Settings"
+                                       FontSize="10.5"
+                                       Foreground="#71717A"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Column 1: Horizontal Provider Groups ScrollViewer -->
+                    <ScrollViewer Grid.Column="1"
+                                  Style="{StaticResource DarkHorizontalScrollViewerStyle}"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Disabled"
+                                  FocusVisualStyle="{x:Null}"
+                                  Margin="0,0,4,0"
+                                  VerticalAlignment="Center"
+                                  Visibility="{Binding ShowEmptyState, Converter={StaticResource InvBoolToVisConverter}}">
+                        <ItemsControl x:Name="DockedItemsControl" ItemsSource="{Binding VisibleProviders}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,6,0"
+                                            Background="#1C1C20"
+                                            CornerRadius="6"
+                                            BorderBrush="#27272A"
+                                            BorderThickness="1"
+                                            Padding="6,2"
+                                            VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Border Background="{Binding ProviderAccentColor}" Width="6" Height="6" CornerRadius="3" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding DisplayProviderName}" FontWeight="SemiBold" FontSize="11.5" Foreground="#FAFAFA" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <!-- Provider Header: Dot + Name -->
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                <Border Background="{Binding ProviderAccentColor}" Width="6" Height="6" CornerRadius="3" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding DockedDisplayName}" FontWeight="SemiBold" FontSize="11" Foreground="#FAFAFA" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
 
-                                             <!-- Plan Badge (Full mode + Expanded view only) -->
-                                            <Border Background="#27272A" CornerRadius="4" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
-                                                    Visibility="{Binding ShowAccountPlan, Converter={StaticResource BoolToVisConverter}}">
-                                                <TextBlock Text="{Binding AccountPlan}" FontSize="10" Foreground="#A1A1AA" FontWeight="Medium" />
+                                            <!-- Quota Chips -->
+                                            <ItemsControl ItemsSource="{Binding VisibleWindows}"
+                                                          Visibility="{Binding HasVisibleWindows, Converter={StaticResource BoolToVisConverter}}"
+                                                          VerticalAlignment="Center">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Width="115"
+                                                                Margin="0,0,5,0"
+                                                                Background="#242429"
+                                                                CornerRadius="4"
+                                                                Padding="5,2"
+                                                                ToolTip="{Binding TooltipText}"
+                                                                AutomationProperties.Name="{Binding AccessibilityText}"
+                                                                VerticalAlignment="Center">
+                                                            <StackPanel>
+                                                                <!-- Chip Header: Title on Left, Remaining % on Right -->
+                                                                <Grid Margin="0,0,0,1">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+
+                                                                    <ctrl:AdaptiveLabelPresenter CandidateLabels="{Binding CandidateLabels}"
+                                                                                                 FontFamily="Segoe UI Variable, Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif"
+                                                                                                 FontSize="10"
+                                                                                                 FontWeight="Medium"
+                                                                                                 Foreground="#F4F4F5"
+                                                                                                 VerticalAlignment="Center" />
+
+                                                                    <TextBlock Grid.Column="1"
+                                                                               Text="{Binding RemainingText}"
+                                                                               FontWeight="Bold"
+                                                                               FontSize="10"
+                                                                               Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}"
+                                                                               Margin="4,0,0,0"
+                                                                               VerticalAlignment="Center" />
+                                                                </Grid>
+
+                                                                <!-- Small Progress Bar -->
+                                                                <Grid Height="3" Margin="0,1,0,0">
+                                                                    <ProgressBar Value="{Binding RemainingPercent, Mode=OneWay}"
+                                                                                 Minimum="0"
+                                                                                 Maximum="100"
+                                                                                 Height="3"
+                                                                                 BorderThickness="0"
+                                                                                 Background="#333338"
+                                                                                 Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}">
+                                                                        <ProgressBar.Template>
+                                                                            <ControlTemplate TargetType="ProgressBar">
+                                                                                <Grid x:Name="TemplateRoot" Height="{TemplateBinding Height}">
+                                                                                    <Border x:Name="PART_Track"
+                                                                                            Background="{TemplateBinding Background}"
+                                                                                            CornerRadius="1.5" />
+                                                                                    <Border x:Name="PART_Indicator"
+                                                                                            HorizontalAlignment="Left"
+                                                                                            Background="{TemplateBinding Foreground}"
+                                                                                            CornerRadius="1.5" />
+                                                                                </Grid>
+                                                                            </ControlTemplate>
+                                                                        </ProgressBar.Template>
+                                                                    </ProgressBar>
+                                                                </Grid>
+                                                            </StackPanel>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <!-- Provider Status Message (if 0 quota rows but has status) -->
+                                            <Border Background="#27272A"
+                                                    CornerRadius="4"
+                                                    Padding="4,1.5"
+                                                    Margin="0,0,3,0"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVisConverter}}">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <TextBlock Text="ℹ" FontSize="10" Foreground="#F59E0B" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding StatusMessage}" FontSize="9.5" Foreground="#D4D4D8" VerticalAlignment="Center" />
+                                                </StackPanel>
                                             </Border>
                                         </StackPanel>
-                                    </Grid>
-
-                                    <!-- Provider Quota Windows -->
-                                    <ItemsControl ItemsSource="{Binding VisibleWindows}" Visibility="{Binding HasVisibleWindows, Converter={StaticResource BoolToVisConverter}}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Margin="0,1,0,3" Background="#242429" CornerRadius="5" Padding="{Binding WindowPadding}"
-                                                        ToolTip="{Binding TooltipText}"
-                                                        AutomationProperties.Name="{Binding AccessibilityText}">
-                                                    <StackPanel>
-                                                        <!-- Window Header -->
-                                                        <Grid Margin="0,0,0,3">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-
-                                                            <!-- Window Title (Adaptive Candidate Fitting) -->
-                                                            <ctrl:AdaptiveLabelPresenter CandidateLabels="{Binding CandidateLabels}"
-                                                                                         FontFamily="Segoe UI Variable, Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif"
-                                                                                         FontSize="11"
-                                                                                         FontWeight="Medium"
-                                                                                         Foreground="#F4F4F5"
-                                                                                         VerticalAlignment="Center" />
-
-                                                            <!-- Remaining & Countdown info (Column 1 with deliberate 8px gap) -->
-                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0,0,0">
-                                                                <TextBlock Text="{Binding RemainingText}" 
-                                                                           FontWeight="Bold" 
-                                                                           FontSize="11" 
-                                                                           Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}" 
-                                                                           Margin="{Binding RemainingMargin}" />
-
-                                                                <TextBlock Text="{Binding ResetCountdown}" 
-                                                                           FontSize="10" 
-                                                                           Foreground="#71717A" 
-                                                                           Visibility="{Binding ShowCountdown, Converter={StaticResource BoolToVisConverter}}" />
-                                                            </StackPanel>
-                                                        </Grid>
-
-                                                        <!-- Progress Bar (Showing Remaining Quota) -->
-                                                        <Grid Height="4" Margin="0,1,0,1">
-                                                            <ProgressBar Value="{Binding RemainingPercent, Mode=OneWay}" 
-                                                                         Minimum="0" 
-                                                                         Maximum="100" 
-                                                                         Height="4" 
-                                                                         BorderThickness="0" 
-                                                                         Background="#333338"
-                                                                         Foreground="{Binding RemainingPercent, Converter={StaticResource RemainingToBrushConverter}}">
-                                                                <ProgressBar.Template>
-                                                                    <ControlTemplate TargetType="ProgressBar">
-                                                                        <Grid x:Name="TemplateRoot" Height="{TemplateBinding Height}">
-                                                                            <Border x:Name="PART_Track" 
-                                                                                    Background="{TemplateBinding Background}" 
-                                                                                    CornerRadius="2" />
-                                                                            <Border x:Name="PART_Indicator" 
-                                                                                    HorizontalAlignment="Left" 
-                                                                                    Background="{TemplateBinding Foreground}" 
-                                                                                    CornerRadius="2" />
-                                                                        </Grid>
-                                                                    </ControlTemplate>
-                                                                </ProgressBar.Template>
-                                                            </ProgressBar>
-                                                        </Grid>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-
-                                    <!-- Provider Status / Error Message -->
-                                    <Border Background="#27272A" CornerRadius="5" Padding="7,5" Margin="0,2,0,2"
-                                            Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVisConverter}}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="ℹ" FontSize="11" Foreground="#F59E0B" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding StatusMessage}" FontSize="10.5" Foreground="#D4D4D8" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                        </StackPanel>
                                     </Border>
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
 
-            <!-- 3. Footer (Expanded mode only) -->
-            <Grid Grid.Row="2" Margin="0,4,0,0" Visibility="{Binding ShowFooter, Converter={StaticResource BoolToVisConverter}}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                    <!-- Column 2: Compact Overflow Menu Button -->
+                    <Border Grid.Column="2" VerticalAlignment="Center" Margin="0,0,2,0">
+                        <Button x:Name="DockedMenuButton"
+                                Style="{StaticResource WidgetButtonStyle}"
+                                Click="DockedMenuButton_Click"
+                                ToolTip="AIQuotaBar menu"
+                                Width="24" Height="24"
+                                AutomationProperties.Name="AIQuotaBar menu">
+                            <TextBlock Text="⋯" FontSize="14" FontWeight="Bold" Margin="0,-3,0,0" Foreground="#A1A1AA" />
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="DockedContextMenu"
+                                             Style="{StaticResource DarkContextMenuStyle}"
+                                             Opened="DockedContextMenu_Opened"
+                                             Closed="DockedContextMenu_Closed">
+                                    <MenuItem Header="Settings..." Style="{StaticResource DarkMenuItemStyle}" Click="SettingsButton_Click" />
+                                    <MenuItem Header="Refresh" Style="{StaticResource DarkMenuItemStyle}" Command="{Binding RefreshCommand}" />
+                                    <Separator Style="{StaticResource DarkSeparatorStyle}" />
+                                    <MenuItem Header="Window mode" Style="{StaticResource DarkMenuItemStyle}">
+                                        <MenuItem Header="Floating" Style="{StaticResource DarkMenuItemStyle}" IsCheckable="True" IsChecked="{Binding IsFloatingMode, Mode=OneWay}" Click="DockModeFloating_Click" />
+                                        <MenuItem Header="Dock to top" Style="{StaticResource DarkMenuItemStyle}" IsCheckable="True" IsChecked="{Binding IsDockedTop, Mode=OneWay}" Click="DockModeTop_Click" />
+                                        <MenuItem Header="Dock to bottom" Style="{StaticResource DarkMenuItemStyle}" IsCheckable="True" IsChecked="{Binding IsDockedBottom, Mode=OneWay}" Click="DockModeBottom_Click" />
+                                    </MenuItem>
+                                    <MenuItem Header="Auto-hide docked bar" Style="{StaticResource DarkMenuItemStyle}" IsCheckable="True" IsChecked="{Binding AutoHideDockedBar, Mode=TwoWay}" />
+                                    <Separator Style="{StaticResource DarkSeparatorStyle}" />
+                                    <MenuItem Header="Hide" Style="{StaticResource DarkMenuItemStyle}" Click="MinimizeButton_Click" />
+                                    <MenuItem Header="Exit" Style="{StaticResource DarkMenuItemStyle}" Click="CloseButton_Click" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </Border>
+                </Grid>
 
-                <TextBlock Text="{Binding LastUpdatedText}" FontSize="9.5" Foreground="#71717A" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="Refreshing..." FontSize="9.5" Foreground="#10B981" FontWeight="Medium" VerticalAlignment="Center" />
-                </StackPanel>
+                <!-- 2B. Auto-Hide Collapsed Reveal Handle (Visible when Collapsed) -->
+                <Border x:Name="DockedRevealHandle"
+                        Width="90" Height="7"
+                        Background="#27272A"
+                        BorderBrush="#3F3F46"
+                        BorderThickness="1"
+                        CornerRadius="{Binding DockedHandleCornerRadius}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="{Binding DockedHandleVerticalAlignment}"
+                        ToolTip="AIQuotaBar (Hover to expand)"
+                        Visibility="{Binding IsDockCollapsed, Converter={StaticResource BoolToVisConverter}}">
+                    <Border Background="#52525B" Width="28" Height="2" CornerRadius="1"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
             </Grid>
-        </Grid>
-    </Border>
+        </Border>
+    </Grid>
 </Window>

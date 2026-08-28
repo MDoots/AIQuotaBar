@@ -2,6 +2,7 @@ namespace AIQuotaBar.App.Tray;
 
 using System.Drawing;
 using System.Windows.Forms;
+using AIQuotaBar.App.Layout;
 using AIQuotaBar.App.Settings;
 using AIQuotaBar.App.ViewModels;
 
@@ -13,6 +14,10 @@ public sealed class TrayManager : IDisposable
     private readonly ToolStripMenuItem _statusMenuItem;
     private readonly ToolStripMenuItem _refreshMenuItem;
     private readonly ToolStripMenuItem _settingsMenuItem;
+    private readonly ToolStripMenuItem _windowModeMenuItem;
+    private readonly ToolStripMenuItem _floatingModeMenuItem;
+    private readonly ToolStripMenuItem _dockTopMenuItem;
+    private readonly ToolStripMenuItem _dockBottomMenuItem;
     private readonly ToolStripMenuItem _compactModeMenuItem;
     private readonly ToolStripMenuItem _alwaysOnTopMenuItem;
     private readonly ToolStripMenuItem _startWithWindowsMenuItem;
@@ -68,13 +73,32 @@ public sealed class TrayManager : IDisposable
 
         _settingsMenuItem = new ToolStripMenuItem("Settings...", null, (s, e) => _showSettingsAction());
 
+        _windowModeMenuItem = new ToolStripMenuItem("Window mode");
+        _floatingModeMenuItem = new ToolStripMenuItem("Floating", null, (s, e) => _viewModel.DockMode = WidgetDockMode.Floating)
+        {
+            Checked = _viewModel.DockMode == WidgetDockMode.Floating
+        };
+        _dockTopMenuItem = new ToolStripMenuItem("Dock to top", null, (s, e) => _viewModel.DockMode = WidgetDockMode.Top)
+        {
+            Checked = _viewModel.DockMode == WidgetDockMode.Top
+        };
+        _dockBottomMenuItem = new ToolStripMenuItem("Dock to bottom", null, (s, e) => _viewModel.DockMode = WidgetDockMode.Bottom)
+        {
+            Checked = _viewModel.DockMode == WidgetDockMode.Bottom
+        };
+
+        _windowModeMenuItem.DropDownItems.Add(_floatingModeMenuItem);
+        _windowModeMenuItem.DropDownItems.Add(_dockTopMenuItem);
+        _windowModeMenuItem.DropDownItems.Add(_dockBottomMenuItem);
+
         _compactModeMenuItem = new ToolStripMenuItem("Compact Mode", null, (s, e) =>
         {
             _viewModel.IsCompactMode = !_viewModel.IsCompactMode;
         })
         {
             Checked = _viewModel.IsCompactMode,
-            CheckOnClick = true
+            CheckOnClick = true,
+            Enabled = _viewModel.IsFloatingMode
         };
 
         _alwaysOnTopMenuItem = new ToolStripMenuItem("Always on top", null, (s, e) =>
@@ -115,6 +139,7 @@ public sealed class TrayManager : IDisposable
         _contextMenu.Items.Add(new ToolStripSeparator());
         _contextMenu.Items.Add(_settingsMenuItem);
         _contextMenu.Items.Add(new ToolStripSeparator());
+        _contextMenu.Items.Add(_windowModeMenuItem);
         _contextMenu.Items.Add(_compactModeMenuItem);
         _contextMenu.Items.Add(_alwaysOnTopMenuItem);
         _contextMenu.Items.Add(_startWithWindowsMenuItem);
@@ -145,10 +170,19 @@ public sealed class TrayManager : IDisposable
         // Subscribe to ViewModel property changes to keep tray checkmarks synchronized
         _viewModel.CompactModeChanged += OnCompactModeChanged;
         _viewModel.AlwaysOnTopChanged += OnAlwaysOnTopChanged;
+        _viewModel.DockModeChanged += OnDockModeChanged;
 
         // Event-driven tray updates
         _viewModel.QuotaStateUpdated += OnQuotaStateUpdated;
         _viewModel.VisibilityStateUpdated += OnVisibilityStateUpdated;
+    }
+
+    private void OnDockModeChanged(WidgetDockMode mode)
+    {
+        _floatingModeMenuItem.Checked = mode == WidgetDockMode.Floating;
+        _dockTopMenuItem.Checked = mode == WidgetDockMode.Top;
+        _dockBottomMenuItem.Checked = mode == WidgetDockMode.Bottom;
+        _compactModeMenuItem.Enabled = mode == WidgetDockMode.Floating;
     }
 
     private void OnCompactModeChanged(bool isCompact)
@@ -244,6 +278,7 @@ public sealed class TrayManager : IDisposable
 
         _viewModel.CompactModeChanged -= OnCompactModeChanged;
         _viewModel.AlwaysOnTopChanged -= OnAlwaysOnTopChanged;
+        _viewModel.DockModeChanged -= OnDockModeChanged;
         _viewModel.QuotaStateUpdated -= OnQuotaStateUpdated;
         _viewModel.VisibilityStateUpdated -= OnVisibilityStateUpdated;
 

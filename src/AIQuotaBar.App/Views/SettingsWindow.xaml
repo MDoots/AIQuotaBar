@@ -73,6 +73,54 @@
             </Setter>
         </Style>
 
+        <!-- Dark Theme RadioButton Style -->
+        <Style x:Key="DarkRadioButtonStyle" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#FAFAFA" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid Margin="0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="RadioBorder"
+                                    Width="16" Height="16"
+                                    Background="#27272A"
+                                    BorderBrush="#3F3F46"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    VerticalAlignment="Center">
+                                <Ellipse x:Name="RadioDot"
+                                         Width="8" Height="8"
+                                         Fill="#10B981"
+                                         Visibility="Collapsed" />
+                            </Border>
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="8,0,0,0"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="RadioDot" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="RadioBorder" Property="BorderBrush" Value="#10B981" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="RadioBorder" Property="Background" Value="#3F3F46" />
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter TargetName="RadioBorder" Property="BorderBrush" Value="#38BDF8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Secondary Button Style -->
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="#27272A" />
@@ -142,6 +190,75 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Dark Vertical ScrollBar Styles for Settings Window -->
+        <Style x:Key="DarkVerticalThumbStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border Background="#3F3F46"
+                                CornerRadius="2.5"
+                                Width="5"
+                                HorizontalAlignment="Center" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#52525B" />
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter Property="Background" Value="#71717A" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkVerticalScrollBarStyle" TargetType="{x:Type ScrollBar}">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Width" Value="6" />
+            <Setter Property="MinWidth" Value="6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid Background="{TemplateBinding Background}">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource DarkVerticalThumbStyle}" />
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkVerticalScrollViewerStyle" TargetType="{x:Type ScrollViewer}">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ScrollContentPresenter Grid.Column="0" CanContentScroll="{TemplateBinding CanContentScroll}" />
+                            <ScrollBar x:Name="PART_VerticalScrollBar"
+                                       Grid.Column="1"
+                                       Orientation="Vertical"
+                                       Style="{StaticResource DarkVerticalScrollBarStyle}"
+                                       Value="{TemplateBinding VerticalOffset}"
+                                       Maximum="{TemplateBinding ScrollableHeight}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                       Margin="2,0,0,0" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Margin="12"
@@ -157,8 +274,7 @@
         <Grid Margin="14,12,14,14">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" /> <!-- Window Header -->
-                <RowDefinition Height="Auto" /> <!-- Subheading -->
-                <RowDefinition Height="*" />    <!-- Providers & Rows List -->
+                <RowDefinition Height="*" />    <!-- Scrollable Settings Content -->
                 <RowDefinition Height="Auto" /> <!-- Bottom Action Buttons -->
             </Grid.RowDefinitions>
 
@@ -186,22 +302,90 @@
                 </Button>
             </Grid>
 
-            <!-- 2. Subheading -->
-            <TextBlock Grid.Row="1"
-                       Text="Providers &amp; Quotas"
-                       FontSize="11"
-                       FontWeight="SemiBold"
-                       Foreground="#71717A"
-                       Margin="0,0,0,8" />
-
-            <!-- 3. Scrollable Settings Content -->
-            <ScrollViewer Grid.Row="2"
-                          MaxHeight="420"
+            <!-- 2. Scrollable Settings Content -->
+            <ScrollViewer Grid.Row="1"
+                          Style="{StaticResource DarkVerticalScrollViewerStyle}"
+                          MaxHeight="430"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Margin="0,0,0,12"
                           FocusVisualStyle="{x:Null}">
                 <StackPanel>
+                    <!-- Window Subheading -->
+                    <TextBlock Text="Window"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="#71717A"
+                               Margin="0,0,0,8" />
+
+                    <!-- Window Mode Card -->
+                    <Border Margin="0,0,0,12"
+                            Background="#1C1C20"
+                            CornerRadius="7"
+                            BorderBrush="#27272A"
+                            BorderThickness="1"
+                            Padding="10,8">
+                        <StackPanel>
+                            <TextBlock Text="Window mode"
+                                       FontWeight="SemiBold"
+                                       FontSize="12"
+                                       Foreground="#E4E4E7"
+                                       Margin="0,0,0,4" />
+
+                            <RadioButton Style="{StaticResource DarkRadioButtonStyle}"
+                                         GroupName="WindowModeGroup"
+                                         IsChecked="{Binding IsFloatingDockMode, Mode=TwoWay}"
+                                         Content="Floating"
+                                         FontWeight="Medium"
+                                         Margin="4,2,0,3"
+                                         AutomationProperties.Name="Floating window mode" />
+
+                            <RadioButton Style="{StaticResource DarkRadioButtonStyle}"
+                                         GroupName="WindowModeGroup"
+                                         IsChecked="{Binding IsTopDockMode, Mode=TwoWay}"
+                                         Content="Dock to top"
+                                         FontWeight="Medium"
+                                         Margin="4,2,0,3"
+                                         AutomationProperties.Name="Dock to top mode" />
+
+                            <RadioButton Style="{StaticResource DarkRadioButtonStyle}"
+                                         GroupName="WindowModeGroup"
+                                         IsChecked="{Binding IsBottomDockMode, Mode=TwoWay}"
+                                         Content="Dock to bottom"
+                                         FontWeight="Medium"
+                                         Margin="4,2,0,4"
+                                         AutomationProperties.Name="Dock to bottom mode" />
+
+                            <TextBlock Text="Docked mode shows a horizontal quota strip at the screen edge."
+                                       FontSize="10.5"
+                                       Foreground="#71717A"
+                                       Margin="4,2,0,6"
+                                       TextWrapping="Wrap" />
+
+                            <Border Height="1" Background="#27272A" Margin="0,4,0,6" />
+
+                            <!-- Auto-hide docked bar toggle -->
+                            <CheckBox Style="{StaticResource DarkCheckBoxStyle}"
+                                      IsChecked="{Binding AutoHideDockedBar, Mode=TwoWay}"
+                                      Content="Auto-hide docked bar"
+                                      FontWeight="Medium"
+                                      Margin="4,2,0,2"
+                                      AutomationProperties.Name="Auto-hide docked bar" />
+
+                            <TextBlock Text="Reveal the quota bar when you move to its screen-edge handle."
+                                       FontSize="10.5"
+                                       Foreground="#71717A"
+                                       Margin="4,2,0,2"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Providers & Quotas Subheading -->
+                    <TextBlock Text="Providers &amp; Quotas"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="#71717A"
+                               Margin="0,0,0,8" />
                     <!-- Providers & Rows List -->
                     <ItemsControl ItemsSource="{Binding Providers}">
                         <ItemsControl.ItemTemplate>
@@ -275,8 +459,8 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- 4. Bottom Action Buttons -->
-            <Grid Grid.Row="3" Margin="0,4,0,0">
+            <!-- 3. Bottom Action Buttons -->
+            <Grid Grid.Row="2" Margin="0,4,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
