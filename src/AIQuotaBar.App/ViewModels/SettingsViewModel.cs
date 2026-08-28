@@ -9,10 +9,24 @@ public sealed class SettingsViewModel : ViewModelBase
     private readonly AppSettings _settings;
     private readonly SettingsManager _settingsManager;
     private readonly WidgetViewModel? _widgetViewModel;
+    private bool _lowQuotaNotificationsEnabled;
 
     public Action? RequestClose { get; set; }
 
     public ObservableCollection<ProviderVisibilityItemViewModel> Providers { get; } = new();
+
+    public bool LowQuotaNotificationsEnabled
+    {
+        get => _lowQuotaNotificationsEnabled;
+        set
+        {
+            if (SetProperty(ref _lowQuotaNotificationsEnabled, value))
+            {
+                _settings.LowQuotaNotificationsEnabled = value;
+                _settingsManager.Save(_settings);
+            }
+        }
+    }
 
     public ICommand ResetDefaultsCommand { get; }
     public ICommand CloseCommand { get; }
@@ -25,6 +39,7 @@ public sealed class SettingsViewModel : ViewModelBase
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _settingsManager = settingsManager ?? throw new ArgumentNullException(nameof(settingsManager));
         _widgetViewModel = widgetViewModel;
+        _lowQuotaNotificationsEnabled = _settings.LowQuotaNotificationsEnabled;
 
         ResetDefaultsCommand = new RelayCommand(ResetDefaults);
         CloseCommand = new RelayCommand(() => RequestClose?.Invoke());
@@ -128,7 +143,9 @@ public sealed class SettingsViewModel : ViewModelBase
     public void ResetDefaults()
     {
         _settings.ResetVisibilityDefaults();
+        _settings.LowQuotaNotificationsEnabled = true;
         _settingsManager.Save(_settings);
+        LowQuotaNotificationsEnabled = true;
 
         foreach (var provider in Providers)
         {

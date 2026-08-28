@@ -8,6 +8,7 @@ public sealed class AppSettings
     public bool IsAlwaysOnTop { get; set; } = true;
     public bool IsCompactMode { get; set; } = false;
     public bool StartWithWindows { get; set; } = false;
+    public bool LowQuotaNotificationsEnabled { get; set; } = true;
 
     public Dictionary<string, bool> ProviderVisibility { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, bool> QuotaWindowVisibility { get; set; } = new(StringComparer.OrdinalIgnoreCase);

@@ -30,6 +30,8 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     public IUsageProvider Provider => _provider;
     public TimeSpan RefreshInterval => _refreshInterval;
 
+    public event Action? SnapshotApplied;
+
     public bool IsVisibleByPreference
     {
         get => _isVisibleByPreference;
@@ -269,6 +271,8 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         {
             Apply();
         }
+
+        SnapshotApplied?.Invoke();
     }
 
     public void ApplyVisibilityFilter(AppSettings? settings)

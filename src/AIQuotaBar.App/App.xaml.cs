@@ -101,7 +101,8 @@ public partial class App : Application
                     _settings.StartWithWindows = enabled;
                     _settingsManager.Save(_settings);
                 }
-            });
+            },
+            isNotificationsEnabled: () => _settings?.LowQuotaNotificationsEnabled ?? true);
 
         _viewModel.Start();
         _window.Show();
