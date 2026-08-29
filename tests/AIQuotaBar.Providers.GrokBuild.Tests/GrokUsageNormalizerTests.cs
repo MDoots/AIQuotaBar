@@ -153,6 +153,54 @@ public class GrokUsageNormalizerTests
     }
 
     [Fact]
+    public void Normalize_BiweeklyUnknownPeriod_EmitsNoQuotaRow()
+    {
+        var result = new GrokBillingResult
+        {
+            SubscriptionTier = "Pro",
+            Config = new GrokBillingConfig
+            {
+                CurrentPeriod = new GrokCurrentPeriod
+                {
+                    Type = "BIWEEKLY", // Contains "WEEKLY" but is NOT weekly
+                    End = "2026-09-15T00:00:00Z"
+                },
+                CreditUsagePercent = 30.0
+            }
+        };
+
+        var snapshot = GrokUsageNormalizer.Normalize(result);
+
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("Unrecognized billing period from Grok", snapshot.StatusMessage);
+        Assert.Empty(snapshot.Windows);
+    }
+
+    [Fact]
+    public void Normalize_RollingMonthlyUnknownPeriod_EmitsNoQuotaRow()
+    {
+        var result = new GrokBillingResult
+        {
+            SubscriptionTier = "Pro",
+            Config = new GrokBillingConfig
+            {
+                CurrentPeriod = new GrokCurrentPeriod
+                {
+                    Type = "SOME_FUTURE_MONTHLY_ROLLING_TYPE", // Contains "MONTHLY" but is not standard monthly
+                    End = "2026-09-15T00:00:00Z"
+                },
+                CreditUsagePercent = 30.0
+            }
+        };
+
+        var snapshot = GrokUsageNormalizer.Normalize(result);
+
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("Unrecognized billing period from Grok", snapshot.StatusMessage);
+        Assert.Empty(snapshot.Windows);
+    }
+
+    [Fact]
     public void Normalize_LegacyBuildSpecificBilling_NormalizesCorrectly()
     {
         var result = new GrokBillingResult

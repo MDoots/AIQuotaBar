@@ -97,6 +97,13 @@ public class GrokBuildUsageProviderTests
     }
 
     [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenNullInitialize_ReturnsNull()
+    {
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(null);
+        Assert.Null(selected);
+    }
+
+    [Fact]
     public void SelectNonInteractiveAuthMethod_WhenOnlyInteractiveMethods_ReturnsNull()
     {
         var initResult = new GrokInitializeResult
@@ -131,20 +138,101 @@ public class GrokBuildUsageProviderTests
     }
 
     [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenApiKeyAvailable_SelectsIt()
+    {
+        var initResult = new GrokInitializeResult
+        {
+            AuthMethods = new[]
+            {
+                new GrokAuthMethod { Id = "api_key", Type = "apiKey", Interactive = false }
+            }
+        };
+
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
+
+        Assert.Equal("api_key", selected);
+    }
+
+    [Fact]
     public void SelectNonInteractiveAuthMethod_WhenDefaultIdSpecifiedAndNonInteractive_SelectsDefault()
     {
         var initResult = new GrokInitializeResult
         {
             AuthMethods = new[]
             {
-                new GrokAuthMethod { Id = "custom_token", Type = "token", Interactive = false },
+                new GrokAuthMethod { Id = "token", Type = "token", Interactive = false },
                 new GrokAuthMethod { Id = "cached_token", Interactive = false }
             },
-            Meta = new GrokInitializeMeta { DefaultAuthMethodId = "custom_token" }
+            Meta = new GrokInitializeMeta { DefaultAuthMethodId = "token" }
         };
 
         var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
 
-        Assert.Equal("custom_token", selected);
+        Assert.Equal("token", selected);
+    }
+
+    [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenUnknownDefaultSpecified_RejectsUnknownAndSelectsSafeMethod()
+    {
+        var initResult = new GrokInitializeResult
+        {
+            AuthMethods = new[]
+            {
+                new GrokAuthMethod { Id = "cached_token", Interactive = false },
+                new GrokAuthMethod { Id = "unknown_custom_interactive_method", Interactive = false }
+            },
+            Meta = new GrokInitializeMeta { DefaultAuthMethodId = "unknown_custom_interactive_method" }
+        };
+
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
+
+        // Unknown default must NOT be chosen; whitelisted cached_token is chosen instead
+        Assert.Equal("cached_token", selected);
+    }
+
+    [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenOnlyUnknownUnmarkedMethods_ReturnsNull()
+    {
+        var initResult = new GrokInitializeResult
+        {
+            AuthMethods = new[]
+            {
+                new GrokAuthMethod { Id = "unknown_web_sso", Type = "unknown_sso", Interactive = false }
+            }
+        };
+
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
+
+        Assert.Null(selected);
+    }
+
+    [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenValidLegacyInitializeWithoutAuthMethods_AllowsCachedToken()
+    {
+        var initResult = new GrokInitializeResult
+        {
+            ProtocolVersion = 1,
+            ServerInfo = new GrokServerInfo { Name = "Grok Build Agent", Version = "0.1.0" },
+            AuthMethods = null
+        };
+
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
+
+        Assert.Equal("cached_token", selected);
+    }
+
+    [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenEmptyLegacyInitializeWithoutMetadata_ReturnsNull()
+    {
+        var initResult = new GrokInitializeResult
+        {
+            ProtocolVersion = null,
+            ServerInfo = null,
+            AuthMethods = null
+        };
+
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
+
+        Assert.Null(selected);
     }
 }

@@ -85,6 +85,23 @@ public class GrokProtocolTests
     }
 
     [Fact]
+    public async Task Client_BillingNon32601Error_DoesNotFallback_ThrowsException()
+    {
+        var responses = new[]
+        {
+            // Response to id 1 (x.ai/billing -> Internal error -32603)
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32603,\"message\":\"Internal server error\"}}"
+        };
+
+        var session = new MockGrokSession(responses);
+        var client = new GrokJsonRpcClient(session);
+
+        var ex = await Assert.ThrowsAsync<GrokRpcException>(() => client.GetBillingAsync());
+        Assert.Equal(-32603, ex.ErrorCode);
+        Assert.Single(session.SentLines); // Did NOT send _x.ai/billing fallback
+    }
+
+    [Fact]
     public async Task Client_WhenAuthFails_ThrowsGrokAuthException()
     {
         var responses = new[]

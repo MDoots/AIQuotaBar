@@ -100,7 +100,7 @@ public class ClaudeCodeUsageProviderTests
                 LoggedIn = true,
                 SubscriptionTier = "Claude Pro"
             },
-            UsageOutput = "Current session allowance: 20% used >"
+            UsageOutput = "Current session allowance: 20% used\n> "
         };
 
         var provider = new ClaudeCodeUsageProvider(
@@ -161,7 +161,7 @@ public class ClaudeCodeUsageProviderTests
         var runner = new MockClaudeProcessRunner
         {
             AuthStatusResult = new ClaudeAuthStatusResult { LoggedIn = true, AuthMethod = "api_key", ApiProvider = "anthropic" },
-            UsageOutput = "Authenticated with API Key. No subscription limits apply. >"
+            UsageOutput = "Authenticated with API Key. No subscription limits apply.\n> "
         };
 
         var provider = new ClaudeCodeUsageProvider(
@@ -173,5 +173,51 @@ public class ClaudeCodeUsageProviderTests
         Assert.Equal(ProviderStatus.Available, snapshot.Status);
         Assert.Equal("Usage-based billing — no fixed Claude Code quota", snapshot.StatusMessage);
         Assert.Empty(snapshot.Windows);
+    }
+
+    // =========================================================================
+    // Completion Detector Edge-Case Tests (Sections 6 - 9)
+    // =========================================================================
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseA_InitialPromptAndPartialUsageWithoutNewPrompt_ReturnsFalse()
+    {
+        // Initial prompt exists before usage, but no return prompt after usage
+        var output = "Welcome to Claude Code\n> /usage\nCurrent session: 25% used";
+        Assert.False(StandardClaudeProcessRunner.IsUsagePanelComplete(output));
+    }
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseB_InitialPromptAndCompleteUsageAndNewPrompt_ReturnsTrue()
+    {
+        var output = "Welcome to Claude Code\n> /usage\nCurrent session: 25% used (resets in 3h)\n> ";
+        Assert.True(StandardClaudeProcessRunner.IsUsagePanelComplete(output));
+    }
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseC_PromptMarkerSplitAcrossChunks_CompletesOnlyAfterFullMarker()
+    {
+        var chunk1 = "Welcome\n> /usage\nCurrent session: 25% used\n";
+        Assert.False(StandardClaudeProcessRunner.IsUsagePanelComplete(chunk1));
+
+        var chunk2 = chunk1 + "> ";
+        Assert.True(StandardClaudeProcessRunner.IsUsagePanelComplete(chunk2));
+    }
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseD_UsageContentSplitAcrossChunks_HandledCorrectly()
+    {
+        var partial = "Welcome\n> /usage\nCurrent session: 25";
+        Assert.False(StandardClaudeProcessRunner.IsUsagePanelComplete(partial));
+
+        var full = partial + "% used\n> ";
+        Assert.True(StandardClaudeProcessRunner.IsUsagePanelComplete(full));
+    }
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseE_OldPromptBeforeUsageCannotSatisfyCompletion()
+    {
+        var output = "claude>\nCurrent session allowance: 50% used";
+        Assert.False(StandardClaudeProcessRunner.IsUsagePanelComplete(output));
     }
 }

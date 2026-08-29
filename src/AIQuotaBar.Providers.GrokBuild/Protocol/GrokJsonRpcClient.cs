@@ -82,9 +82,9 @@ public sealed class GrokJsonRpcClient
             // Primary official billing method
             return await SendRequestAsync<GrokBillingResult>("x.ai/billing", new { }, cancellationToken).ConfigureAwait(false);
         }
-        catch (GrokRpcException rpcEx) when (rpcEx.ErrorCode == -32601 || rpcEx.ErrorMessage?.Contains("not found", StringComparison.OrdinalIgnoreCase) == true)
+        catch (GrokRpcException rpcEx) when (rpcEx.ErrorCode == -32601)
         {
-            // Fallback on method not found: legacy _x.ai/billing
+            // Fallback on method not found (-32601): legacy _x.ai/billing
             return await SendRequestAsync<GrokBillingResult>("_x.ai/billing", new { }, cancellationToken).ConfigureAwait(false);
         }
     }

@@ -13,6 +13,22 @@ public sealed class GrokBuildUsageProvider : IUsageProvider
 
     private static readonly string[] DefaultArguments = new[] { "--no-auto-update", "agent", "stdio" };
 
+    private static readonly HashSet<string> KnownSafeAuthMethodIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cached_token",
+        "token",
+        "api_key",
+        "apikey"
+    };
+
+    private static readonly HashSet<string> KnownSafeAuthMethodTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "cached_token",
+        "token",
+        "api_key",
+        "apikey"
+    };
+
     private readonly IGrokProcessRunner _processRunner;
     private readonly Func<string?> _executableLocator;
     private readonly TimeSpan _defaultTimeout;
@@ -32,6 +48,15 @@ public sealed class GrokBuildUsageProvider : IUsageProvider
 
     public async Task<ProviderSnapshot> GetUsageAsync(CancellationToken cancellationToken = default)
     {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return new ProviderSnapshot(
+                providerId: Id,
+                providerDisplayName: DisplayName,
+                status: ProviderStatus.Cancelled,
+                statusMessage: "Refresh cancelled by user");
+        }
+
         var executablePath = _executableLocator();
         if (string.IsNullOrWhiteSpace(executablePath))
         {
@@ -108,74 +133,74 @@ public sealed class GrokBuildUsageProvider : IUsageProvider
     {
         if (initResult == null)
         {
-            return "cached_token";
+            // Fail closed on null or unparseable initialize response
+            return null;
         }
 
         var authMethods = initResult.AuthMethods;
         if (authMethods == null || authMethods.Count == 0)
         {
-            // If no authMethods array is advertised by legacy version, use default provider-owned cached token
-            return initResult.Meta?.DefaultAuthMethodId ?? "cached_token";
+            // Legacy compatibility: If a valid initialize response was received with server/protocol metadata
+            // but no authMethods array was advertised by the legacy version, allow legacy cached_token fallback.
+            var isValidLegacyInit = initResult.ProtocolVersion.HasValue ||
+                                   initResult.ServerInfo != null ||
+                                   initResult.Capabilities != null;
+
+            return isValidLegacyInit ? "cached_token" : null;
         }
 
-        // Filter out explicitly interactive methods (e.g. browser login)
-        var nonInteractive = authMethods
-            .Where(m => !IsInteractive(m))
+        // Strict whitelist: only select explicitly understood non-interactive provider-owned methods
+        var nonInteractiveSafe = authMethods
+            .Where(IsWhitelistedNonInteractiveMethod)
             .ToList();
 
-        if (nonInteractive.Count == 0)
+        if (nonInteractiveSafe.Count == 0)
         {
-            // All advertised methods are interactive -> fail closed
+            // No understood safe non-interactive auth method offered -> fail closed
             return null;
         }
 
-        // If defaultAuthMethodId is among the non-interactive methods, prefer it
+        // If defaultAuthMethodId is in the whitelisted safe collection, prefer it
         if (!string.IsNullOrWhiteSpace(initResult.Meta?.DefaultAuthMethodId))
         {
-            var defaultMatch = nonInteractive.FirstOrDefault(m => string.Equals(m.Id, initResult.Meta.DefaultAuthMethodId, StringComparison.OrdinalIgnoreCase));
+            var defaultMatch = nonInteractiveSafe.FirstOrDefault(m => string.Equals(m.Id, initResult.Meta.DefaultAuthMethodId, StringComparison.OrdinalIgnoreCase));
             if (defaultMatch != null)
             {
                 return defaultMatch.Id;
             }
         }
 
-        // Prefer cached_token or token/apiKey
-        var cachedToken = nonInteractive.FirstOrDefault(m => string.Equals(m.Id, "cached_token", StringComparison.OrdinalIgnoreCase));
+        // Prefer cached_token
+        var cachedToken = nonInteractiveSafe.FirstOrDefault(m => string.Equals(m.Id, "cached_token", StringComparison.OrdinalIgnoreCase));
         if (cachedToken != null)
         {
             return cachedToken.Id;
         }
 
-        var tokenMethod = nonInteractive.FirstOrDefault(m => string.Equals(m.Type, "token", StringComparison.OrdinalIgnoreCase) || string.Equals(m.Type, "apiKey", StringComparison.OrdinalIgnoreCase));
-        if (tokenMethod != null)
-        {
-            return tokenMethod.Id;
-        }
-
-        return nonInteractive[0].Id;
+        // Otherwise return first whitelisted safe method (e.g. token/apiKey)
+        return nonInteractiveSafe[0].Id;
     }
 
-    private static bool IsInteractive(GrokAuthMethod method)
+    private static bool IsWhitelistedNonInteractiveMethod(GrokAuthMethod method)
     {
         if (method.Interactive == true)
         {
-            return true;
+            return false;
         }
 
-        if (string.Equals(method.Type, "oauth", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(method.Type, "browser", StringComparison.OrdinalIgnoreCase))
+        var id = method.Id ?? string.Empty;
+        var type = method.Type ?? string.Empty;
+
+        if (string.Equals(type, "oauth", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(type, "browser", StringComparison.OrdinalIgnoreCase) ||
+            id.Contains("browser", StringComparison.OrdinalIgnoreCase) ||
+            id.Contains("oauth", StringComparison.OrdinalIgnoreCase) ||
+            id.Contains("interactive", StringComparison.OrdinalIgnoreCase))
         {
-            return true;
+            return false;
         }
 
-        if (method.Id.Contains("browser", StringComparison.OrdinalIgnoreCase) ||
-            method.Id.Contains("oauth", StringComparison.OrdinalIgnoreCase) ||
-            method.Id.Contains("interactive", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return false;
+        return KnownSafeAuthMethodIds.Contains(id) || KnownSafeAuthMethodTypes.Contains(type);
     }
 
     private static bool IsAuthError(Exception ex)

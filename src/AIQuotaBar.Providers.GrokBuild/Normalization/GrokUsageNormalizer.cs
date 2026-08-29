@@ -94,27 +94,27 @@ public static class GrokUsageNormalizer
     public static (string WindowId, string DisplayName, TimeSpan? Duration)? ResolvePeriodDetails(GrokBillingConfig config)
     {
         var isUnified = config.IsUnifiedBillingUser ?? false;
-        var rawType = config.CurrentPeriod?.Type;
+        var rawType = config.CurrentPeriod?.Type?.Trim();
 
         if (!string.IsNullOrWhiteSpace(rawType))
         {
-            if (rawType.Contains("WEEKLY", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(rawType, "weekly", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(rawType, "weekly", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(rawType, "USAGE_PERIOD_TYPE_WEEKLY", StringComparison.OrdinalIgnoreCase))
             {
                 var id = isUnified ? "shared-weekly" : "build-weekly";
                 var name = isUnified ? "Grok · Weekly" : "Build · Weekly";
                 return (id, name, TimeSpan.FromDays(7));
             }
 
-            if (rawType.Contains("MONTHLY", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(rawType, "monthly", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(rawType, "monthly", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(rawType, "USAGE_PERIOD_TYPE_MONTHLY", StringComparison.OrdinalIgnoreCase))
             {
                 var id = isUnified ? "shared-monthly" : "build-monthly";
                 var name = isUnified ? "Grok · Monthly" : "Build · Monthly";
                 return (id, name, TimeSpan.FromDays(30));
             }
 
-            // Unknown rawType -> Do not guess!
+            // Unknown rawType (e.g. BIWEEKLY or unknown rolling period) -> Do not guess!
             return null;
         }
 

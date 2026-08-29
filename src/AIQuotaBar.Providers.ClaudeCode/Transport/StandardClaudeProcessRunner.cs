@@ -3,13 +3,29 @@ namespace AIQuotaBar.Providers.ClaudeCode.Transport;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
-public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
+public sealed partial class StandardClaudeProcessRunner : IClaudeProcessRunner
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
+
+    [GeneratedRegex(@"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", RegexOptions.Compiled)]
+    private static partial Regex AnsiRegex();
+
+    [GeneratedRegex(@"(\d+(?:\.\d+)?)\s*%\s*(?:used|consumed)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex UsedPercentRegex();
+
+    [GeneratedRegex(@"(?:used|consumed)\s*[:=]\s*(\d+(?:\.\d+)?)\s*%", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex UsedColonPercentRegex();
+
+    [GeneratedRegex(@"(\d+(?:\.\d+)?)\s*%\s*(?:remaining|left)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex RemainingPercentRegex();
+
+    [GeneratedRegex(@"(?:remaining|left)\s*[:=]\s*(\d+(?:\.\d+)?)\s*%", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    private static partial Regex RemainingColonPercentRegex();
 
     public async Task<ClaudeAuthStatusResult?> CheckAuthStatusAsync(
         string executablePath,
@@ -232,6 +248,51 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
         }
     }
 
+    public static int FindUnderstoodContentEndIndex(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return -1;
+        }
+
+        var maxEndIndex = -1;
+
+        var m1 = UsedPercentRegex().Match(text);
+        if (m1.Success) maxEndIndex = Math.Max(maxEndIndex, m1.Index + m1.Length);
+
+        var m2 = UsedColonPercentRegex().Match(text);
+        if (m2.Success) maxEndIndex = Math.Max(maxEndIndex, m2.Index + m2.Length);
+
+        var m3 = RemainingPercentRegex().Match(text);
+        if (m3.Success) maxEndIndex = Math.Max(maxEndIndex, m3.Index + m3.Length);
+
+        var m4 = RemainingColonPercentRegex().Match(text);
+        if (m4.Success) maxEndIndex = Math.Max(maxEndIndex, m4.Index + m4.Length);
+
+        string[] statusPhrases =
+        {
+            "not logged in",
+            "please run /login",
+            "run `claude login`",
+            "authentication required",
+            "api key",
+            "pay-as-you-go",
+            "usage-based",
+            "no subscription"
+        };
+
+        foreach (var phrase in statusPhrases)
+        {
+            var idx = text.IndexOf(phrase, StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
+            {
+                maxEndIndex = Math.Max(maxEndIndex, idx + phrase.Length);
+            }
+        }
+
+        return maxEndIndex;
+    }
+
     public static bool IsUsagePanelComplete(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -239,24 +300,21 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
             return false;
         }
 
-        var hasUsageKeywords = text.Contains("limit", StringComparison.OrdinalIgnoreCase) ||
-                               text.Contains("allowance", StringComparison.OrdinalIgnoreCase) ||
-                               text.Contains("used", StringComparison.OrdinalIgnoreCase) ||
-                               text.Contains("remaining", StringComparison.OrdinalIgnoreCase) ||
-                               text.Contains("resets", StringComparison.OrdinalIgnoreCase) ||
-                               text.Contains("not logged in", StringComparison.OrdinalIgnoreCase);
-
-        if (!hasUsageKeywords)
+        var cleaned = AnsiRegex().Replace(text, " ");
+        var usageEndIndex = FindUnderstoodContentEndIndex(cleaned);
+        if (usageEndIndex < 0)
         {
             return false;
         }
 
-        // Must observe return to prompt or explicit panel ending
-        return text.EndsWith("> ") ||
-               text.EndsWith(">") ||
-               text.Contains("\n> ") ||
-               text.Contains("\r\n> ") ||
-               text.Contains("claude>");
+        // Return prompt marker MUST occur AFTER the recognized usage content
+        var postUsage = cleaned[usageEndIndex..];
+
+        return postUsage.EndsWith("> ") ||
+               postUsage.EndsWith(">") ||
+               postUsage.Contains("\n> ") ||
+               postUsage.Contains("\r\n> ") ||
+               postUsage.Contains("claude>");
     }
 
     private static async Task<bool> WaitForExitAsync(Process process, TimeSpan timeout, CancellationToken cancellationToken)
