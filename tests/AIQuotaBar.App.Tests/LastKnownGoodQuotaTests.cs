@@ -522,4 +522,26 @@ public class LastKnownGoodQuotaTests
         var notif = evaluator.Evaluate(obs);
         Assert.Null(notif); // Baseline recorded silently, no false triggers
     }
+
+    [Fact]
+    public void ScenarioO_ZeroWindowAvailable_DoesNotUpdateLastSuccessfulRefreshAt()
+    {
+        var stub = new StubUsageProvider();
+        var vm = new ProviderSectionViewModel(stub, TimeSpan.FromMinutes(1));
+
+        var zeroWindowAvailableSnapshot = new ProviderSnapshot(
+            stub.Id,
+            stub.DisplayName,
+            ProviderStatus.Available,
+            "Usage-based billing — no fixed quota",
+            "API Key",
+            timestamp: DateTimeOffset.UtcNow,
+            windows: Array.Empty<QuotaWindow>());
+
+        vm.ApplySnapshot(zeroWindowAvailableSnapshot);
+
+        Assert.Equal(ProviderStatus.Available, vm.Status);
+        Assert.Empty(vm.Windows);
+        Assert.Null(vm.LastSuccessfulRefreshAt); // Does NOT claim successful finite quota observation!
+    }
 }

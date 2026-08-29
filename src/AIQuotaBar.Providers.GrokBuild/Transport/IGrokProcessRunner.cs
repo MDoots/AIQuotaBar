@@ -10,7 +10,7 @@ public interface IGrokProcessRunner
 {
     Task RunAsync(
         string executablePath,
-        string arguments,
+        IReadOnlyList<string> arguments,
         Func<IGrokProcessSession, CancellationToken, Task> sessionAction,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);

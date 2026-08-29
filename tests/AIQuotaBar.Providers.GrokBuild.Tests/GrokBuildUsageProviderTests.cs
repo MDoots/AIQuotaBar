@@ -5,9 +5,17 @@ using AIQuotaBar.Providers.GrokBuild;
 using AIQuotaBar.Providers.GrokBuild.Protocol;
 using AIQuotaBar.Providers.GrokBuild.Transport;
 using Xunit;
+using Xunit.Abstractions;
 
 public class GrokBuildUsageProviderTests
 {
+    private readonly ITestOutputHelper _output;
+
+    public GrokBuildUsageProviderTests(ITestOutputHelper output)
+    {
+        _output = output;
+    }
+
     private sealed class MockGrokProcessRunner : IGrokProcessRunner
     {
         private readonly Func<IGrokProcessSession, CancellationToken, Task> _handler;
@@ -17,7 +25,12 @@ public class GrokBuildUsageProviderTests
             _handler = handler;
         }
 
-        public Task RunAsync(string executablePath, string arguments, Func<IGrokProcessSession, CancellationToken, Task> sessionAction, TimeSpan timeout, CancellationToken cancellationToken = default)
+        public Task RunAsync(
+            string executablePath,
+            IReadOnlyList<string> arguments,
+            Func<IGrokProcessSession, CancellationToken, Task> sessionAction,
+            TimeSpan timeout,
+            CancellationToken cancellationToken = default)
         {
             return _handler(new StubSession(), cancellationToken);
         }
@@ -68,13 +81,6 @@ public class GrokBuildUsageProviderTests
         Assert.Equal("Grok Build did not respond", snapshot.StatusMessage);
     }
 
-    private readonly Xunit.Abstractions.ITestOutputHelper _output;
-
-    public GrokBuildUsageProviderTests(Xunit.Abstractions.ITestOutputHelper output)
-    {
-        _output = output;
-    }
-
     [Fact]
     public async Task GetUsageAsync_WhenRunnerThrowsUnexpectedException_ReturnsErrorSnapshot()
     {
@@ -88,5 +94,57 @@ public class GrokBuildUsageProviderTests
 
         Assert.Equal(ProviderStatus.Error, snapshot.Status);
         Assert.Equal("Unable to communicate with Grok Build", snapshot.StatusMessage);
+    }
+
+    [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenOnlyInteractiveMethods_ReturnsNull()
+    {
+        var initResult = new GrokInitializeResult
+        {
+            AuthMethods = new[]
+            {
+                new GrokAuthMethod { Id = "browser_oauth", Type = "oauth", Interactive = true },
+                new GrokAuthMethod { Id = "manual_login", Interactive = true }
+            }
+        };
+
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
+
+        Assert.Null(selected);
+    }
+
+    [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenCachedTokenAvailable_SelectsIt()
+    {
+        var initResult = new GrokInitializeResult
+        {
+            AuthMethods = new[]
+            {
+                new GrokAuthMethod { Id = "browser_oauth", Interactive = true },
+                new GrokAuthMethod { Id = "cached_token", Interactive = false }
+            }
+        };
+
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
+
+        Assert.Equal("cached_token", selected);
+    }
+
+    [Fact]
+    public void SelectNonInteractiveAuthMethod_WhenDefaultIdSpecifiedAndNonInteractive_SelectsDefault()
+    {
+        var initResult = new GrokInitializeResult
+        {
+            AuthMethods = new[]
+            {
+                new GrokAuthMethod { Id = "custom_token", Type = "token", Interactive = false },
+                new GrokAuthMethod { Id = "cached_token", Interactive = false }
+            },
+            Meta = new GrokInitializeMeta { DefaultAuthMethodId = "custom_token" }
+        };
+
+        var selected = GrokBuildUsageProvider.SelectNonInteractiveAuthMethod(initResult);
+
+        Assert.Equal("custom_token", selected);
     }
 }

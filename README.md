@@ -32,7 +32,7 @@ AIQuotaBar communicates directly with official locally installed developer tools
 | **OpenAI Codex** | Supported | Official local Codex app-server via local stdio JSON-RPC (`codex app-server --stdio`). |
 | **Google Antigravity** | Supported | Official `agy` CLI using structured usage output (`agy -p "/usage" --output-format json`). |
 | **Claude Code** | Supported | Official native Claude Code CLI (`claude auth status --json` and local `/usage` surface). |
-| **Grok Build** | Supported | Official local Grok Build ACP stdio server (`grok --no-auto-update agent stdio`) via provider-owned `_x.ai/billing`. |
+| **Grok Build** | Supported | Official local Grok Build ACP stdio server (`grok --no-auto-update agent stdio`) via provider-owned `x.ai/billing` (with legacy fallback). |
 | **GitHub Copilot** | Supported | Official `GitHub.Copilot.SDK` connected to local `copilot.exe` using account quota RPC (`account.getQuota`). No model session created. |
 
 ### Future & Requested Providers

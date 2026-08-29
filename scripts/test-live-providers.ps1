@@ -268,13 +268,30 @@ $grokRes = Invoke-WithTimeout 'Grok Build' {
         if ($line -and $line.Contains('"id":2')) { $authResp = $line; break }
     }
 
-    $writer.WriteLine('{"jsonrpc":"2.0","id":3,"method":"_x.ai/billing","params":{}}')
+    $writer.WriteLine('{"jsonrpc":"2.0","id":3,"method":"x.ai/billing","params":{}}')
     $writer.Flush()
 
     $billingResp = $null
     for ($i = 0; $i -lt 10; $i++) {
         $line = $reader.ReadLine()
-        if ($line -and $line.Contains('"id":3')) { $billingResp = $line; break }
+        if ($line -and $line.Contains('"id":3')) {
+            if ($line.Contains('"error"') -and $line.Contains('-32601')) {
+                # Fallback to _x.ai/billing
+                $writer.WriteLine('{"jsonrpc":"2.0","id":4,"method":"_x.ai/billing","params":{}}')
+                $writer.Flush()
+                for ($j = 0; $j -lt 10; $j++) {
+                    $fallbackLine = $reader.ReadLine()
+                    if ($fallbackLine -and $fallbackLine.Contains('"id":4')) {
+                        $billingResp = $fallbackLine
+                        break
+                    }
+                }
+                break
+            } else {
+                $billingResp = $line
+                break
+            }
+        }
     }
 
     try { $writer.Close() } catch {}

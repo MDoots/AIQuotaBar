@@ -237,11 +237,10 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         _refreshInterval = refreshInterval;
         _providerName = provider.DisplayName;
 
-        var descriptor = ProviderCatalog.GetDescriptor(provider.Id);
-        _shortDisplayName = shortDisplayName ?? descriptor?.ShortDisplayName;
+        _shortDisplayName = shortDisplayName ?? provider.DisplayName;
         _accentColor = !string.IsNullOrWhiteSpace(accentColor)
             ? accentColor
-            : (descriptor?.AccentColor ?? "#10B981");
+            : "#6B7280";
         _discoveryStatus = initialDiscoveryStatus;
     }
 
@@ -427,7 +426,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
                 Status = ProviderStatus.Available;
                 StatusMessage = snapshot.StatusMessage;
                 LastRefreshedAt = snapshot.Timestamp;
-                LastSuccessfulRefreshAt = snapshot.Timestamp;
+                // Do not update LastSuccessfulRefreshAt because no finite quota observation occurred
                 IsQuotaStale = false;
 
                 _allWindows.Clear();

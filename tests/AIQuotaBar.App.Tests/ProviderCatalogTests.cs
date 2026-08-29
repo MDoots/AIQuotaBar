@@ -1,10 +1,30 @@
 namespace AIQuotaBar.App.Tests;
 
 using AIQuotaBar.App.Providers;
+using AIQuotaBar.App.ViewModels;
+using AIQuotaBar.Core.Interfaces;
+using AIQuotaBar.Core.Models;
 using Xunit;
 
 public class ProviderCatalogTests
 {
+    private sealed class CustomUnknownUsageProvider : IUsageProvider
+    {
+        public string Id => "custom-unknown-provider";
+        public string DisplayName => "Custom Unknown Provider";
+
+        public Task<ProviderSnapshot> GetUsageAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new ProviderSnapshot(
+                Id,
+                DisplayName,
+                ProviderStatus.Available,
+                null,
+                "Custom Plan",
+                windows: Array.Empty<QuotaWindow>()));
+        }
+    }
+
     [Fact]
     public void Catalog_ContainsExactlySupportedProviders_InCanonicalOrder()
     {
@@ -96,11 +116,13 @@ public class ProviderCatalogTests
         Assert.Equal("#D97757", claude.AccentColor);
         Assert.Equal(new Uri("https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview"), claude.SetupUri);
 
-        Assert.Equal(2, claude.KnownQuotaWindows.Count);
+        Assert.Equal(3, claude.KnownQuotaWindows.Count);
         Assert.Equal("session-5h", claude.KnownQuotaWindows[0].Id);
-        Assert.Equal("5-Hour Session", claude.KnownQuotaWindows[0].DisplayName);
+        Assert.Equal("Session · 5-hour", claude.KnownQuotaWindows[0].DisplayName);
         Assert.Equal("weekly-all", claude.KnownQuotaWindows[1].Id);
-        Assert.Equal("Weekly", claude.KnownQuotaWindows[1].DisplayName);
+        Assert.Equal("Weekly · All models", claude.KnownQuotaWindows[1].DisplayName);
+        Assert.Equal("weekly-opus", claude.KnownQuotaWindows[2].Id);
+        Assert.Equal("Weekly · Claude Opus", claude.KnownQuotaWindows[2].DisplayName);
 
         var providerInstance = claude.CreateProvider();
         Assert.NotNull(providerInstance);
@@ -144,9 +166,13 @@ public class ProviderCatalogTests
         Assert.Equal("#A78BFA", copilot.AccentColor);
         Assert.Equal(new Uri("https://docs.github.com/copilot/how-tos/copilot-cli"), copilot.SetupUri);
 
-        Assert.Single(copilot.KnownQuotaWindows);
+        Assert.Equal(3, copilot.KnownQuotaWindows.Count);
         Assert.Equal("premium", copilot.KnownQuotaWindows[0].Id);
-        Assert.Equal("Premium", copilot.KnownQuotaWindows[0].DisplayName);
+        Assert.Equal("Premium interactions", copilot.KnownQuotaWindows[0].DisplayName);
+        Assert.Equal("chat", copilot.KnownQuotaWindows[1].Id);
+        Assert.Equal("Chat", copilot.KnownQuotaWindows[1].DisplayName);
+        Assert.Equal("completions", copilot.KnownQuotaWindows[2].Id);
+        Assert.Equal("Completions", copilot.KnownQuotaWindows[2].DisplayName);
 
         var providerInstance = copilot.CreateProvider();
         Assert.NotNull(providerInstance);
@@ -165,5 +191,19 @@ public class ProviderCatalogTests
         Assert.Same(ProviderCatalog.GrokBuild, ProviderCatalog.GetDescriptor("grok-build"));
         Assert.Same(ProviderCatalog.GitHubCopilot, ProviderCatalog.GetDescriptor("github-copilot"));
         Assert.Null(ProviderCatalog.GetDescriptor("unknown_provider"));
+    }
+
+    [Fact]
+    public void ProviderSectionViewModel_CustomProvider_ConstructsWithoutCatalogDependency_UsesNeutralFallback()
+    {
+        var customProvider = new CustomUnknownUsageProvider();
+        Assert.Null(ProviderCatalog.GetDescriptor(customProvider.Id));
+
+        var vm = new ProviderSectionViewModel(customProvider, TimeSpan.FromSeconds(30));
+
+        Assert.Equal("custom-unknown-provider", vm.ProviderId);
+        Assert.Equal("Custom Unknown Provider", vm.ProviderName);
+        Assert.Equal("Custom Unknown Provider", vm.ShortDisplayName);
+        Assert.Equal("#6B7280", vm.ProviderAccentColor); // Neutral gray fallback, NOT Codex green
     }
 }

@@ -20,15 +20,19 @@ public class ClaudeCodeUsageProviderTests
         public ClaudeAuthStatusResult? AuthStatusResult { get; set; }
         public string UsageOutput { get; set; } = string.Empty;
         public Exception? ExceptionToThrow { get; set; }
+        public bool CaptureUsageCalled { get; private set; }
 
         public Task<ClaudeAuthStatusResult?> CheckAuthStatusAsync(string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (ExceptionToThrow != null) throw ExceptionToThrow;
             return Task.FromResult(AuthStatusResult);
         }
 
         public Task<string> CaptureUsageAsync(string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
         {
+            CaptureUsageCalled = true;
+            cancellationToken.ThrowIfCancellationRequested();
             if (ExceptionToThrow != null) throw ExceptionToThrow;
             return Task.FromResult(UsageOutput);
         }
@@ -43,6 +47,25 @@ public class ClaudeCodeUsageProviderTests
 
         Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
         Assert.Equal("Claude Code executable not found on system", snapshot.StatusMessage);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_WhenAuthStatusNull_FailsClosedAsUnavailableWithoutInteractiveCapture()
+    {
+        var runner = new MockClaudeProcessRunner
+        {
+            AuthStatusResult = null // Malformed or missing auth JSON
+        };
+
+        var provider = new ClaudeCodeUsageProvider(
+            runner: runner,
+            executableLocator: () => @"C:\bin\claude.exe");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("Unable to determine Claude Code authentication status", snapshot.StatusMessage);
+        Assert.False(runner.CaptureUsageCalled); // MUST NOT proceed into interactive session!
     }
 
     [Fact]
@@ -64,6 +87,7 @@ public class ClaudeCodeUsageProviderTests
 
         Assert.Equal(ProviderStatus.Unauthenticated, snapshot.Status);
         Assert.Equal("Claude Code requires sign-in", snapshot.StatusMessage);
+        Assert.False(runner.CaptureUsageCalled);
     }
 
     [Fact]
@@ -76,7 +100,7 @@ public class ClaudeCodeUsageProviderTests
                 LoggedIn = true,
                 SubscriptionTier = "Claude Pro"
             },
-            UsageOutput = "Current session allowance: 20% used"
+            UsageOutput = "Current session allowance: 20% used >"
         };
 
         var provider = new ClaudeCodeUsageProvider(
@@ -89,6 +113,7 @@ public class ClaudeCodeUsageProviderTests
         Assert.Equal("Claude Pro", snapshot.AccountPlan);
         Assert.Single(snapshot.Windows);
         Assert.Equal(80.0, snapshot.Windows[0].RemainingPercent);
+        Assert.True(runner.CaptureUsageCalled);
     }
 
     [Fact]
@@ -110,12 +135,33 @@ public class ClaudeCodeUsageProviderTests
     }
 
     [Fact]
+    public async Task GetUsageAsync_WhenCallerCancelled_ReturnsCancelled()
+    {
+        var runner = new MockClaudeProcessRunner
+        {
+            AuthStatusResult = new ClaudeAuthStatusResult { LoggedIn = true }
+        };
+
+        var provider = new ClaudeCodeUsageProvider(
+            runner: runner,
+            executableLocator: () => @"C:\bin\claude.exe");
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var snapshot = await provider.GetUsageAsync(cts.Token);
+
+        Assert.Equal(ProviderStatus.Cancelled, snapshot.Status);
+        Assert.Equal("Refresh cancelled by user", snapshot.StatusMessage);
+    }
+
+    [Fact]
     public async Task GetUsageAsync_UsageBasedAuth_ReturnsTruthfulNoQuotaSnapshot()
     {
         var runner = new MockClaudeProcessRunner
         {
             AuthStatusResult = new ClaudeAuthStatusResult { LoggedIn = true, AuthMethod = "api_key", ApiProvider = "anthropic" },
-            UsageOutput = "Authenticated with API Key. No subscription limits apply."
+            UsageOutput = "Authenticated with API Key. No subscription limits apply. >"
         };
 
         var provider = new ClaudeCodeUsageProvider(

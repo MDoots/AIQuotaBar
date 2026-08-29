@@ -24,7 +24,6 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
-            Arguments = "auth status --json",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -32,6 +31,10 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
             StandardOutputEncoding = new UTF8Encoding(false),
             StandardErrorEncoding = new UTF8Encoding(false)
         };
+
+        startInfo.ArgumentList.Add("auth");
+        startInfo.ArgumentList.Add("status");
+        startInfo.ArgumentList.Add("--json");
 
         Process? process = null;
         try
@@ -59,6 +62,14 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
                 return null;
             }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            if (process != null && !process.HasExited)
+            {
+                KillProcessTreeSafe(process);
+            }
+            throw;
+        }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
         {
             if (process != null && !process.HasExited)
@@ -66,6 +77,14 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
                 KillProcessTreeSafe(process);
             }
             throw new TimeoutException($"Claude auth check timed out after {timeout.TotalSeconds:0.##}s");
+        }
+        catch
+        {
+            if (process != null && !process.HasExited)
+            {
+                KillProcessTreeSafe(process);
+            }
+            throw;
         }
         finally
         {
@@ -103,7 +122,6 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
-            Arguments = "",
             WorkingDirectory = neutralWorkingDir,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -130,40 +148,32 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
             await process.StandardInput.WriteLineAsync("/usage".AsMemory(), cts.Token).ConfigureAwait(false);
             await process.StandardInput.FlushAsync(cts.Token).ConfigureAwait(false);
 
-            // Read output deterministically until usage markers and return-to-prompt or EOF are observed
+            // Single outstanding read state machine
             var buffer = new char[1024];
-            var readDeadlineCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-            using var linkedReadCts = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, readDeadlineCts.Token);
+            var isCompleted = false;
 
-            try
+            while (!cts.IsCancellationRequested)
             {
-                while (!linkedReadCts.IsCancellationRequested)
+                var charsRead = await process.StandardOutput.ReadAsync(buffer.AsMemory(), cts.Token).ConfigureAwait(false);
+                if (charsRead <= 0)
                 {
-                    var readTask = process.StandardOutput.ReadAsync(buffer, 0, buffer.Length);
-                    var completedTask = await Task.WhenAny(readTask, Task.Delay(200, linkedReadCts.Token)).ConfigureAwait(false);
-                    if (completedTask == readTask)
-                    {
-                        var charsRead = await readTask.ConfigureAwait(false);
-                        if (charsRead <= 0) break;
-                        sb.Append(buffer, 0, charsRead);
-                        var current = sb.ToString();
+                    break;
+                }
 
-                        // Detect usage panel completion and return to prompt
-                        if ((current.Contains("limit", StringComparison.OrdinalIgnoreCase) ||
-                             current.Contains("allowance", StringComparison.OrdinalIgnoreCase) ||
-                             current.Contains("used", StringComparison.OrdinalIgnoreCase) ||
-                             current.Contains("resets", StringComparison.OrdinalIgnoreCase) ||
-                             current.Contains("not logged in", StringComparison.OrdinalIgnoreCase)) &&
-                            (current.EndsWith("> ") || current.EndsWith(">") || current.Contains("\n> ") || current.Contains("\r\n> ") || current.Contains("claude>")))
-                        {
-                            break;
-                        }
-                    }
+                sb.Append(buffer, 0, charsRead);
+                var current = sb.ToString();
+
+                if (IsUsagePanelComplete(current))
+                {
+                    isCompleted = true;
+                    break;
                 }
             }
-            catch (OperationCanceledException)
+
+            if (!isCompleted && !cancellationToken.IsCancellationRequested)
             {
-                // Bounded read completed
+                // Partial output must never be accepted as valid quota
+                throw new TimeoutException($"Claude /usage capture did not complete within {timeout.TotalSeconds:0.##}s");
             }
 
             try
@@ -177,7 +187,7 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
                 // Stdin already closed
             }
 
-            var exitedCleanly = await WaitForExitAsync(process, TimeSpan.FromMilliseconds(800), cts.Token).ConfigureAwait(false);
+            var exitedCleanly = await WaitForExitAsync(process, TimeSpan.FromMilliseconds(500), cts.Token).ConfigureAwait(false);
             if (!exitedCleanly && !process.HasExited)
             {
                 KillProcessTreeSafe(process);
@@ -201,6 +211,14 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
             }
             throw new TimeoutException($"Claude usage capture timed out after {timeout.TotalSeconds:0.##}s");
         }
+        catch
+        {
+            if (process != null && !process.HasExited)
+            {
+                KillProcessTreeSafe(process);
+            }
+            throw;
+        }
         finally
         {
             if (process != null)
@@ -212,6 +230,33 @@ public sealed class StandardClaudeProcessRunner : IClaudeProcessRunner
                 process.Dispose();
             }
         }
+    }
+
+    public static bool IsUsagePanelComplete(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var hasUsageKeywords = text.Contains("limit", StringComparison.OrdinalIgnoreCase) ||
+                               text.Contains("allowance", StringComparison.OrdinalIgnoreCase) ||
+                               text.Contains("used", StringComparison.OrdinalIgnoreCase) ||
+                               text.Contains("remaining", StringComparison.OrdinalIgnoreCase) ||
+                               text.Contains("resets", StringComparison.OrdinalIgnoreCase) ||
+                               text.Contains("not logged in", StringComparison.OrdinalIgnoreCase);
+
+        if (!hasUsageKeywords)
+        {
+            return false;
+        }
+
+        // Must observe return to prompt or explicit panel ending
+        return text.EndsWith("> ") ||
+               text.EndsWith(">") ||
+               text.Contains("\n> ") ||
+               text.Contains("\r\n> ") ||
+               text.Contains("claude>");
     }
 
     private static async Task<bool> WaitForExitAsync(Process process, TimeSpan timeout, CancellationToken cancellationToken)

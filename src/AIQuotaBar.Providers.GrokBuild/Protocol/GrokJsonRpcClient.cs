@@ -36,7 +36,7 @@ public sealed class GrokJsonRpcClient
         _session = session ?? throw new ArgumentNullException(nameof(session));
     }
 
-    public async Task InitializeAsync(string clientName, string clientVersion, CancellationToken cancellationToken = default)
+    public async Task<GrokInitializeResult?> InitializeAsync(string clientName, string clientVersion, CancellationToken cancellationToken = default)
     {
         var initParams = new
         {
@@ -55,7 +55,7 @@ public sealed class GrokJsonRpcClient
             }
         };
 
-        await SendRequestAsync<object>("initialize", initParams, cancellationToken).ConfigureAwait(false);
+        return await SendRequestAsync<GrokInitializeResult>("initialize", initParams, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task AuthenticateAsync(string methodId = "cached_token", CancellationToken cancellationToken = default)
@@ -79,12 +79,13 @@ public sealed class GrokJsonRpcClient
     {
         try
         {
-            return await SendRequestAsync<GrokBillingResult>("_x.ai/billing", new { }, cancellationToken).ConfigureAwait(false);
-        }
-        catch (GrokRpcException rpcEx) when (rpcEx.ErrorCode == -32601)
-        {
-            // Method not found: try x.ai/billing as fallback
+            // Primary official billing method
             return await SendRequestAsync<GrokBillingResult>("x.ai/billing", new { }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (GrokRpcException rpcEx) when (rpcEx.ErrorCode == -32601 || rpcEx.ErrorMessage?.Contains("not found", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            // Fallback on method not found: legacy _x.ai/billing
+            return await SendRequestAsync<GrokBillingResult>("_x.ai/billing", new { }, cancellationToken).ConfigureAwait(false);
         }
     }
 

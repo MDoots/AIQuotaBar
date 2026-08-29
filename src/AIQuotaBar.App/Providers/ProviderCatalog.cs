@@ -58,8 +58,9 @@ public static class ProviderCatalog
         SetupUri = new Uri("https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview"),
         KnownQuotaWindows = new[]
         {
-            new KnownQuotaWindowDescriptor("session-5h", "5-Hour Session"),
-            new KnownQuotaWindowDescriptor("weekly-all", "Weekly")
+            new KnownQuotaWindowDescriptor("session-5h", "Session · 5-hour"),
+            new KnownQuotaWindowDescriptor("weekly-all", "Weekly · All models"),
+            new KnownQuotaWindowDescriptor("weekly-opus", "Weekly · Claude Opus")
         }
     };
 
@@ -92,7 +93,9 @@ public static class ProviderCatalog
         SetupUri = new Uri("https://docs.github.com/copilot/how-tos/copilot-cli"),
         KnownQuotaWindows = new[]
         {
-            new KnownQuotaWindowDescriptor("premium", "Premium")
+            new KnownQuotaWindowDescriptor("premium", "Premium interactions"),
+            new KnownQuotaWindowDescriptor("chat", "Chat"),
+            new KnownQuotaWindowDescriptor("completions", "Completions")
         }
     };
 

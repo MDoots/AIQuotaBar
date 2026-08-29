@@ -47,6 +47,57 @@ public sealed class GrokJsonRpcResponse<T>
     public GrokJsonRpcError? Error { get; set; }
 }
 
+public sealed class GrokInitializeResult
+{
+    [JsonPropertyName("protocolVersion")]
+    public int? ProtocolVersion { get; set; }
+
+    [JsonPropertyName("capabilities")]
+    public object? Capabilities { get; set; }
+
+    [JsonPropertyName("serverInfo")]
+    public GrokServerInfo? ServerInfo { get; set; }
+
+    [JsonPropertyName("authMethods")]
+    public IReadOnlyList<GrokAuthMethod>? AuthMethods { get; set; }
+
+    [JsonPropertyName("_meta")]
+    public GrokInitializeMeta? Meta { get; set; }
+}
+
+public sealed class GrokServerInfo
+{
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("version")]
+    public string? Version { get; set; }
+}
+
+public sealed class GrokAuthMethod
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("interactive")]
+    public bool? Interactive { get; set; }
+}
+
+public sealed class GrokInitializeMeta
+{
+    [JsonPropertyName("defaultAuthMethodId")]
+    public string? DefaultAuthMethodId { get; set; }
+}
+
 public sealed class GrokBillingResult
 {
     [JsonPropertyName("config")]

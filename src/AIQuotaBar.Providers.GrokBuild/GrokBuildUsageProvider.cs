@@ -11,6 +11,8 @@ public sealed class GrokBuildUsageProvider : IUsageProvider
     public const string ProviderIdentifier = "grok-build";
     public const string ProviderName = "Grok Build";
 
+    private static readonly string[] DefaultArguments = new[] { "--no-auto-update", "agent", "stdio" };
+
     private readonly IGrokProcessRunner _processRunner;
     private readonly Func<string?> _executableLocator;
     private readonly TimeSpan _defaultTimeout;
@@ -46,13 +48,20 @@ public sealed class GrokBuildUsageProvider : IUsageProvider
         {
             await _processRunner.RunAsync(
                 executablePath,
-                "--no-auto-update agent stdio",
+                DefaultArguments,
                 async (session, runnerToken) =>
                 {
                     var client = new GrokJsonRpcClient(session);
 
-                    await client.InitializeAsync("AIQuotaBar", "0.2.0", runnerToken).ConfigureAwait(false);
-                    await client.AuthenticateAsync("cached_token", runnerToken).ConfigureAwait(false);
+                    var initResult = await client.InitializeAsync("AIQuotaBar", "0.2.0", runnerToken).ConfigureAwait(false);
+                    var authMethodId = SelectNonInteractiveAuthMethod(initResult);
+
+                    if (string.IsNullOrWhiteSpace(authMethodId))
+                    {
+                        throw new GrokAuthException("No non-interactive Grok Build authentication method available");
+                    }
+
+                    await client.AuthenticateAsync(authMethodId, runnerToken).ConfigureAwait(false);
                     billingResult = await client.GetBillingAsync(runnerToken).ConfigureAwait(false);
                 },
                 _defaultTimeout,
@@ -93,6 +102,80 @@ public sealed class GrokBuildUsageProvider : IUsageProvider
                 status: isAuth ? ProviderStatus.Unauthenticated : ProviderStatus.Error,
                 statusMessage: isAuth ? "Grok Build requires sign-in" : "Unable to communicate with Grok Build");
         }
+    }
+
+    public static string? SelectNonInteractiveAuthMethod(GrokInitializeResult? initResult)
+    {
+        if (initResult == null)
+        {
+            return "cached_token";
+        }
+
+        var authMethods = initResult.AuthMethods;
+        if (authMethods == null || authMethods.Count == 0)
+        {
+            // If no authMethods array is advertised by legacy version, use default provider-owned cached token
+            return initResult.Meta?.DefaultAuthMethodId ?? "cached_token";
+        }
+
+        // Filter out explicitly interactive methods (e.g. browser login)
+        var nonInteractive = authMethods
+            .Where(m => !IsInteractive(m))
+            .ToList();
+
+        if (nonInteractive.Count == 0)
+        {
+            // All advertised methods are interactive -> fail closed
+            return null;
+        }
+
+        // If defaultAuthMethodId is among the non-interactive methods, prefer it
+        if (!string.IsNullOrWhiteSpace(initResult.Meta?.DefaultAuthMethodId))
+        {
+            var defaultMatch = nonInteractive.FirstOrDefault(m => string.Equals(m.Id, initResult.Meta.DefaultAuthMethodId, StringComparison.OrdinalIgnoreCase));
+            if (defaultMatch != null)
+            {
+                return defaultMatch.Id;
+            }
+        }
+
+        // Prefer cached_token or token/apiKey
+        var cachedToken = nonInteractive.FirstOrDefault(m => string.Equals(m.Id, "cached_token", StringComparison.OrdinalIgnoreCase));
+        if (cachedToken != null)
+        {
+            return cachedToken.Id;
+        }
+
+        var tokenMethod = nonInteractive.FirstOrDefault(m => string.Equals(m.Type, "token", StringComparison.OrdinalIgnoreCase) || string.Equals(m.Type, "apiKey", StringComparison.OrdinalIgnoreCase));
+        if (tokenMethod != null)
+        {
+            return tokenMethod.Id;
+        }
+
+        return nonInteractive[0].Id;
+    }
+
+    private static bool IsInteractive(GrokAuthMethod method)
+    {
+        if (method.Interactive == true)
+        {
+            return true;
+        }
+
+        if (string.Equals(method.Type, "oauth", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(method.Type, "browser", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (method.Id.Contains("browser", StringComparison.OrdinalIgnoreCase) ||
+            method.Id.Contains("oauth", StringComparison.OrdinalIgnoreCase) ||
+            method.Id.Contains("interactive", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private static bool IsAuthError(Exception ex)

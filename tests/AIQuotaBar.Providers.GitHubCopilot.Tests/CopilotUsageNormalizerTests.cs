@@ -99,52 +99,71 @@ public class CopilotUsageNormalizerTests
 
         var window = snapshot.Windows[0];
         Assert.Equal("premium", window.Id);
-        Assert.Equal("Premium", window.DisplayName);
+        Assert.Equal("Premium interactions", window.DisplayName);
         Assert.Equal(32.0, window.RawUsedPercent);
         Assert.Equal(68.0, window.RemainingPercent);
+        Assert.Null(window.Duration); // Section 26: Duration must be null
         Assert.Equal(resetDate, window.ResetsAt);
         Assert.Equal(QuotaWindowStatus.Active, window.Status);
     }
 
     [Fact]
-    public void Normalize_WithDuplicatePremiumAliases_EmitsSingleCanonicalRow()
+    public void Normalize_WithDuplicatePremiumAliases_EmitsSingleCanonicalRow_RegardlessOfOrder()
     {
         var resetDate = DateTimeOffset.UtcNow.AddDays(14);
-        var fetchResult = new CopilotFetchResult
+        var fetchResultOrder1 = new CopilotFetchResult
         {
-            AuthInfo = new CopilotAuthInfoDto
-            {
-                IsAuthenticated = true,
-                Plan = "enterprise"
-            },
+            AuthInfo = new CopilotAuthInfoDto { IsAuthenticated = true, Plan = "enterprise" },
             Quotas = new[]
             {
-                new CopilotQuotaDto
-                {
-                    Key = "premium",
-                    EntitlementRequests = 500,
-                    IsUnlimitedEntitlement = false,
-                    RemainingPercentage = 75.0,
-                    ResetDate = resetDate
-                },
-                new CopilotQuotaDto
-                {
-                    Key = "premium_interactions",
-                    EntitlementRequests = 500,
-                    IsUnlimitedEntitlement = false,
-                    RemainingPercentage = 75.0,
-                    ResetDate = resetDate
-                }
+                new CopilotQuotaDto { Key = "premium", EntitlementRequests = 500, RemainingPercentage = 75.0, ResetDate = resetDate },
+                new CopilotQuotaDto { Key = "premium_interactions", EntitlementRequests = 500, RemainingPercentage = 75.0, ResetDate = resetDate }
+            }
+        };
+
+        var snapshot1 = CopilotUsageNormalizer.Normalize(fetchResultOrder1);
+        Assert.Single(snapshot1.Windows);
+        Assert.Equal("premium", snapshot1.Windows[0].Id);
+        Assert.Equal("Premium interactions", snapshot1.Windows[0].DisplayName);
+
+        var fetchResultOrder2 = new CopilotFetchResult
+        {
+            AuthInfo = new CopilotAuthInfoDto { IsAuthenticated = true, Plan = "enterprise" },
+            Quotas = new[]
+            {
+                new CopilotQuotaDto { Key = "premium_interactions", EntitlementRequests = 500, RemainingPercentage = 75.0, ResetDate = resetDate },
+                new CopilotQuotaDto { Key = "premium", EntitlementRequests = 500, RemainingPercentage = 75.0, ResetDate = resetDate }
+            }
+        };
+
+        var snapshot2 = CopilotUsageNormalizer.Normalize(fetchResultOrder2);
+        Assert.Single(snapshot2.Windows);
+        Assert.Equal("premium", snapshot2.Windows[0].Id);
+        Assert.Equal("Premium interactions", snapshot2.Windows[0].DisplayName);
+    }
+
+    [Fact]
+    public void Normalize_WithFiniteChatAndCompletions_NormalizesUnderstoodWindows()
+    {
+        var fetchResult = new CopilotFetchResult
+        {
+            AuthInfo = new CopilotAuthInfoDto { IsAuthenticated = true, Plan = "pro" },
+            Quotas = new[]
+            {
+                new CopilotQuotaDto { Key = "chat", EntitlementRequests = 50, RemainingPercentage = 90.0 },
+                new CopilotQuotaDto { Key = "completions", EntitlementRequests = 1000, RemainingPercentage = 50.0 },
+                new CopilotQuotaDto { Key = "unknown_future_finite_quota", EntitlementRequests = 100, RemainingPercentage = 10.0 }
             }
         };
 
         var snapshot = CopilotUsageNormalizer.Normalize(fetchResult);
 
         Assert.Equal(ProviderStatus.Available, snapshot.Status);
-        Assert.Single(snapshot.Windows); // Deduplicated!
-        Assert.Equal("premium", snapshot.Windows[0].Id);
-        Assert.Equal("Premium", snapshot.Windows[0].DisplayName);
-        Assert.Equal(75.0, snapshot.Windows[0].RemainingPercent);
+        Assert.Equal(2, snapshot.Windows.Count); // chat and completions mapped; unknown finite ignored
+        Assert.Equal("chat", snapshot.Windows[0].Id);
+        Assert.Equal("Chat", snapshot.Windows[0].DisplayName);
+        Assert.Equal("completions", snapshot.Windows[1].Id);
+        Assert.Equal("Completions", snapshot.Windows[1].DisplayName);
     }
 
     [Fact]

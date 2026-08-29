@@ -30,12 +30,13 @@ public sealed class StandardGrokProcessRunner : IGrokProcessRunner
 
     public async Task RunAsync(
         string executablePath,
-        string arguments,
+        IReadOnlyList<string> arguments,
         Func<IGrokProcessSession, CancellationToken, Task> sessionAction,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(executablePath);
+        ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(sessionAction);
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -54,7 +55,6 @@ public sealed class StandardGrokProcessRunner : IGrokProcessRunner
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
-            Arguments = arguments,
             WorkingDirectory = neutralWorkingDir,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -66,7 +66,14 @@ public sealed class StandardGrokProcessRunner : IGrokProcessRunner
             StandardErrorEncoding = new UTF8Encoding(false)
         };
 
+        foreach (var arg in arguments)
+        {
+            startInfo.ArgumentList.Add(arg);
+        }
+
         Process? process = null;
+        Task? sessionTask = null;
+
         try
         {
             process = Process.Start(startInfo)
@@ -77,7 +84,10 @@ public sealed class StandardGrokProcessRunner : IGrokProcessRunner
 
             var session = new ProcessSession(process.StandardInput, process.StandardOutput);
 
-            await sessionAction(session, cts.Token).ConfigureAwait(false);
+            sessionTask = sessionAction(session, cts.Token);
+
+            // Authoritative runner-level bounded await to prevent hanging on stuck pipe reads
+            await sessionTask.WaitAsync(cts.Token).ConfigureAwait(false);
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -98,7 +108,7 @@ public sealed class StandardGrokProcessRunner : IGrokProcessRunner
                 // Process may already have closed stdin
             }
 
-            var exitedCleanly = await WaitForExitAsync(process, TimeSpan.FromMilliseconds(1000), cts.Token).ConfigureAwait(false);
+            var exitedCleanly = await WaitForExitAsync(process, TimeSpan.FromMilliseconds(500), cts.Token).ConfigureAwait(false);
             if (!exitedCleanly && !process.HasExited)
             {
                 KillProcessTreeSafe(process);
@@ -110,6 +120,10 @@ public sealed class StandardGrokProcessRunner : IGrokProcessRunner
             {
                 KillProcessTreeSafe(process);
             }
+            if (sessionTask != null)
+            {
+                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            }
             throw;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
@@ -118,13 +132,33 @@ public sealed class StandardGrokProcessRunner : IGrokProcessRunner
             {
                 KillProcessTreeSafe(process);
             }
+            if (sessionTask != null)
+            {
+                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            }
             throw new TimeoutException($"Grok process timed out after {timeout.TotalSeconds:0.##}s");
+        }
+        catch (TimeoutException)
+        {
+            if (process != null && !process.HasExited)
+            {
+                KillProcessTreeSafe(process);
+            }
+            if (sessionTask != null)
+            {
+                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            }
+            throw;
         }
         catch
         {
             if (process != null && !process.HasExited)
             {
                 KillProcessTreeSafe(process);
+            }
+            if (sessionTask != null)
+            {
+                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
             }
             throw;
         }

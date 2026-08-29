@@ -102,6 +102,57 @@ public class GrokUsageNormalizerTests
     }
 
     [Fact]
+    public void Normalize_MissingPercentage_EmitsNoQuota_NeverFabricates100Percent()
+    {
+        var result = new GrokBillingResult
+        {
+            SubscriptionTier = "Custom",
+            Config = new GrokBillingConfig
+            {
+                IsUnifiedBillingUser = true,
+                CurrentPeriod = new GrokCurrentPeriod
+                {
+                    Type = "weekly",
+                    End = "2026-09-02T00:00:00Z"
+                },
+                CreditUsagePercent = null, // Missing!
+                Used = null,
+                MonthlyLimit = null
+            }
+        };
+
+        var snapshot = GrokUsageNormalizer.Normalize(result);
+
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("No finite quota returned by Grok", snapshot.StatusMessage);
+        Assert.Empty(snapshot.Windows);
+    }
+
+    [Fact]
+    public void Normalize_UnknownPeriodType_EmitsNoGuessedQuota()
+    {
+        var result = new GrokBillingResult
+        {
+            SubscriptionTier = "Pro",
+            Config = new GrokBillingConfig
+            {
+                CurrentPeriod = new GrokCurrentPeriod
+                {
+                    Type = "UNKNOWN_CUSTOM_FUTURE_PERIOD_TYPE",
+                    End = "2026-09-15T00:00:00Z"
+                },
+                CreditUsagePercent = 30.0
+            }
+        };
+
+        var snapshot = GrokUsageNormalizer.Normalize(result);
+
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("Unrecognized billing period from Grok", snapshot.StatusMessage);
+        Assert.Empty(snapshot.Windows);
+    }
+
+    [Fact]
     public void Normalize_LegacyBuildSpecificBilling_NormalizesCorrectly()
     {
         var result = new GrokBillingResult
@@ -130,5 +181,6 @@ public class GrokUsageNormalizerTests
         Assert.Equal("Build · Monthly", window.DisplayName);
         Assert.Equal(25.0, window.RawUsedPercent);
         Assert.Equal(75.0, window.RemainingPercent);
+        Assert.Equal(TimeSpan.FromDays(30), window.Duration);
     }
 }

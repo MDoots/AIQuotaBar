@@ -24,50 +24,37 @@ public static class GrokUsageNormalizer
         }
 
         var config = billingResult.Config;
-        var rawUsedPercent = CalculateUsedPercent(config);
-
-        var isUnified = config.IsUnifiedBillingUser ?? false;
-        var periodType = config.CurrentPeriod?.Type;
-
-        string windowId;
-        string windowDisplayName;
-        TimeSpan? duration;
-
-        if (isUnified)
+        var usedPercent = CalculateUsedPercent(config);
+        if (!usedPercent.HasValue)
         {
-            if (periodType?.Contains("MONTHLY", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                windowId = "shared-monthly";
-                windowDisplayName = "Grok · Monthly";
-                duration = TimeSpan.FromDays(30);
-            }
-            else
-            {
-                windowId = "shared-weekly";
-                windowDisplayName = "Grok · Weekly";
-                duration = TimeSpan.FromDays(7);
-            }
+            // Missing creditUsagePercent and missing legacy used/monthlyLimit: do NOT fabricate a 0% used / 100% remaining quota!
+            return new ProviderSnapshot(
+                providerId: ProviderIdentifier,
+                providerDisplayName: ProviderName,
+                status: ProviderStatus.Unavailable,
+                statusMessage: "No finite quota returned by Grok",
+                accountPlan: plan);
         }
-        else
+
+        var periodDetails = ResolvePeriodDetails(config);
+        if (periodDetails == null)
         {
-            if (periodType?.Contains("WEEKLY", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                windowId = "build-weekly";
-                windowDisplayName = "Build · Weekly";
-                duration = TimeSpan.FromDays(7);
-            }
-            else
-            {
-                windowId = "build-monthly";
-                windowDisplayName = "Build · Monthly";
-                duration = TimeSpan.FromDays(30);
-            }
+            // Unknown or missing period type: do not guess weekly/monthly
+            return new ProviderSnapshot(
+                providerId: ProviderIdentifier,
+                providerDisplayName: ProviderName,
+                status: ProviderStatus.Unavailable,
+                statusMessage: "Unrecognized billing period from Grok",
+                accountPlan: plan);
         }
+
+        var (windowId, windowDisplayName, duration) = periodDetails.Value;
 
         DateTimeOffset? resetsAt = ParseDateTimeOffset(config.CurrentPeriod?.End)
             ?? ParseDateTimeOffset(config.BillingPeriodEnd);
 
-        var status = rawUsedPercent >= 100
+        var rawUsedPercent = usedPercent.Value;
+        var status = rawUsedPercent >= 100.0
             ? QuotaWindowStatus.Exhausted
             : QuotaWindowStatus.Active;
 
@@ -88,7 +75,7 @@ public static class GrokUsageNormalizer
             windows: new[] { window });
     }
 
-    private static double CalculateUsedPercent(GrokBillingConfig config)
+    public static double? CalculateUsedPercent(GrokBillingConfig config)
     {
         if (config.CreditUsagePercent.HasValue)
         {
@@ -101,7 +88,43 @@ public static class GrokUsageNormalizer
             return Math.Clamp(pct, 0.0, 100.0);
         }
 
-        return 0.0;
+        return null;
+    }
+
+    public static (string WindowId, string DisplayName, TimeSpan? Duration)? ResolvePeriodDetails(GrokBillingConfig config)
+    {
+        var isUnified = config.IsUnifiedBillingUser ?? false;
+        var rawType = config.CurrentPeriod?.Type;
+
+        if (!string.IsNullOrWhiteSpace(rawType))
+        {
+            if (rawType.Contains("WEEKLY", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(rawType, "weekly", StringComparison.OrdinalIgnoreCase))
+            {
+                var id = isUnified ? "shared-weekly" : "build-weekly";
+                var name = isUnified ? "Grok · Weekly" : "Build · Weekly";
+                return (id, name, TimeSpan.FromDays(7));
+            }
+
+            if (rawType.Contains("MONTHLY", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(rawType, "monthly", StringComparison.OrdinalIgnoreCase))
+            {
+                var id = isUnified ? "shared-monthly" : "build-monthly";
+                var name = isUnified ? "Grok · Monthly" : "Build · Monthly";
+                return (id, name, TimeSpan.FromDays(30));
+            }
+
+            // Unknown rawType -> Do not guess!
+            return null;
+        }
+
+        // Legacy Build billing fallback only if monthly limit and billing period are clearly present
+        if (config.MonthlyLimit?.Val.HasValue == true && config.MonthlyLimit.Val.Value > 0 && !string.IsNullOrWhiteSpace(config.BillingPeriodStart))
+        {
+            return ("build-monthly", "Build · Monthly", TimeSpan.FromDays(30));
+        }
+
+        return null;
     }
 
     private static DateTimeOffset? ParseDateTimeOffset(string? text)

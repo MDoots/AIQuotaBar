@@ -43,7 +43,7 @@ public class GrokProtocolTests
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":1}}",
             // Response to id 2 (authenticate)
             "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"_meta\":{\"subscription_tier\":\"Free\"}}}",
-            // Response to id 3 (_x.ai/billing)
+            // Response to id 3 (x.ai/billing)
             "{\"jsonrpc\":\"2.0\",\"id\":3,\"result\":{\"config\":{\"creditUsagePercent\":10.0,\"isUnifiedBillingUser\":true},\"subscription_tier\":\"Free\"}}"
         };
 
@@ -58,6 +58,30 @@ public class GrokProtocolTests
         Assert.Equal("Free", billing.SubscriptionTier);
         Assert.Equal(10.0, billing.Config?.CreditUsagePercent);
         Assert.Equal(3, session.SentLines.Count);
+        Assert.Contains("x.ai/billing", session.SentLines[2]);
+    }
+
+    [Fact]
+    public async Task Client_TriesXAiBillingFirst_AndFallsBackToUnderscoreBillingOnMethodNotFound()
+    {
+        var responses = new[]
+        {
+            // Response to id 1 (x.ai/billing -> Method not found)
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":-32601,\"message\":\"Method not found: x.ai/billing\"}}",
+            // Response to id 2 (_x.ai/billing -> Success)
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"config\":{\"creditUsagePercent\":25.0},\"subscription_tier\":\"Free\"}}"
+        };
+
+        var session = new MockGrokSession(responses);
+        var client = new GrokJsonRpcClient(session);
+
+        var billing = await client.GetBillingAsync();
+
+        Assert.NotNull(billing);
+        Assert.Equal(25.0, billing.Config?.CreditUsagePercent);
+        Assert.Equal(2, session.SentLines.Count);
+        Assert.Contains("x.ai/billing", session.SentLines[0]);
+        Assert.Contains("_x.ai/billing", session.SentLines[1]);
     }
 
     [Fact]

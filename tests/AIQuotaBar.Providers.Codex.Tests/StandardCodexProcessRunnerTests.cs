@@ -112,4 +112,41 @@ public class StandardCodexProcessRunnerTests
 
         Assert.Equal("msg_to_stdout", stdoutLine);
     }
+
+    [Fact]
+    public async Task RunAsync_DistinguishesCallerCancellationFromTimeout()
+    {
+        var runner = new StandardCodexProcessRunner();
+        var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+
+        // 1. Caller cancellation throws OperationCanceledException
+        using var callerCts = new CancellationTokenSource();
+        callerCts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await runner.RunAsync(
+                cmdPath,
+                "/c pause > nul",
+                async (session, token) =>
+                {
+                    await session.ReadLineAsync(token);
+                },
+                TimeSpan.FromSeconds(5),
+                callerCts.Token);
+        });
+
+        // 2. Runner timeout throws TimeoutException
+        await Assert.ThrowsAsync<TimeoutException>(async () =>
+        {
+            await runner.RunAsync(
+                cmdPath,
+                "/c pause > nul",
+                async (session, token) =>
+                {
+                    await session.ReadLineAsync(token);
+                },
+                TimeSpan.FromMilliseconds(200));
+        });
+    }
 }
