@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Interop;
 using AIQuotaBar.App.Layout;
+using AIQuotaBar.App.Services;
 using AIQuotaBar.App.Settings;
 using AIQuotaBar.App.Tray;
 using AIQuotaBar.App.ViewModels;
@@ -16,6 +17,7 @@ public partial class App : Application
     private WidgetViewModel? _viewModel;
     private WidgetWindow? _window;
     private TrayManager? _trayManager;
+    private PowerResumeCoordinator? _powerResumeCoordinator;
     private WidgetDockMode _appliedDockMode = WidgetDockMode.Floating;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -210,6 +212,12 @@ public partial class App : Application
             },
             isNotificationsEnabled: () => _settings?.LowQuotaNotificationsEnabled ?? true);
 
+        _powerResumeCoordinator = new PowerResumeCoordinator(
+            refreshAction: () => _viewModel != null ? _viewModel.RefreshAllAsync() : Task.CompletedTask,
+            dispatcher: Dispatcher,
+            resumeDelay: TimeSpan.FromSeconds(8));
+        _powerResumeCoordinator.Start();
+
         _viewModel.Start();
 
         if (isFirstRun)
@@ -291,6 +299,7 @@ public partial class App : Application
             _settingsManager.Save(_settings);
         }
 
+        _powerResumeCoordinator?.Dispose();
         _trayManager?.Dispose();
         _viewModel?.Dispose();
 

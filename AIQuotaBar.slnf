@@ -5,11 +5,17 @@
       "src/AIQuotaBar.App/AIQuotaBar.App.csproj",
       "src/AIQuotaBar.Core/AIQuotaBar.Core.csproj",
       "src/AIQuotaBar.Providers.Antigravity/AIQuotaBar.Providers.Antigravity.csproj",
+      "src/AIQuotaBar.Providers.ClaudeCode/AIQuotaBar.Providers.ClaudeCode.csproj",
       "src/AIQuotaBar.Providers.Codex/AIQuotaBar.Providers.Codex.csproj",
+      "src/AIQuotaBar.Providers.GitHubCopilot/AIQuotaBar.Providers.GitHubCopilot.csproj",
+      "src/AIQuotaBar.Providers.GrokBuild/AIQuotaBar.Providers.GrokBuild.csproj",
       "tests/AIQuotaBar.App.Tests/AIQuotaBar.App.Tests.csproj",
       "tests/AIQuotaBar.Core.Tests/AIQuotaBar.Core.Tests.csproj",
       "tests/AIQuotaBar.Providers.Antigravity.Tests/AIQuotaBar.Providers.Antigravity.Tests.csproj",
-      "tests/AIQuotaBar.Providers.Codex.Tests/AIQuotaBar.Providers.Codex.Tests.csproj"
+      "tests/AIQuotaBar.Providers.ClaudeCode.Tests/AIQuotaBar.Providers.ClaudeCode.Tests.csproj",
+      "tests/AIQuotaBar.Providers.Codex.Tests/AIQuotaBar.Providers.Codex.Tests.csproj",
+      "tests/AIQuotaBar.Providers.GitHubCopilot.Tests/AIQuotaBar.Providers.GitHubCopilot.Tests.csproj",
+      "tests/AIQuotaBar.Providers.GrokBuild.Tests/AIQuotaBar.Providers.GrokBuild.Tests.csproj"
     ]
   }
 }

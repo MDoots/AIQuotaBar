@@ -2,31 +2,49 @@
 
 **AIQuotaBar** is a lightweight, local-first Windows 11 desktop utility designed to keep AI coding-agent subscription quotas and rate limits visible at a glance. Built natively with .NET 10 and WPF, AIQuotaBar provides a customizable, low-overhead widget that operates entirely on your local machine without telemetry, tracking, or cloud infrastructure.
 
-![AIQuotaBar showing OpenAI Codex and Google Antigravity quota usage](docs/images/app-preview.png)
+![AIQuotaBar Desktop Widget Preview](docs/images/app-preview.png)
 
 ---
 
 ## Key Features
 
-* **Multi-Provider Monitoring:** Track quotas across multiple AI tools simultaneously in a single, unified widget.
+* **Five-Provider Monitoring:** Track quotas across OpenAI Codex, Google Antigravity, Claude Code, Grok Build, and GitHub Copilot in a single, unified widget.
 * **Local-First & Private:** Direct local inter-process communication (IPC) with official installed tools. No telemetry, no analytics, and no remote server backend.
 * **Provider-Owned Authentication:** Never asks for or stores API keys, tokens, or passwords. Authentication remains 100% managed by each provider's official CLI or application.
-* **Compact & Expanded Modes:** Switch between the full view and a denser compact layout while keeping all provider quotas visible.
-* **Always-on-Top & Tray:** Keep quotas above your active editor or tuck AIQuotaBar away in the system tray.
-* **Semantic Health Bars:** Color-coded progress indicators give an immediate visual summary of remaining capacity and reset times.
+* **Plan-Agnostic Quota Display:** Displays finite quotas whether using Free, trial, promotional, or paid subscription tiers where exposed by the provider.
+* **Adaptive & Resizable Floating Widget:** Responsive width adjustment with both Expanded and Compact layout modes.
+* **Soft Docked Mode:** Dock the bar smoothly to the Top or Bottom of your screen with optional auto-hide and horizontal alignment controls.
+* **Provider & Quota-Row Visibility:** Customize which providers and individual quota windows appear in the widget.
+* **Quota-Aware Tray Health:** System tray icon reflects overall quota health and lowest remaining capacity at a glance.
+* **Low Quota Notifications:** Desktop alerts when quotas drop below warning or exhaustion thresholds, with automatic baseline re-arming.
+* **Windows Sleep/Resume Recovery:** Automatically coordinates recovery refreshes when waking your PC from sleep.
+* **Last-Known-Good Resilience:** Preserves valid quota data during transient refresh timeouts or communication glitches with subtle status indicators.
 * **Zero Runtime Dependencies:** Packaged as a self-contained, single-file Windows x64 executable requiring no separate .NET installation.
 
 ---
 
 ## Supported Providers
 
+AIQuotaBar communicates directly with official locally installed developer tools:
+
 | Provider | Status | Integration Mechanism |
 | :--- | :--- | :--- |
-| **OpenAI Codex** | Supported | Official local Codex app-server via local stdio JSON-RPC |
-| **Google Antigravity** | Supported | Official `agy` CLI via `agy -p "/usage" --output-format json` |
+| **OpenAI Codex** | Supported | Official local Codex app-server via local stdio JSON-RPC (`codex app-server --stdio`). |
+| **Google Antigravity** | Supported | Official `agy` CLI using structured usage output (`agy -p "/usage" --output-format json`). |
+| **Claude Code** | Supported | Official native Claude Code CLI (`claude auth status --json` and local `/usage` surface). |
+| **Grok Build** | Supported | Official local Grok Build ACP stdio server (`grok --no-auto-update agent stdio`) via provider-owned `_x.ai/billing`. |
+| **GitHub Copilot** | Supported | Official `GitHub.Copilot.SDK` connected to local `copilot.exe` using account quota RPC (`account.getQuota`). No model session created. |
 
 ### Future & Requested Providers
-Support for additional AI developer tools (e.g., Claude Code, Cursor, GitHub Copilot) may be evaluated in future releases based on community demand and the availability of official local quota interfaces.
+Support for additional AI developer tools (e.g., Cursor) may be evaluated in future releases if clean, official local quota interfaces become available.
+
+---
+
+## Plan & Tier Compatibility
+
+AIQuotaBar is **plan-agnostic**. It does not require a paid tier itself. Where a provider exposes finite quota for a Free, trial, promotional, or paid account, that quota can be displayed.
+
+*(Note: Not all providers provide finite quota allowances for every account tier or billing model).*
 
 ---
 
@@ -37,8 +55,14 @@ Support for additional AI developer tools (e.g., Claude Code, Cursor, GitHub Cop
 * **Runtime:** None required for the portable release (the executable is self-contained).
 
 ### Provider Requirements
-* **OpenAI Codex:** Requires an installed, authenticated Codex environment. AIQuotaBar connects exclusively via local stdio to the official Codex app-server. AIQuotaBar **never** inspects or parses `.codex/auth.json` or credential stores directly.
-* **Google Antigravity:** Requires the official Antigravity CLI (`agy`) to be installed in your `PATH` and authenticated. Quota information is retrieved using `agy -p "/usage" --output-format json`. AIQuotaBar does not install or configure Antigravity on your behalf.
+* **OpenAI Codex:** Requires the official Codex CLI installed and authenticated. AIQuotaBar launches a short-lived local child process connecting over stdio.
+* **Google Antigravity:** Requires the official Antigravity CLI (`agy`) installed in your `PATH` and authenticated.
+* **Claude Code:** Requires native Claude Code installed and authenticated with an active Claude Code entitlement.
+* **Grok Build:** Requires the official Grok CLI (`grok`) installed and authenticated.
+* **GitHub Copilot:** Requires GitHub Copilot CLI (`copilot.exe`) installed and authenticated with an active Copilot entitlement.
+
+> [!NOTE]
+> **Independent Local Execution:** The normal provider application, editor window, or terminal session does **not** need to stay open. AIQuotaBar launches isolated, short-lived query processes against installed CLIs. If a tool is not installed, it will simply be marked as **Not detected** in Settings.
 
 ---
 
@@ -51,16 +75,17 @@ AIQuotaBar is distributed as a lightweight, portable single-file executable:
 3. Run `AIQuotaBar.exe`.
 
 > [!NOTE]
-> AIQuotaBar requires no installer or administrator privileges. Settings and window positioning are automatically saved to `%LOCALAPPDATA%\AIQuotaBar\settings.json`.
+> AIQuotaBar requires no installer or administrator privileges. Settings and preferences are automatically saved to `%LOCALAPPDATA%\AIQuotaBar\settings.json`.
 
 ---
 
 ## Usage & Controls
 
-* **Mode Toggle (▴ / ▾):** Switch between Expanded and Compact layouts.
-* **Always on Top (📌):** Pin the widget above your IDE or editor windows.
+* **Mode Toggle (▴ / ▾):** Switch between Expanded multi-row and Compact single-line layouts.
+* **Dock Mode (Floating / Top / Bottom):** Switch between floating window and edge-docked modes.
+* **Always on Top (📌):** Pin the floating widget above your IDE or editor windows.
 * **Manual Refresh (↻):** Refresh quotas immediately on demand.
-* **System Tray:** Minimize AIQuotaBar to the Windows taskbar notification area (`NotifyIcon`). Right-click the tray icon to access the menu or restore the window.
+* **System Tray:** Minimize AIQuotaBar to the Windows taskbar notification area (`NotifyIcon`). Right-click the tray icon to access quick actions or open Settings.
 * **Start with Windows:** Enable automatic launch on login via the settings menu (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
 
 ---
@@ -73,7 +98,7 @@ Progress bars in AIQuotaBar represent **Quota Remaining**:
 * 🟡 **Amber:** Warning threshold; quota is getting low (10–30%).
 * 🔴 **Red:** Critical / exhausted quota (< 10%).
 
-Reset timers indicate when the corresponding quota window (e.g., 5-hour rolling window or weekly allocation) will refresh.
+Reset countdowns indicate when the corresponding quota window (e.g., rolling rate limit or weekly allocation) will reset.
 
 ---
 
@@ -81,10 +106,10 @@ Reset timers indicate when the corresponding quota window (e.g., 5-hour rolling 
 
 AIQuotaBar is engineered around strict privacy boundaries:
 
-* **No Telemetry or Analytics:** AIQuotaBar has no backend, telemetry, or analytics service of its own. It makes zero outbound network requests on its own behalf.
-* **Local Process Communication:** Provider usage is retrieved exclusively through the provider's locally installed official client or app-server (which may itself communicate with that provider's cloud services).
-* **Zero Credential Access:** AIQuotaBar never reads auth files, session tokens, or API keys. Credentials stay with the official provider tools.
-* **Process Isolation:** All background provider processes are bounded by strict timeouts and automatically terminated when AIQuotaBar exits.
+* **No Telemetry or Analytics:** AIQuotaBar has no backend, telemetry, tracking, or analytics services of its own. It makes zero outbound network requests on its own behalf.
+* **Local Process Communication:** Quota is retrieved exclusively through local IPC with provider-owned CLI tools (which may themselves contact their respective provider cloud services).
+* **Zero Credential Access:** AIQuotaBar never reads auth files, session tokens, or API keys directly. Credentials remain provider-owned.
+* **Process Isolation:** All background query processes are bounded by strict timeouts, execute zero model inferences, and terminate automatically on exit or cancellation.
 
 ---
 

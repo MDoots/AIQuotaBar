@@ -329,9 +329,25 @@ public partial class WidgetWindow : Window
         var source = HwndSource.FromHwnd(_hwnd);
         source?.AddHook(WndProc);
 
+        UpdateDynamicWorkAreaBounds();
+
         if (DataContext is WidgetViewModel vm && vm.IsDockedMode)
         {
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() => ReanchorDockedWindow()));
+        }
+    }
+
+    public void UpdateDynamicWorkAreaBounds()
+    {
+        if (GetNearestMonitorInfo(out var rcWork, out _))
+        {
+            var dpi = VisualTreeHelper.GetDpi(this);
+            double workAreaDipHeight = (rcWork.Bottom - rcWork.Top) / dpi.DpiScaleY;
+            double dynamicMaxHeight = Math.Max(200.0, workAreaDipHeight - 40.0);
+            if (Math.Abs(MaxHeight - dynamicMaxHeight) > 1.0)
+            {
+                MaxHeight = dynamicMaxHeight;
+            }
         }
     }
 

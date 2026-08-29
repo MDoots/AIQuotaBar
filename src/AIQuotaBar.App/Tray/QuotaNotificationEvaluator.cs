@@ -44,6 +44,12 @@ public sealed class QuotaNotificationEvaluator
             var key = GetRowKey(obs.ProviderId, obs.WindowId);
             currentObservationKeys.Add(key);
 
+            if (obs.IsStale)
+            {
+                // Transient stale poll: preserve tracking baseline without evaluating crossings or altering states
+                continue;
+            }
+
             var remaining = obs.RemainingPercent;
             var isExhausted = remaining <= 0.0 || obs.Status == QuotaWindowStatus.Exhausted;
             var isLow = remaining < 10.0;

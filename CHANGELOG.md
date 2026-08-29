@@ -7,9 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.2.0] - Unreleased
+## [Unreleased]
 
-This release candidate represents the initial public preview of AIQuotaBar, introducing multi-provider quota tracking for OpenAI Codex and Google Antigravity.
+### Added
+
+* **Provider Expansion Pack:** Added official local integrations for Claude Code, Grok Build, and GitHub Copilot, expanding the supported provider count from two to five.
+* **Adaptive Resizable Floating Widget:** Responsive width adjustment with both Expanded and Compact layout modes.
+* **Soft Docked Mode:** Optional Top or Bottom edge screen docking with auto-hide and horizontal anchoring support.
+* **Provider & Row Visibility Controls:** Customize which providers and individual quota rows are displayed in the widget and tray.
+* **Quota-Aware System Tray Health:** Color-coded tray icon reflecting overall quota health, lowest remaining capacity, and quick-status tooltips.
+* **Low & Exhausted Quota Notifications:** Configurable Windows desktop notifications when quota drops below warning or exhaustion thresholds, with automatic baseline re-arming.
+* **Provider Discovery & Onboarding:** Automatic local executable discovery and onboarding status in Settings with one-click refresh.
+* **Windows Sleep/Resume Recovery:** Coordinated background refresh recovery after PC wake with native power event handling.
+* **Live Provider Test Harness:** Opt-in developer script (`scripts/test-live-providers.ps1`) for non-destructive live verification.
+
+### Changed
+
+* **Plan-Agnostic Quota Semantics:** Support displaying legitimate finite quotas across all account tiers (Free, trial, paid, promotional, or enterprise).
+* **Last-Known-Good Quota Resilience:** Retain and visually flag last successful quota rows during transient network/process timeouts or errors without clearing data.
+* **Control-Flow Cancellation Safety:** Cancelled refresh attempts preserve valid existing quota without marking rows stale or generating false alerts.
+* **Centralized Provider Catalog:** Unified provider descriptors, CLI locators, metadata, and brand styling in `ProviderCatalog`.
+* **Dynamic Work-Area Sizing:** Viewport-aware vertical constraint handling and first-run centring across expanding provider lists.
+
+---
+
+## [0.2.0] - 2026-08-27
+
+Initial public release of AIQuotaBar, introducing local-first multi-provider quota tracking for OpenAI Codex and Google Antigravity.
 
 ### Added
 

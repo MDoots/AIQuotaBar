@@ -146,4 +146,98 @@ public class AntigravityUsageNormalizerTests
         Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
         Assert.Equal("No response received from Antigravity CLI", snapshot.StatusMessage);
     }
+
+    [Fact]
+    public void Normalize_WithWeeklyOnlyGeminiQuota_DoesNotManufactureFiveHourWindow()
+    {
+        var response = new AntigravityCliResponse
+        {
+            Status = "SUCCESS",
+            Command = new AntigravityCommand
+            {
+                Data = new AntigravityUsageData
+                {
+                    Groups = new List<AntigravityGroup>
+                    {
+                        new()
+                        {
+                            Name = "Gemini",
+                            Buckets = new List<AntigravityBucket>
+                            {
+                                new()
+                                {
+                                    Id = "gemini-weekly",
+                                    Name = "Weekly",
+                                    Window = "weekly",
+                                    RemainingFraction = 0.85
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var snapshot = AntigravityUsageNormalizer.Normalize(response);
+
+        Assert.Equal(ProviderStatus.Available, snapshot.Status);
+        Assert.Null(snapshot.AccountPlan);
+        Assert.Single(snapshot.Windows);
+        Assert.Equal("Gemini · Weekly", snapshot.Windows[0].DisplayName);
+        Assert.Equal(85.0, snapshot.Windows[0].RemainingPercent);
+    }
+
+    [Fact]
+    public void Normalize_WithBothWeeklyGroupsOnly_EmitsBothWeeklyAndZeroFiveHourWindows()
+    {
+        var response = new AntigravityCliResponse
+        {
+            Status = "SUCCESS",
+            Command = new AntigravityCommand
+            {
+                Data = new AntigravityUsageData
+                {
+                    Groups = new List<AntigravityGroup>
+                    {
+                        new()
+                        {
+                            Name = "Gemini",
+                            Buckets = new List<AntigravityBucket>
+                            {
+                                new()
+                                {
+                                    Id = "gemini-weekly",
+                                    Name = "Weekly",
+                                    Window = "weekly",
+                                    RemainingFraction = 0.60
+                                }
+                            }
+                        },
+                        new()
+                        {
+                            Name = "Claude & GPT",
+                            Buckets = new List<AntigravityBucket>
+                            {
+                                new()
+                                {
+                                    Id = "claude_and_gpt-weekly",
+                                    Name = "Weekly",
+                                    Window = "weekly",
+                                    RemainingFraction = 0.90
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        var snapshot = AntigravityUsageNormalizer.Normalize(response);
+
+        Assert.Equal(ProviderStatus.Available, snapshot.Status);
+        Assert.Equal(2, snapshot.Windows.Count);
+        Assert.Equal("Gemini · Weekly", snapshot.Windows[0].DisplayName);
+        Assert.Equal("Claude & GPT · Weekly", snapshot.Windows[1].DisplayName);
+        Assert.DoesNotContain(snapshot.Windows, w => w.DisplayName.Contains("5-Hour"));
+    }
 }

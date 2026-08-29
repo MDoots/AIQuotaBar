@@ -734,6 +734,32 @@ public class WidgetDiscoveryTests
         Assert.Equal(ProviderDiscoveryStatus.Detected, vm.VisibleProviders[0].DiscoveryStatus);
     }
 
+    [Fact]
+    public async Task WidgetViewModel_WithAllFiveProviders_PreservesCanonicalOrderAndAccents()
+    {
+        var descriptors = ProviderCatalog.All;
+        Assert.Equal(5, descriptors.Count);
+
+        var discoveryResults = descriptors.Select(d => new ProviderDiscoveryResult(d.Id, ProviderDiscoveryStatus.Detected, @"C:\" + d.Id + ".exe")).ToList();
+        var discoveryService = new MockDiscoveryService(_ => discoveryResults);
+
+        using var vm = new WidgetViewModel(descriptors, discoveryService);
+        await vm.DiscoverProvidersAsync(isStartup: false);
+
+        Assert.Equal(5, vm.Providers.Count);
+        Assert.Equal("codex", vm.Providers[0].ProviderId);
+        Assert.Equal("antigravity", vm.Providers[1].ProviderId);
+        Assert.Equal("claude-code", vm.Providers[2].ProviderId);
+        Assert.Equal("grok-build", vm.Providers[3].ProviderId);
+        Assert.Equal("github-copilot", vm.Providers[4].ProviderId);
+
+        Assert.Equal("#10B981", vm.Providers[0].ProviderAccentColor);
+        Assert.Equal("#38BDF8", vm.Providers[1].ProviderAccentColor);
+        Assert.Equal("#D97757", vm.Providers[2].ProviderAccentColor);
+        Assert.Equal("#D1D5DB", vm.Providers[3].ProviderAccentColor);
+        Assert.Equal("#A78BFA", vm.Providers[4].ProviderAccentColor);
+    }
+
     private sealed class AsyncDelayUsageProvider : IUsageProvider
     {
         public string Id { get; }

@@ -297,6 +297,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
                     descriptor.CreateProvider(),
                     descriptor.RefreshInterval,
                     descriptor.ShortDisplayName,
+                    descriptor.AccentColor,
                     ProviderDiscoveryStatus.Unknown));
             }
         }
