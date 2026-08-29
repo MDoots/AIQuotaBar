@@ -3,7 +3,10 @@
   <ItemGroup>
     <ProjectReference Include="..\AIQuotaBar.Core\AIQuotaBar.Core.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
     <ProjectReference Include="..\AIQuotaBar.Providers.Antigravity\AIQuotaBar.Providers.Antigravity.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
+    <ProjectReference Include="..\AIQuotaBar.Providers.ClaudeCode\AIQuotaBar.Providers.ClaudeCode.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
     <ProjectReference Include="..\AIQuotaBar.Providers.Codex\AIQuotaBar.Providers.Codex.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
+    <ProjectReference Include="..\AIQuotaBar.Providers.GitHubCopilot\AIQuotaBar.Providers.GitHubCopilot.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
+    <ProjectReference Include="..\AIQuotaBar.Providers.GrokBuild\AIQuotaBar.Providers.GrokBuild.csproj" UndefineProperties="TargetFramework;RuntimeIdentifier" />
   </ItemGroup>
 
   <ItemGroup>

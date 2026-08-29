@@ -77,9 +77,15 @@ public sealed class ProviderSetupItemViewModel : ViewModelBase
         {
             StatusLabel = "Not detected";
             StatusBrush = "#71717A";
-            DetailText = string.Equals(ProviderId, "codex", StringComparison.OrdinalIgnoreCase)
-                ? "Install OpenAI Codex, then rescan."
-                : "Install the Antigravity CLI, then rescan.";
+            DetailText = ProviderId.ToLowerInvariant() switch
+            {
+                "codex" => "Install OpenAI Codex, then rescan.",
+                "antigravity" => "Install the Antigravity CLI, then rescan.",
+                "claude-code" => "Install Claude Code, then rescan.",
+                "grok-build" => "Install Grok Build, then rescan.",
+                "github-copilot" => "Install GitHub Copilot CLI, then rescan.",
+                _ => $"Install {DisplayName}, then rescan."
+            };
             return;
         }
 

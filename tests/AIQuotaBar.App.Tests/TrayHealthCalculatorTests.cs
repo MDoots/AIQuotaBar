@@ -136,6 +136,36 @@ public class TrayHealthCalculatorTests
     }
 
     [Fact]
+    public void Calculate_LowestVisibleRowWins_AcrossAllFiveProviders()
+    {
+        var codexSnapshot = new ProviderSnapshot("codex", "OpenAI Codex", ProviderStatus.Available, windows: new[] { new QuotaWindow("primary", "5-Hour", 20, null, null) }); // 80% remaining
+        var agySnapshot = new ProviderSnapshot("antigravity", "Google Antigravity", ProviderStatus.Available, windows: new[] { new QuotaWindow("gemini_weekly", "Gemini · Weekly", 50, null, null) }); // 50% remaining
+        var claudeSnapshot = new ProviderSnapshot("claude-code", "Claude Code", ProviderStatus.Available, windows: new[] { new QuotaWindow("session-5h", "5-Hour Session", 95, null, null) }); // 5% remaining -> LOWEST
+        var grokSnapshot = new ProviderSnapshot("grok-build", "Grok Build", ProviderStatus.Available, windows: new[] { new QuotaWindow("shared-weekly", "Grok · Weekly", 30, null, null) }); // 70% remaining
+        var copilotSnapshot = new ProviderSnapshot("github-copilot", "GitHub Copilot", ProviderStatus.Available, windows: new[] { new QuotaWindow("premium", "Premium", 40, null, null) }); // 60% remaining
+
+        var s1 = new ProviderSectionViewModel(new MockUsageProvider("codex", "OpenAI Codex", _ => Task.FromResult(codexSnapshot)), TimeSpan.FromMinutes(1), "Codex", "#10B981");
+        var s2 = new ProviderSectionViewModel(new MockUsageProvider("antigravity", "Google Antigravity", _ => Task.FromResult(agySnapshot)), TimeSpan.FromMinutes(1), "Antigravity", "#38BDF8");
+        var s3 = new ProviderSectionViewModel(new MockUsageProvider("claude-code", "Claude Code", _ => Task.FromResult(claudeSnapshot)), TimeSpan.FromMinutes(1), "Claude", "#D97757");
+        var s4 = new ProviderSectionViewModel(new MockUsageProvider("grok-build", "Grok Build", _ => Task.FromResult(grokSnapshot)), TimeSpan.FromMinutes(1), "Grok", "#D1D5DB");
+        var s5 = new ProviderSectionViewModel(new MockUsageProvider("github-copilot", "GitHub Copilot", _ => Task.FromResult(copilotSnapshot)), TimeSpan.FromMinutes(1), "Copilot", "#A78BFA");
+
+        s1.ApplySnapshot(codexSnapshot);
+        s2.ApplySnapshot(agySnapshot);
+        s3.ApplySnapshot(claudeSnapshot);
+        s4.ApplySnapshot(grokSnapshot);
+        s5.ApplySnapshot(copilotSnapshot);
+
+        var state = TrayHealthCalculator.Calculate(new[] { s1, s2, s3, s4, s5 });
+
+        Assert.Equal(QuotaHealthLevel.Critical, state.HealthLevel);
+        Assert.Equal(5.0, state.LowestRemainingPercent);
+        Assert.Equal("Claude Code", state.ProviderName);
+        Assert.Equal("5-Hour Session", state.WindowName);
+        Assert.Equal("AIQuotaBar — 5% · Claude Code 5-Hour Session", state.TooltipText);
+    }
+
+    [Fact]
     public void Calculate_HiddenProvider_IsIgnoredByTrayHealth()
     {
         var codexSnapshot = new ProviderSnapshot("codex", "OpenAI Codex", ProviderStatus.Available, windows: new[]

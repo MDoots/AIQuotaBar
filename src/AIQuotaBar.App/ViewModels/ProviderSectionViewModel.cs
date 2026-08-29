@@ -13,6 +13,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     private readonly IUsageProvider _provider;
     private readonly TimeSpan _refreshInterval;
     private readonly string? _shortDisplayName;
+    private readonly string _accentColor;
     private CancellationTokenSource? _currentRefreshCts;
     private bool _disposed;
     private WidgetLayoutMode _layoutMode = WidgetLayoutMode.Full;
@@ -26,6 +27,8 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     private ProviderStatus _status = ProviderStatus.Available;
     private string? _statusMessage;
     private DateTimeOffset? _lastRefreshedAt;
+    private DateTimeOffset? _lastSuccessfulRefreshAt;
+    private bool _isQuotaStale;
     private AppSettings? _lastSettings;
     private readonly List<QuotaWindowViewModel> _allWindows = new();
 
@@ -104,12 +107,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 
     public Thickness CardPadding => _layoutMode == WidgetLayoutMode.Micro ? new Thickness(5, 5, 5, 5) : new Thickness(8, 6, 8, 6);
 
-    public string ProviderAccentColor => ProviderId.ToLowerInvariant() switch
-    {
-        "codex" => "#10B981",       // Emerald green
-        "antigravity" => "#38BDF8", // Cyan / Sky blue
-        _ => "#10B981"
-    };
+    public string ProviderAccentColor => _accentColor;
 
     public string ProviderName
     {
@@ -125,12 +123,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 
     public string DisplayProviderName => ProviderLabelFormatter.Format(ProviderName, _layoutMode);
 
-    public string ShortDisplayName => _shortDisplayName ?? (ProviderId.ToLowerInvariant() switch
-    {
-        "codex" => "Codex",
-        "antigravity" => "Antigravity",
-        _ => ProviderName
-    });
+    public string ShortDisplayName => _shortDisplayName ?? ProviderName;
 
     public string DockedDisplayName => ShortDisplayName;
 
@@ -159,6 +152,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             {
                 OnPropertyChanged(nameof(IsAvailable));
                 OnPropertyChanged(nameof(HasError));
+                OnPropertyChanged(nameof(StaleStatusText));
             }
         }
     }
@@ -174,12 +168,33 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             if (SetProperty(ref _statusMessage, value))
             {
                 OnPropertyChanged(nameof(HasStatusMessage));
+                OnPropertyChanged(nameof(ShowStatusCard));
                 OnPropertyChanged(nameof(ShouldDisplayInWidget));
             }
         }
     }
 
     public bool HasStatusMessage => !string.IsNullOrWhiteSpace(StatusMessage);
+
+    public bool IsQuotaStale
+    {
+        get => _isQuotaStale;
+        private set
+        {
+            if (SetProperty(ref _isQuotaStale, value))
+            {
+                OnPropertyChanged(nameof(ShowStaleIndicator));
+                OnPropertyChanged(nameof(ShowStatusCard));
+                OnPropertyChanged(nameof(StaleStatusText));
+            }
+        }
+    }
+
+    public bool ShowStaleIndicator => IsQuotaStale && HasVisibleWindows;
+    public bool ShowStatusCard => HasStatusMessage && !HasVisibleWindows;
+    public string StaleStatusText => Status == ProviderStatus.Timeout
+        ? "Refresh timed out · showing last update"
+        : "Refresh failed · showing last update";
 
     public bool IsLoading
     {
@@ -199,6 +214,12 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         private set => SetProperty(ref _lastRefreshedAt, value);
     }
 
+    public DateTimeOffset? LastSuccessfulRefreshAt
+    {
+        get => _lastSuccessfulRefreshAt;
+        private set => SetProperty(ref _lastSuccessfulRefreshAt, value);
+    }
+
     public IReadOnlyList<QuotaWindowViewModel> AllWindows => _allWindows;
     public ObservableCollection<QuotaWindowViewModel> Windows { get; } = new();
     public ObservableCollection<QuotaWindowViewModel> VisibleWindows { get; } = new();
@@ -209,13 +230,27 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         IUsageProvider provider,
         TimeSpan refreshInterval,
         string? shortDisplayName = null,
+        string? accentColor = null,
         ProviderDiscoveryStatus initialDiscoveryStatus = ProviderDiscoveryStatus.Detected)
     {
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
         _refreshInterval = refreshInterval;
         _providerName = provider.DisplayName;
-        _shortDisplayName = shortDisplayName;
+
+        _shortDisplayName = shortDisplayName ?? provider.DisplayName;
+        _accentColor = !string.IsNullOrWhiteSpace(accentColor)
+            ? accentColor
+            : "#6B7280";
         _discoveryStatus = initialDiscoveryStatus;
+    }
+
+    public ProviderSectionViewModel(
+        IUsageProvider provider,
+        TimeSpan refreshInterval,
+        string? shortDisplayName,
+        ProviderDiscoveryStatus initialDiscoveryStatus)
+        : this(provider, refreshInterval, shortDisplayName, null, initialDiscoveryStatus)
+    {
     }
 
     public void ApplyDiscoveryStatus(ProviderDiscoveryStatus status)
@@ -240,11 +275,15 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
                     Status = ProviderStatus.Unavailable;
                     StatusMessage = null;
                     LastRefreshedAt = null;
+                    LastSuccessfulRefreshAt = null;
+                    IsQuotaStale = false;
 
                     OnPropertyChanged(nameof(HasWindows));
                     OnPropertyChanged(nameof(HasVisibleWindows));
                     OnPropertyChanged(nameof(HasAccountPlan));
                     OnPropertyChanged(nameof(HasStatusMessage));
+                    OnPropertyChanged(nameof(ShowStatusCard));
+                    OnPropertyChanged(nameof(ShowStaleIndicator));
                     OnPropertyChanged(nameof(ShouldDisplayInWidget));
                 }
 
@@ -295,8 +334,20 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         {
             if (!_disposed && !cts.IsCancellationRequested && ReferenceEquals(_currentRefreshCts, cts) && DiscoveryStatus != ProviderDiscoveryStatus.NotDetected)
             {
-                Status = ProviderStatus.Error;
-                StatusMessage = $"Unable to communicate with {_provider.DisplayName}";
+                LastRefreshedAt = DateTimeOffset.UtcNow;
+                if (_allWindows.Count > 0)
+                {
+                    Status = ProviderStatus.Error;
+                    IsQuotaStale = true;
+                    StatusMessage = "Refresh failed · showing last update";
+                    ApplyVisibilityFilterInternal(_lastSettings);
+                }
+                else
+                {
+                    Status = ProviderStatus.Error;
+                    IsQuotaStale = false;
+                    StatusMessage = $"Unable to communicate with {_provider.DisplayName}";
+                }
             }
         }
         finally
@@ -342,27 +393,123 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
                 DiscoveryStatus = ProviderDiscoveryStatus.Detected;
             }
 
-            ProviderName = snapshot.ProviderDisplayName;
-            AccountPlan = snapshot.AccountPlan;
-            Status = snapshot.Status;
-            StatusMessage = snapshot.StatusMessage;
-            LastRefreshedAt = snapshot.Timestamp;
-
-            _allWindows.Clear();
-            Windows.Clear();
-            foreach (var window in snapshot.Windows)
+            if (snapshot.Status == ProviderStatus.Available && snapshot.Windows.Count > 0)
             {
-                var windowVm = new QuotaWindowViewModel(window, ProviderId)
+                ProviderName = snapshot.ProviderDisplayName;
+                AccountPlan = snapshot.AccountPlan;
+                Status = ProviderStatus.Available;
+                StatusMessage = snapshot.StatusMessage;
+                LastRefreshedAt = snapshot.Timestamp;
+                LastSuccessfulRefreshAt = snapshot.Timestamp;
+                IsQuotaStale = false;
+
+                _allWindows.Clear();
+                Windows.Clear();
+                foreach (var window in snapshot.Windows)
                 {
-                    LayoutMode = _layoutMode
-                };
-                _allWindows.Add(windowVm);
-                Windows.Add(windowVm);
+                    var windowVm = new QuotaWindowViewModel(window, ProviderId)
+                    {
+                        LayoutMode = _layoutMode
+                    };
+                    _allWindows.Add(windowVm);
+                    Windows.Add(windowVm);
+                }
+
+                ApplyVisibilityFilterInternal(_lastSettings);
+                OnPropertyChanged(nameof(HasWindows));
             }
+            else if (snapshot.Status == ProviderStatus.Available && snapshot.Windows.Count == 0)
+            {
+                // Available without finite quota windows (e.g. usage-based API key billing)
+                ProviderName = snapshot.ProviderDisplayName;
+                AccountPlan = snapshot.AccountPlan;
+                Status = ProviderStatus.Available;
+                StatusMessage = snapshot.StatusMessage;
+                LastRefreshedAt = snapshot.Timestamp;
+                // Do not update LastSuccessfulRefreshAt because no finite quota observation occurred
+                IsQuotaStale = false;
 
-            ApplyVisibilityFilterInternal(_lastSettings);
+                _allWindows.Clear();
+                Windows.Clear();
+                VisibleWindows.Clear();
 
-            OnPropertyChanged(nameof(HasWindows));
+                OnPropertyChanged(nameof(HasWindows));
+                OnPropertyChanged(nameof(HasVisibleWindows));
+                OnPropertyChanged(nameof(ShouldDisplayInWidget));
+            }
+            else if (snapshot.Status is ProviderStatus.Timeout or ProviderStatus.Error)
+            {
+                LastRefreshedAt = snapshot.Timestamp;
+
+                if (_allWindows.Count > 0)
+                {
+                    // Transient technical failure: preserve last-known-good quota windows
+                    Status = snapshot.Status;
+                    IsQuotaStale = true;
+                    StatusMessage = snapshot.Status == ProviderStatus.Timeout
+                        ? "Refresh timed out · showing last update"
+                        : "Refresh failed · showing last update";
+
+                    ApplyVisibilityFilterInternal(_lastSettings);
+                }
+                else
+                {
+                    // Transient failure with no prior success
+                    _allWindows.Clear();
+                    Windows.Clear();
+                    VisibleWindows.Clear();
+                    IsQuotaStale = false;
+                    Status = snapshot.Status;
+                    StatusMessage = snapshot.StatusMessage ?? (snapshot.Status == ProviderStatus.Timeout
+                        ? "Provider did not respond"
+                        : $"Unable to communicate with {ProviderName}");
+
+                    OnPropertyChanged(nameof(HasWindows));
+                    OnPropertyChanged(nameof(HasVisibleWindows));
+                    OnPropertyChanged(nameof(ShouldDisplayInWidget));
+                }
+            }
+            else if (snapshot.Status == ProviderStatus.Cancelled)
+            {
+                // Cancellation is control-flow / transport state, NOT a semantic entitlement change.
+                if (_allWindows.Count > 0)
+                {
+                    // Preserve existing last-known-good quota windows, AccountPlan, and freshness state
+                    return;
+                }
+                else
+                {
+                    _allWindows.Clear();
+                    Windows.Clear();
+                    VisibleWindows.Clear();
+                    IsQuotaStale = false;
+                    Status = ProviderStatus.Cancelled;
+                    StatusMessage = null;
+
+                    OnPropertyChanged(nameof(HasWindows));
+                    OnPropertyChanged(nameof(HasVisibleWindows));
+                    OnPropertyChanged(nameof(ShouldDisplayInWidget));
+                }
+            }
+            else
+            {
+                // Semantic state change (Unauthenticated, Unavailable without finite quota)
+                _allWindows.Clear();
+                Windows.Clear();
+                VisibleWindows.Clear();
+                IsQuotaStale = false;
+                LastSuccessfulRefreshAt = null;
+
+                ProviderName = snapshot.ProviderDisplayName;
+                AccountPlan = snapshot.AccountPlan;
+                Status = snapshot.Status;
+                StatusMessage = snapshot.StatusMessage;
+                LastRefreshedAt = snapshot.Timestamp;
+
+                OnPropertyChanged(nameof(HasWindows));
+                OnPropertyChanged(nameof(HasVisibleWindows));
+                OnPropertyChanged(nameof(ShouldDisplayInWidget));
+            }
         }
 
         if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())

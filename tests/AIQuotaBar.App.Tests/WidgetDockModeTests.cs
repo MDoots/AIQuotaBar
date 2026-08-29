@@ -536,7 +536,7 @@ public class WidgetDockModeTests
         string expectedDockedName)
     {
         var provider = new TestUsageProvider(providerId, displayName);
-        using var section = new ProviderSectionViewModel(provider, TimeSpan.FromMinutes(1));
+        using var section = new ProviderSectionViewModel(provider, TimeSpan.FromMinutes(1), expectedDockedName);
 
         Assert.Equal(expectedDockedName, section.DockedDisplayName);
         Assert.Equal(displayName, section.ProviderName);

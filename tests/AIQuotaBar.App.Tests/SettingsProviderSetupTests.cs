@@ -26,7 +26,7 @@ public class SettingsProviderSetupTests
     }
 
     [Fact]
-    public void SettingsViewModel_PopulatesSetupItemsForBothProviders()
+    public void SettingsViewModel_PopulatesSetupItemsForAllProviders()
     {
         var settings = new AppSettings();
         var manager = new SettingsManager(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "settings.json"));
@@ -34,14 +34,20 @@ public class SettingsProviderSetupTests
 
         using var settingsVm = new SettingsViewModel(settings, manager, widgetVm);
 
-        Assert.Equal(2, settingsVm.ProviderSetupItems.Count);
+        Assert.Equal(5, settingsVm.ProviderSetupItems.Count);
         Assert.Contains(settingsVm.ProviderSetupItems, i => i.ProviderId == "codex" && i.DisplayName == "OpenAI Codex");
         Assert.Contains(settingsVm.ProviderSetupItems, i => i.ProviderId == "antigravity" && i.DisplayName == "Google Antigravity");
+        Assert.Contains(settingsVm.ProviderSetupItems, i => i.ProviderId == "claude-code" && i.DisplayName == "Claude Code");
+        Assert.Contains(settingsVm.ProviderSetupItems, i => i.ProviderId == "grok-build" && i.DisplayName == "Grok Build");
+        Assert.Contains(settingsVm.ProviderSetupItems, i => i.ProviderId == "github-copilot" && i.DisplayName == "GitHub Copilot");
     }
 
     [Theory]
     [InlineData("codex", "OpenAI Codex", "Codex", "Install OpenAI Codex, then rescan.")]
     [InlineData("antigravity", "Google Antigravity", "Antigravity", "Install the Antigravity CLI, then rescan.")]
+    [InlineData("claude-code", "Claude Code", "Claude", "Install Claude Code, then rescan.")]
+    [InlineData("grok-build", "Grok Build", "Grok", "Install Grok Build, then rescan.")]
+    [InlineData("github-copilot", "GitHub Copilot", "Copilot", "Install GitHub Copilot CLI, then rescan.")]
     public void ProviderSetupItem_NotDetectedState_FormatsCorrectly(string id, string name, string shortName, string expectedDetail)
     {
         var descriptor = new ProviderDescriptor

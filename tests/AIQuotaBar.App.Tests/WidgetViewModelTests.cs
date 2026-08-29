@@ -57,8 +57,8 @@ public class WidgetViewModelTests
         var codexProvider = new MockUsageProvider("codex", "OpenAI Codex", _ => Task.FromResult(codexSnapshot));
         var agyProvider = new MockUsageProvider("antigravity", "Google Antigravity", _ => Task.FromResult(agySnapshot));
 
-        var codexSection = new ProviderSectionViewModel(codexProvider, TimeSpan.FromSeconds(60));
-        var agySection = new ProviderSectionViewModel(agyProvider, TimeSpan.FromSeconds(180));
+        var codexSection = new ProviderSectionViewModel(codexProvider, TimeSpan.FromSeconds(60), "Codex", "#10B981");
+        var agySection = new ProviderSectionViewModel(agyProvider, TimeSpan.FromSeconds(180), "Antigravity", "#38BDF8");
 
         using var vm = new WidgetViewModel(new[] { codexSection, agySection });
 

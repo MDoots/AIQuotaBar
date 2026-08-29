@@ -1,4 +1,4 @@
-﻿namespace AIQuotaBar.Providers.Codex.Tests;
+namespace AIQuotaBar.Providers.Codex.Tests;
 
 using System.Text.Json;
 using AIQuotaBar.Core.Models;
@@ -123,5 +123,60 @@ public class CodexUsageNormalizerTests
         Assert.Single(snapshot.Windows);
         Assert.Equal(QuotaWindowStatus.Exhausted, snapshot.Windows[0].Status);
         Assert.Equal(0, snapshot.Windows[0].RemainingPercent);
+    }
+
+    [Fact]
+    public void Normalize_FreeAccount_WithFiniteRateLimits_ReturnsAvailable()
+    {
+        var rateLimits = new CodexRateLimitsResult
+        {
+            RateLimits = new CodexRateLimitSnapshot
+            {
+                PlanType = "free",
+                Primary = new CodexRateLimitWindow
+                {
+                    UsedPercent = 20,
+                    WindowDurationMins = 300
+                }
+            }
+        };
+
+        var snapshot = CodexUsageNormalizer.Normalize(rateLimits);
+        Assert.Equal(ProviderStatus.Available, snapshot.Status);
+        Assert.Equal("ChatGPT Free", snapshot.AccountPlan);
+        Assert.Single(snapshot.Windows);
+        Assert.Equal(80.0, snapshot.Windows[0].RemainingPercent);
+    }
+
+    [Fact]
+    public void Normalize_NullPlan_WithFiniteRateLimits_ReturnsAvailable()
+    {
+        var rateLimits = new CodexRateLimitsResult
+        {
+            RateLimits = new CodexRateLimitSnapshot
+            {
+                PlanType = null,
+                Primary = new CodexRateLimitWindow
+                {
+                    UsedPercent = 45,
+                    WindowDurationMins = 300
+                }
+            }
+        };
+
+        var snapshot = CodexUsageNormalizer.Normalize(rateLimits);
+        Assert.Equal(ProviderStatus.Available, snapshot.Status);
+        Assert.Null(snapshot.AccountPlan);
+        Assert.Single(snapshot.Windows);
+        Assert.Equal(55.0, snapshot.Windows[0].RemainingPercent);
+    }
+
+    [Fact]
+    public void Normalize_NullRateLimits_ReturnsUnavailable()
+    {
+        var snapshot = CodexUsageNormalizer.Normalize(null, null);
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("No rate limit data returned", snapshot.StatusMessage);
+        Assert.Empty(snapshot.Windows);
     }
 }

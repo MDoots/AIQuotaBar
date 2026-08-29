@@ -254,7 +254,8 @@ public sealed class TrayManager : IDisposable
                 w.Id,
                 w.RawDisplayName,
                 w.RemainingPercent,
-                w.Status)))
+                w.Status,
+                p.IsQuotaStale)))
             .ToList();
 
         var isEnabled = _isNotificationsEnabled?.Invoke() ?? true;

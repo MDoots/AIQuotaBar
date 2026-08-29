@@ -17,7 +17,7 @@
         SizeToContent="Height"
         MinWidth="170"
         MaxWidth="580"
-        MaxHeight="620"
+        MaxHeight="1200"
         SnapsToDevicePixels="True"
         UseLayoutRounding="True"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
@@ -439,7 +439,6 @@
                 </Border>
 
                 <ScrollViewer Grid.Row="1"
-                              MaxHeight="520"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               FocusVisualStyle="{x:Null}"
@@ -539,12 +538,19 @@
 
                                         <!-- Provider Status / Error Message -->
                                         <Border Background="#27272A" CornerRadius="5" Padding="7,5" Margin="0,2,0,2"
-                                                Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVisConverter}}">
+                                                Visibility="{Binding ShowStatusCard, Converter={StaticResource BoolToVisConverter}}">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="ℹ" FontSize="11" Foreground="#F59E0B" Margin="0,0,5,0" VerticalAlignment="Center" />
                                                 <TextBlock Text="{Binding StatusMessage}" FontSize="10.5" Foreground="#D4D4D8" TextWrapping="Wrap" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </Border>
+
+                                        <!-- Subtle Stale Indicator (when preserving quota rows across transient failure) -->
+                                        <StackPanel Orientation="Horizontal" Margin="2,1,0,2"
+                                                    Visibility="{Binding ShowStaleIndicator, Converter={StaticResource BoolToVisConverter}}">
+                                            <TextBlock Text="⚠️" FontSize="9.5" Foreground="#F59E0B" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding StaleStatusText}" FontSize="9.5" Foreground="#A1A1AA" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
@@ -807,7 +813,7 @@
                                                     Padding="4,1.5"
                                                     Margin="0,0,3,0"
                                                     VerticalAlignment="Center"
-                                                    Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVisConverter}}">
+                                                    Visibility="{Binding ShowStatusCard, Converter={StaticResource BoolToVisConverter}}">
                                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                                     <TextBlock Text="ℹ" FontSize="10" Foreground="#F59E0B" Margin="0,0,4,0" VerticalAlignment="Center" />
                                                     <TextBlock Text="{Binding StatusMessage}" FontSize="9.5" Foreground="#D4D4D8" VerticalAlignment="Center" />

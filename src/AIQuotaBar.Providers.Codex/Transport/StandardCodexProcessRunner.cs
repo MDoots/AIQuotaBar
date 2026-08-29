@@ -56,9 +56,11 @@ public sealed class StandardCodexProcessRunner : ICodexProcessRunner
         };
 
         Process? process = null;
+        Task? sessionTask = null;
+
         try
         {
-            process = Process.Start(startInfo) 
+            process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException($"Failed to start Codex process: '{executablePath}'");
 
             // Drain stderr asynchronously so the child process never blocks on full stderr buffer
@@ -68,7 +70,10 @@ public sealed class StandardCodexProcessRunner : ICodexProcessRunner
             var session = new ProcessSession(process.StandardInput, process.StandardOutput);
 
             // Execute the RPC session action with linked timeout & cancellation token
-            await sessionAction(session, cts.Token).ConfigureAwait(false);
+            sessionTask = sessionAction(session, cts.Token);
+
+            // Authoritative runner-level bounded await to prevent hanging on stuck pipe reads
+            await sessionTask.WaitAsync(cts.Token).ConfigureAwait(false);
 
             if (cancellationToken.IsCancellationRequested)
             {
@@ -91,7 +96,7 @@ public sealed class StandardCodexProcessRunner : ICodexProcessRunner
             }
 
             // Graceful termination step 2: wait short bounded period for exit
-            var exitedCleanly = await WaitForExitAsync(process, TimeSpan.FromMilliseconds(1000), cts.Token).ConfigureAwait(false);
+            var exitedCleanly = await WaitForExitAsync(process, TimeSpan.FromMilliseconds(500), cts.Token).ConfigureAwait(false);
 
             if (!exitedCleanly && !process.HasExited)
             {
@@ -104,6 +109,10 @@ public sealed class StandardCodexProcessRunner : ICodexProcessRunner
             {
                 KillProcessTreeSafe(process);
             }
+            if (sessionTask != null)
+            {
+                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            }
             throw;
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)
@@ -112,13 +121,33 @@ public sealed class StandardCodexProcessRunner : ICodexProcessRunner
             {
                 KillProcessTreeSafe(process);
             }
+            if (sessionTask != null)
+            {
+                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            }
             throw new TimeoutException($"Codex process timed out after {timeout.TotalSeconds:0.##}s");
+        }
+        catch (TimeoutException)
+        {
+            if (process != null && !process.HasExited)
+            {
+                KillProcessTreeSafe(process);
+            }
+            if (sessionTask != null)
+            {
+                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
+            }
+            throw;
         }
         catch
         {
             if (process != null && !process.HasExited)
             {
                 KillProcessTreeSafe(process);
+            }
+            if (sessionTask != null)
+            {
+                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
             }
             throw;
         }

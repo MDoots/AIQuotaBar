@@ -1,0 +1,223 @@
+namespace AIQuotaBar.Providers.ClaudeCode.Tests;
+
+using AIQuotaBar.Core.Models;
+using AIQuotaBar.Providers.ClaudeCode;
+using AIQuotaBar.Providers.ClaudeCode.Transport;
+using Xunit;
+using Xunit.Abstractions;
+
+public class ClaudeCodeUsageProviderTests
+{
+    private readonly ITestOutputHelper _output;
+
+    public ClaudeCodeUsageProviderTests(ITestOutputHelper output)
+    {
+        _output = output;
+    }
+
+    private sealed class MockClaudeProcessRunner : IClaudeProcessRunner
+    {
+        public ClaudeAuthStatusResult? AuthStatusResult { get; set; }
+        public string UsageOutput { get; set; } = string.Empty;
+        public Exception? ExceptionToThrow { get; set; }
+        public bool CaptureUsageCalled { get; private set; }
+
+        public Task<ClaudeAuthStatusResult?> CheckAuthStatusAsync(string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (ExceptionToThrow != null) throw ExceptionToThrow;
+            return Task.FromResult(AuthStatusResult);
+        }
+
+        public Task<string> CaptureUsageAsync(string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            CaptureUsageCalled = true;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (ExceptionToThrow != null) throw ExceptionToThrow;
+            return Task.FromResult(UsageOutput);
+        }
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_WhenExecutableMissing_ReturnsUnavailable()
+    {
+        var provider = new ClaudeCodeUsageProvider(executableLocator: () => null);
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("Claude Code executable not found on system", snapshot.StatusMessage);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_WhenAuthStatusNull_FailsClosedAsUnavailableWithoutInteractiveCapture()
+    {
+        var runner = new MockClaudeProcessRunner
+        {
+            AuthStatusResult = null // Malformed or missing auth JSON
+        };
+
+        var provider = new ClaudeCodeUsageProvider(
+            runner: runner,
+            executableLocator: () => @"C:\bin\claude.exe");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("Unable to determine Claude Code authentication status", snapshot.StatusMessage);
+        Assert.False(runner.CaptureUsageCalled); // MUST NOT proceed into interactive session!
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_WhenLoggedOut_ReturnsUnauthenticatedWithoutCallingCapture()
+    {
+        var runner = new MockClaudeProcessRunner
+        {
+            AuthStatusResult = new ClaudeAuthStatusResult
+            {
+                LoggedIn = false
+            }
+        };
+
+        var provider = new ClaudeCodeUsageProvider(
+            runner: runner,
+            executableLocator: () => @"C:\npm\claude.cmd");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Unauthenticated, snapshot.Status);
+        Assert.Equal("Claude Code requires sign-in", snapshot.StatusMessage);
+        Assert.False(runner.CaptureUsageCalled);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_WhenLoggedIn_CapturesAndNormalizes()
+    {
+        var runner = new MockClaudeProcessRunner
+        {
+            AuthStatusResult = new ClaudeAuthStatusResult
+            {
+                LoggedIn = true,
+                SubscriptionTier = "Claude Pro"
+            },
+            UsageOutput = "Current session allowance: 20% used\n> "
+        };
+
+        var provider = new ClaudeCodeUsageProvider(
+            runner: runner,
+            executableLocator: () => @"C:\npm\claude.cmd");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Available, snapshot.Status);
+        Assert.Equal("Claude Pro", snapshot.AccountPlan);
+        Assert.Single(snapshot.Windows);
+        Assert.Equal(80.0, snapshot.Windows[0].RemainingPercent);
+        Assert.True(runner.CaptureUsageCalled);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_WhenTimeout_ReturnsTimeout()
+    {
+        var runner = new MockClaudeProcessRunner
+        {
+            ExceptionToThrow = new TimeoutException("timeout")
+        };
+
+        var provider = new ClaudeCodeUsageProvider(
+            runner: runner,
+            executableLocator: () => @"C:\npm\claude.cmd");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Timeout, snapshot.Status);
+        Assert.Equal("Claude Code did not respond", snapshot.StatusMessage);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_WhenCallerCancelled_ReturnsCancelled()
+    {
+        var runner = new MockClaudeProcessRunner
+        {
+            AuthStatusResult = new ClaudeAuthStatusResult { LoggedIn = true }
+        };
+
+        var provider = new ClaudeCodeUsageProvider(
+            runner: runner,
+            executableLocator: () => @"C:\bin\claude.exe");
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var snapshot = await provider.GetUsageAsync(cts.Token);
+
+        Assert.Equal(ProviderStatus.Cancelled, snapshot.Status);
+        Assert.Equal("Refresh cancelled by user", snapshot.StatusMessage);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_UsageBasedAuth_ReturnsTruthfulNoQuotaSnapshot()
+    {
+        var runner = new MockClaudeProcessRunner
+        {
+            AuthStatusResult = new ClaudeAuthStatusResult { LoggedIn = true, AuthMethod = "api_key", ApiProvider = "anthropic" },
+            UsageOutput = "Authenticated with API Key. No subscription limits apply.\n> "
+        };
+
+        var provider = new ClaudeCodeUsageProvider(
+            runner: runner,
+            executableLocator: () => @"C:\bin\claude.exe");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Available, snapshot.Status);
+        Assert.Equal("Usage-based billing — no fixed Claude Code quota", snapshot.StatusMessage);
+        Assert.Empty(snapshot.Windows);
+    }
+
+    // =========================================================================
+    // Completion Detector Edge-Case Tests (Sections 6 - 9)
+    // =========================================================================
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseA_InitialPromptAndPartialUsageWithoutNewPrompt_ReturnsFalse()
+    {
+        // Initial prompt exists before usage, but no return prompt after usage
+        var output = "Welcome to Claude Code\n> /usage\nCurrent session: 25% used";
+        Assert.False(StandardClaudeProcessRunner.IsUsagePanelComplete(output));
+    }
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseB_InitialPromptAndCompleteUsageAndNewPrompt_ReturnsTrue()
+    {
+        var output = "Welcome to Claude Code\n> /usage\nCurrent session: 25% used (resets in 3h)\n> ";
+        Assert.True(StandardClaudeProcessRunner.IsUsagePanelComplete(output));
+    }
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseC_PromptMarkerSplitAcrossChunks_CompletesOnlyAfterFullMarker()
+    {
+        var chunk1 = "Welcome\n> /usage\nCurrent session: 25% used\n";
+        Assert.False(StandardClaudeProcessRunner.IsUsagePanelComplete(chunk1));
+
+        var chunk2 = chunk1 + "> ";
+        Assert.True(StandardClaudeProcessRunner.IsUsagePanelComplete(chunk2));
+    }
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseD_UsageContentSplitAcrossChunks_HandledCorrectly()
+    {
+        var partial = "Welcome\n> /usage\nCurrent session: 25";
+        Assert.False(StandardClaudeProcessRunner.IsUsagePanelComplete(partial));
+
+        var full = partial + "% used\n> ";
+        Assert.True(StandardClaudeProcessRunner.IsUsagePanelComplete(full));
+    }
+
+    [Fact]
+    public void IsUsagePanelComplete_CaseE_OldPromptBeforeUsageCannotSatisfyCompletion()
+    {
+        var output = "claude>\nCurrent session allowance: 50% used";
+        Assert.False(StandardClaudeProcessRunner.IsUsagePanelComplete(output));
+    }
+}

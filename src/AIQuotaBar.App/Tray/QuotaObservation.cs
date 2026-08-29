@@ -8,4 +8,5 @@ public sealed record QuotaObservation(
     string WindowId,
     string WindowDisplayName,
     double RemainingPercent,
-    QuotaWindowStatus Status = QuotaWindowStatus.Active);
+    QuotaWindowStatus Status = QuotaWindowStatus.Active,
+    bool IsStale = false);

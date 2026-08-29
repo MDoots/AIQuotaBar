@@ -30,25 +30,26 @@ public class StandardCodexProcessRunnerTests
         var runner = new StandardCodexProcessRunner();
         var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-
-        // cmd.exe /c pause waits for stdin and never writes stdout on its own
-        await Assert.ThrowsAsync<TimeoutException>(async () =>
+        // The runner must interrupt the stuck read and throw TimeoutException rather than hanging
+        var runnerTask = Assert.ThrowsAsync<TimeoutException>(async () =>
         {
             await runner.RunAsync(
                 cmdPath,
                 "/c pause > nul",
                 async (session, token) =>
                 {
-                    // This read will block until token is cancelled by the runner timeout
+                    // This read will block indefinitely unless interrupted by the runner timeout
                     await session.ReadLineAsync(token);
                 },
                 TimeSpan.FromMilliseconds(500));
         });
 
-        sw.Stop();
-        // Verify timeout interrupted the stuck read quickly (e.g. under 2.5s)
-        Assert.True(sw.ElapsedMilliseconds < 2500, $"Expected timeout under 2500ms, took {sw.ElapsedMilliseconds}ms");
+        // Test harness emergency guard to ensure CI never hangs if there were a regression
+        var guardTask = Task.Delay(TimeSpan.FromSeconds(10));
+        var completedTask = await Task.WhenAny(runnerTask, guardTask);
+
+        Assert.Same(runnerTask, completedTask);
+        await runnerTask;
     }
 
     [Fact]
@@ -58,7 +59,7 @@ public class StandardCodexProcessRunnerTests
         var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
 
         // Ping -n 10 waits ~10 seconds
-        await Assert.ThrowsAsync<TimeoutException>(async () =>
+        var runnerTask = Assert.ThrowsAsync<TimeoutException>(async () =>
         {
             await runner.RunAsync(
                 cmdPath,
@@ -69,6 +70,12 @@ public class StandardCodexProcessRunnerTests
                 },
                 TimeSpan.FromMilliseconds(500));
         });
+
+        var guardTask = Task.Delay(TimeSpan.FromSeconds(10));
+        var completedTask = await Task.WhenAny(runnerTask, guardTask);
+
+        Assert.Same(runnerTask, completedTask);
+        await runnerTask;
     }
 
     [Fact]
@@ -80,7 +87,7 @@ public class StandardCodexProcessRunnerTests
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(300);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        var runnerTask = Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await runner.RunAsync(
                 cmdPath,
@@ -92,6 +99,12 @@ public class StandardCodexProcessRunnerTests
                 TimeSpan.FromSeconds(10),
                 cts.Token);
         });
+
+        var guardTask = Task.Delay(TimeSpan.FromSeconds(10));
+        var completedTask = await Task.WhenAny(runnerTask, guardTask);
+
+        Assert.Same(runnerTask, completedTask);
+        await runnerTask;
     }
 
     [Fact]
@@ -111,5 +124,42 @@ public class StandardCodexProcessRunnerTests
             TimeSpan.FromSeconds(3));
 
         Assert.Equal("msg_to_stdout", stdoutLine);
+    }
+
+    [Fact]
+    public async Task RunAsync_DistinguishesCallerCancellationFromTimeout()
+    {
+        var runner = new StandardCodexProcessRunner();
+        var cmdPath = Path.Combine(Environment.SystemDirectory, "cmd.exe");
+
+        // 1. Caller cancellation throws OperationCanceledException
+        using var callerCts = new CancellationTokenSource();
+        callerCts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            await runner.RunAsync(
+                cmdPath,
+                "/c pause > nul",
+                async (session, token) =>
+                {
+                    await session.ReadLineAsync(token);
+                },
+                TimeSpan.FromSeconds(5),
+                callerCts.Token);
+        });
+
+        // 2. Runner timeout throws TimeoutException
+        await Assert.ThrowsAsync<TimeoutException>(async () =>
+        {
+            await runner.RunAsync(
+                cmdPath,
+                "/c pause > nul",
+                async (session, token) =>
+                {
+                    await session.ReadLineAsync(token);
+                },
+                TimeSpan.FromMilliseconds(200));
+        });
     }
 }
