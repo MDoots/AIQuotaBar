@@ -7,27 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [1.0.0] - 2026-08-29
 
 ### Added
 
-* **Provider Expansion Pack:** Added official local integrations for Claude Code, Grok Build, and GitHub Copilot, expanding the supported provider count from two to five.
-* **Adaptive Resizable Floating Widget:** Responsive width adjustment with both Expanded and Compact layout modes.
-* **Soft Docked Mode:** Optional Top or Bottom edge screen docking with auto-hide and horizontal anchoring support.
-* **Provider & Row Visibility Controls:** Customize which providers and individual quota rows are displayed in the widget and tray.
-* **Quota-Aware System Tray Health:** Color-coded tray icon reflecting overall quota health, lowest remaining capacity, and quick-status tooltips.
+* **Five-Provider Monitoring:** Integrated official local support for Claude Code, Grok Build, and GitHub Copilot alongside OpenAI Codex and Google Antigravity.
+* **Adaptive & Resizable Floating Widget:** Responsive horizontal resizing (170px to 580px) with adaptive label typography and truncation across Expanded and Compact layout modes.
+* **Soft Docked Mode:** Screen-edge magnetic docking (Top or Bottom) with optional auto-hide on mouse leave and customizable horizontal anchoring.
+* **Provider & Row Visibility Controls:** Customize which providers and individual quota windows appear in the widget and system tray.
+* **Quota-Aware System Tray Health:** Color-coded tray icon reflecting overall quota health, lowest remaining capacity, and quick-status context menu summaries.
 * **Low & Exhausted Quota Notifications:** Configurable Windows desktop notifications when quota drops below warning or exhaustion thresholds, with automatic baseline re-arming.
-* **Provider Discovery & Onboarding:** Automatic local executable discovery and onboarding status in Settings with one-click refresh.
+* **Provider Discovery & Onboarding:** Automatic local executable discovery and guided onboarding status in Settings with one-click refresh.
 * **Windows Sleep/Resume Recovery:** Coordinated background refresh recovery after PC wake with native power event handling.
-* **Live Provider Test Harness:** Opt-in developer script (`scripts/test-live-providers.ps1`) for non-destructive live verification.
+* **Consolidated Window Restoration:** Centralized and hardened "Open AIQuotaBar" restore path with automatic off-screen coordinate recovery.
+* **Live Provider Test Harness:** Non-destructive live verification script (`scripts/test-live-providers.ps1`) protecting active developer sessions.
 
 ### Changed
 
 * **Plan-Agnostic Quota Semantics:** Support displaying legitimate finite quotas across all account tiers (Free, trial, paid, promotional, or enterprise).
 * **Last-Known-Good Quota Resilience:** Retain and visually flag last successful quota rows during transient network/process timeouts or errors without clearing data.
+* **Fail-Closed Provider Protocols:** Strict non-interactive authentication validation and schema verification across all provider runners.
 * **Control-Flow Cancellation Safety:** Cancelled refresh attempts preserve valid existing quota without marking rows stale or generating false alerts.
 * **Centralized Provider Catalog:** Unified provider descriptors, CLI locators, metadata, and brand styling in `ProviderCatalog`.
-* **Dynamic Work-Area Sizing:** Viewport-aware vertical constraint handling and first-run centring across expanding provider lists.
+* **Dynamic Work-Area Sizing:** Viewport-aware vertical constraint handling and first-run centring across multi-monitor setups.
 
 ---
 

@@ -10,8 +10,8 @@ Security fixes and patches are provided for the latest public preview or release
 
 | Version | Supported |
 | :--- | :--- |
-| Latest Release / Preview (>= 0.2.0) | :white_check_mark: |
-| Older Previews (< 0.2.0) | :x: |
+| Latest Release / Preview (>= 1.0.0) | :white_check_mark: |
+| Older Previews (< 1.0.0) | :x: |
 
 Users are encouraged to run the most recent release before reporting issues. Older preview builds do not receive backported patches.
 

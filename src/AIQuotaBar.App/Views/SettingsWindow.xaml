@@ -533,6 +533,46 @@
                                        Margin="28,0,0,2" />
                         </StackPanel>
                     </Border>
+
+                    <!-- About / Footer Section -->
+                    <Border Margin="0,4,0,2"
+                            Background="#18181B"
+                            CornerRadius="7"
+                            BorderBrush="#27272A"
+                            BorderThickness="1"
+                            Padding="10,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding AppVersionText}"
+                                           FontWeight="SemiBold"
+                                           FontSize="11"
+                                           Foreground="#A1A1AA" />
+                                <TextBlock Text="{Binding PublisherText}"
+                                           FontSize="10"
+                                           Foreground="#71717A"
+                                           Margin="0,1,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource SecondaryButtonStyle}"
+                                        Content="GitHub"
+                                        Command="{Binding OpenGitHubCommand}"
+                                        Padding="6,2"
+                                        FontSize="10"
+                                        Margin="0,0,4,0"
+                                        AutomationProperties.Name="Open GitHub repository" />
+                                <Button Style="{StaticResource SecondaryButtonStyle}"
+                                        Content="Privacy"
+                                        Command="{Binding OpenPrivacyCommand}"
+                                        Padding="6,2"
+                                        FontSize="10"
+                                        AutomationProperties.Name="Open Privacy policy" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
                 </StackPanel>
             </ScrollViewer>
 

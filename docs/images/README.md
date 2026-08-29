@@ -1,11 +1,25 @@
-# AIQuotaBar Screenshots & Assets
+# AIQuotaBar Screenshots
 
-This directory stores visual assets and documentation screenshots for AIQuotaBar.
+This directory stores the current product screenshots used by the README
+and Microsoft Store listing.
 
-## Application Screenshot (`app-preview.png`)
+## Floating Mode
 
-To update the main application preview in the root `README.md`:
+File:
 
-1. Capture a clean screenshot of AIQuotaBar running on Windows 11 with sample quota data.
-2. Save the image as `app-preview.png` in this directory (`docs/images/app-preview.png`).
-3. Verify the image displays clearly in dark and light modes.
+docs/images/app-preview.png
+
+Shows the normal floating/expanded AIQuotaBar widget with live quota data.
+
+## Docked Mode
+
+File:
+
+docs/images/app-docked.png
+
+Shows AIQuotaBar in its horizontal docked layout.
+
+These are real application captures. Do not use fabricated/sample quota data.
+
+The same two screenshots may be used for the Microsoft Store submission if
+Partner Center accepts the supplied images.

@@ -180,26 +180,10 @@ public partial class App : Application
             }
         };
 
-        // Initialize system tray icon
+        // Initialize system tray icon with centralised ShowMainWindow restore path
         _trayManager = new TrayManager(
             _viewModel,
-            showWindowAction: () =>
-            {
-                if (_window != null)
-                {
-                    _window.Show();
-                    if (_window.WindowState == WindowState.Minimized)
-                    {
-                        _window.WindowState = WindowState.Normal;
-                    }
-                    if (_appliedDockMode != WidgetDockMode.Floating)
-                    {
-                        _window.ForceDockExpanded();
-                        _window.ReanchorDockedWindow();
-                    }
-                    _window.Activate();
-                }
-            },
+            showWindowAction: ShowMainWindow,
             showSettingsAction: ShowSettingsWindow,
             exitAction: () => Shutdown(),
             startWithWindowsChanged: enabled =>
@@ -231,6 +215,70 @@ public partial class App : Application
         _window.WindowState = WindowState.Normal;
         _window.Show();
         _window.Activate();
+    }
+
+    /// <summary>
+    /// Canonical application-level restore and activation method.
+    /// Safely brings the AIQuotaBar widget to the foreground across floating and docked modes,
+    /// recovering off-screen windows while preserving valid user placements.
+    /// </summary>
+    public void ShowMainWindow()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(ShowMainWindow);
+            return;
+        }
+
+        if (_window == null)
+        {
+            return;
+        }
+
+        // 1. Ensure window is visible
+        if (!_window.IsVisible)
+        {
+            _window.Show();
+        }
+
+        // 2. Restore minimized state
+        if (_window.WindowState == WindowState.Minimized)
+        {
+            _window.WindowState = WindowState.Normal;
+        }
+
+        // 3. Floating vs Docked layout handling
+        if (_appliedDockMode == WidgetDockMode.Floating)
+        {
+            var outerWidth = _window.ActualWidth > 0 ? _window.ActualWidth : (_window.Width > 0 ? _window.Width : 350.0);
+            var outerHeight = _window.ActualHeight > 0 ? _window.ActualHeight : (_window.Height > 0 ? _window.Height : 160.0);
+
+            var (safeLeft, safeTop) = PositionHelper.EnsureWindowVisible(_window.Left, _window.Top, outerWidth, outerHeight);
+
+            if (Math.Abs(_window.Left - safeLeft) > 1.0 || Math.Abs(_window.Top - safeTop) > 1.0)
+            {
+                _window.Left = safeLeft;
+                _window.Top = safeTop;
+
+                if (_settings != null && _settingsManager != null)
+                {
+                    _settings.WindowLeft = safeLeft;
+                    _settings.WindowTop = safeTop;
+                    _settingsManager.Save(_settings);
+                }
+            }
+
+            _window.UpdateDynamicWorkAreaBounds();
+        }
+        else
+        {
+            _window.ForceDockExpanded();
+            _window.ReanchorDockedWindow();
+        }
+
+        // 4. Bring forward from explicit user invocation
+        _window.Activate();
+        _window.Focus();
     }
 
     private SettingsWindow? _settingsWindow;

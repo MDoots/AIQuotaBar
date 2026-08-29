@@ -78,7 +78,7 @@ public sealed class GrokBuildUsageProvider : IUsageProvider
                 {
                     var client = new GrokJsonRpcClient(session);
 
-                    var initResult = await client.InitializeAsync("AIQuotaBar", "0.2.0", runnerToken).ConfigureAwait(false);
+                    var initResult = await client.InitializeAsync("AIQuotaBar", "1.0.0", runnerToken).ConfigureAwait(false);
                     var authMethodId = SelectNonInteractiveAuthMethod(initResult);
 
                     if (string.IsNullOrWhiteSpace(authMethodId))

@@ -2,7 +2,13 @@
 
 **AIQuotaBar** is a lightweight, local-first Windows 11 desktop utility designed to keep AI coding-agent subscription quotas and rate limits visible at a glance. Built natively with .NET 10 and WPF, AIQuotaBar provides a customizable, low-overhead widget that operates entirely on your local machine without telemetry, tracking, or cloud infrastructure.
 
-![AIQuotaBar Desktop Widget Preview](docs/images/app-preview.png)
+**Floating mode**
+
+![AIQuotaBar floating widget](docs/images/app-preview.png)
+
+**Docked mode**
+
+![AIQuotaBar docked mode](docs/images/app-docked.png)
 
 ---
 
@@ -32,11 +38,8 @@ AIQuotaBar communicates directly with official locally installed developer tools
 | **OpenAI Codex** | Supported | Official local Codex app-server via local stdio JSON-RPC (`codex app-server --stdio`). |
 | **Google Antigravity** | Supported | Official `agy` CLI using structured usage output (`agy -p "/usage" --output-format json`). |
 | **Claude Code** | Supported | Official native Claude Code CLI (`claude auth status --json` and local `/usage` surface). |
-| **Grok Build** | Supported | Official local Grok Build ACP stdio server (`grok --no-auto-update agent stdio`) via provider-owned `x.ai/billing` (with legacy fallback). |
+| **Grok Build** | Supported | Official local Grok Build ACP stdio server (`grok --no-auto-update agent stdio`) via provider-owned `x.ai/billing` (with fallback). |
 | **GitHub Copilot** | Supported | Official `GitHub.Copilot.SDK` connected to local `copilot.exe` using account quota RPC (`account.getQuota`). No model session created. |
-
-### Future & Requested Providers
-Support for additional AI developer tools (e.g., Cursor) may be evaluated in future releases if clean, official local quota interfaces become available.
 
 ---
 
@@ -62,31 +65,35 @@ AIQuotaBar is **plan-agnostic**. It does not require a paid tier itself. Where a
 * **GitHub Copilot:** Requires GitHub Copilot CLI (`copilot.exe`) installed and authenticated with an active Copilot entitlement.
 
 > [!NOTE]
-> **Independent Local Execution:** The normal provider application, editor window, or terminal session does **not** need to stay open. AIQuotaBar launches isolated, short-lived query processes against installed CLIs. If a tool is not installed, it will simply be marked as **Not detected** in Settings.
+> **Independent Local Execution:** The normal provider application, editor window, or terminal session does **not** need to stay open. AIQuotaBar launches isolated, short-lived query processes against installed CLIs.
+>
+> On a clean machine without developer tools installed, AIQuotaBar displays a clean onboarding view (**"No supported providers detected"**) with quick access to Settings where you can view setup guidance for all five supported providers.
 
 ---
 
-## Installation
+## Installation & Distribution
 
-AIQuotaBar is distributed as a lightweight, portable single-file executable:
-
-1. Download the latest `AIQuotaBar-<version>-win-x64.zip` package from GitHub Releases.
+### Portable Release (GitHub)
+1. Download the latest `AIQuotaBar-<version>-win-x64.zip` package from [GitHub Releases](https://github.com/MDoots/AIQuotaBar/releases).
 2. Extract the ZIP archive to a folder of your choice.
 3. Run `AIQuotaBar.exe`.
 
 > [!NOTE]
 > AIQuotaBar requires no installer or administrator privileges. Settings and preferences are automatically saved to `%LOCALAPPDATA%\AIQuotaBar\settings.json`.
 
+### Microsoft Store
+AIQuotaBar is packaged for the Microsoft Store. The v1.0 release is pending certification.
+
 ---
 
 ## Usage & Controls
 
 * **Mode Toggle (▴ / ▾):** Switch between Expanded multi-row and Compact single-line layouts.
-* **Dock Mode (Floating / Top / Bottom):** Switch between floating window and edge-docked modes.
+* **Dock Mode (Floating / Top / Bottom):** Switch between floating window and screen-edge docked modes.
 * **Always on Top (📌):** Pin the floating widget above your IDE or editor windows.
 * **Manual Refresh (↻):** Refresh quotas immediately on demand.
-* **System Tray:** Minimize AIQuotaBar to the Windows taskbar notification area (`NotifyIcon`). Right-click the tray icon to access quick actions or open Settings.
-* **Start with Windows:** Enable automatic launch on login via the settings menu (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).
+* **System Tray:** Minimize AIQuotaBar to the Windows notification area (`NotifyIcon`). Right-click the tray icon and select **"Open AIQuotaBar"** (or left-click / double-click) to restore the window.
+* **Start with Windows:** Enable automatic launch on login via the settings menu.
 
 ---
 
@@ -111,6 +118,8 @@ AIQuotaBar is engineered around strict privacy boundaries:
 * **Zero Credential Access:** AIQuotaBar never reads auth files, session tokens, or API keys directly. Credentials remain provider-owned.
 * **Process Isolation:** All background query processes are bounded by strict timeouts, execute zero model inferences, and terminate automatically on exit or cancellation.
 
+For full details, please review our comprehensive [Privacy Policy](PRIVACY.md).
+
 ---
 
 ## Building from Source
@@ -129,17 +138,17 @@ AIQuotaBar is engineered around strict privacy boundaries:
 
 2. **Compile the solution:**
    ```powershell
-   dotnet build AIQuotaBar.slnx -c Release
+   dotnet build AIQuotaBar.slnf -c Release
    ```
 
 3. **Run the test suite:**
    ```powershell
-   dotnet test AIQuotaBar.slnx -c Release
+   dotnet test AIQuotaBar.slnf -c Release
    ```
 
 4. **Produce a self-contained portable release:**
    ```powershell
-   .\scripts\build-portable.ps1 -Configuration Release -Runtime win-x64
+   powershell -ExecutionPolicy Bypass -File .\scripts\build-portable.ps1
    ```
    The self-contained binary will be generated at `artifacts/portable/win-x64/AIQuotaBar.exe`.
 

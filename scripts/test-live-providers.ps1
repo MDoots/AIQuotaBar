@@ -221,6 +221,7 @@ $grokRes = Invoke-WithTimeout 'Grok Build' {
     $grokExe = if ($cmd) { $cmd.Source } else { $null }
     if (-not $grokExe) {
         $paths = @(
+            "$env:USERPROFILE\.grok\bin\grok.exe",
             "$env:USERPROFILE\.local\bin\grok.exe",
             "$env:LOCALAPPDATA\Programs\Grok\grok.exe",
             "$env:LOCALAPPDATA\Microsoft\WinGet\Links\grok.exe"
@@ -254,7 +255,7 @@ $grokRes = Invoke-WithTimeout 'Grok Build' {
     $reader = $p.StandardOutput
 
     # Send sequence
-    $writer.WriteLine('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"AIQuotaBar","version":"0.2.0"}}}')
+    $writer.WriteLine('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"capabilities":{"_meta":{"billing":true}},"clientInfo":{"name":"AIQuotaBar","version":"1.0.0"}}}')
     $writer.Flush()
     $initResp = $reader.ReadLine()
 
@@ -299,24 +300,59 @@ $grokRes = Invoke-WithTimeout 'Grok Build' {
         try { $p.Kill($true) } catch {}
     }
 
-    $plan = 'Free'
-    $windowName = 'Grok · Weekly'
+    $plan = $null
+    $usedPercent = $null
+    $windowName = $null
+
     try {
         $bObj = $billingResp | ConvertFrom-Json
-        if ($bObj.result.effectiveTier) { $plan = $bObj.result.effectiveTier }
-        if ($bObj.result.config.isUnifiedBillingUser) {
-            $windowName = 'Grok · ' + ($bObj.result.config.currentPeriod.type.Substring(0,1).ToUpper() + $bObj.result.config.currentPeriod.type.Substring(1))
+        if ($bObj.result.subscription_tier) { $plan = $bObj.result.subscription_tier }
+        elseif ($bObj.result.effectiveTier) { $plan = $bObj.result.effectiveTier }
+        elseif ($bObj.result.subscriptionTier) { $plan = $bObj.result.subscriptionTier }
+
+        $cfg = $bObj.result.config
+        if ($cfg) {
+            if ($cfg.creditUsagePercent -ne $null) {
+                $usedPercent = [double]$cfg.creditUsagePercent
+            } elseif ($cfg.used -and $cfg.used.val -ne $null -and $cfg.monthlyLimit -and $cfg.monthlyLimit.val -ne $null -and [double]$cfg.monthlyLimit.val -gt 0) {
+                $usedPercent = ([double]$cfg.used.val / [double]$cfg.monthlyLimit.val) * 100.0
+            }
+
+            if ($cfg.currentPeriod -and $cfg.currentPeriod.type) {
+                $pType = $cfg.currentPeriod.type
+                $isUnified = [bool]$cfg.isUnifiedBillingUser
+                if ($pType -match 'weekly') {
+                    $windowName = if ($isUnified) { 'Grok · Weekly' } else { 'Build · Weekly' }
+                } elseif ($pType -match 'monthly') {
+                    $windowName = if ($isUnified) { 'Grok · Monthly' } else { 'Build · Monthly' }
+                }
+            }
         }
     } catch {}
+
+    if ($usedPercent -eq $null) {
+        return [PSCustomObject]@{
+            Provider = 'Grok Build'
+            Status = 'Unavailable'
+            Plan = if ($plan) { $plan } else { '-' }
+            Windows = 0
+            WindowDetails = 'No finite quota returned by Grok'
+            Duration = '0s'
+            Notes = 'No finite quota returned by Grok'
+        }
+    }
+
+    $remPercent = [Math]::Max(0.0, 100.0 - $usedPercent)
+    $wDetails = if ($windowName) { "$windowName ($([Math]::Round($remPercent))% rem)" } else { "Active ($([Math]::Round($remPercent))% rem)" }
 
     return [PSCustomObject]@{
         Provider = 'Grok Build'
         Status = 'Available'
-        Plan = $plan
+        Plan = if ($plan) { $plan } else { '-' }
         Windows = 1
-        WindowDetails = $windowName
+        WindowDetails = $wDetails
         Duration = '0s'
-        Notes = 'Unified billing: Active 100% quota'
+        Notes = "Finite quota detected ($([Math]::Round($usedPercent))% used)"
     }
 } $TimeoutSeconds
 
