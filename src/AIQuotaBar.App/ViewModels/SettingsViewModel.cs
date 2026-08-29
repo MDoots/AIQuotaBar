@@ -125,9 +125,26 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
         }
     }
 
+    public string AppVersionText
+    {
+        get
+        {
+            var version = typeof(SettingsViewModel).Assembly.GetName().Version;
+            if (version != null)
+            {
+                return $"AIQuotaBar {version.Major}.{version.Minor}.{version.Build}";
+            }
+            return "AIQuotaBar 1.0.0";
+        }
+    }
+
+    public string PublisherText => "Publisher: AGIFutures";
+
     public ICommand ResetDefaultsCommand { get; }
     public ICommand RescanCommand { get; }
     public ICommand CloseCommand { get; }
+    public ICommand OpenGitHubCommand { get; }
+    public ICommand OpenPrivacyCommand { get; }
 
     public SettingsViewModel(
         AppSettings settings,
@@ -156,10 +173,36 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
         ResetDefaultsCommand = new RelayCommand(ResetDefaults);
         RescanCommand = new RelayCommand(async () => await RescanProvidersAsync(), () => CanRescan);
         CloseCommand = new RelayCommand(() => RequestClose?.Invoke());
+        OpenGitHubCommand = new RelayCommand(() => OpenUrl("https://github.com/MDoots/AIQuotaBar"));
+        OpenPrivacyCommand = new RelayCommand(() => OpenUrl("https://github.com/MDoots/AIQuotaBar/blob/main/PRIVACY.md"));
 
         PopulateSetupItems();
         PopulateProviders();
         UpdateProviderSetupStatus();
+    }
+
+    private void OpenUrl(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            if (_urlLauncher != null)
+            {
+                _urlLauncher(uri);
+            }
+            else
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = uri.AbsoluteUri,
+                    UseShellExecute = true
+                });
+            }
+        }
+        catch
+        {
+            // Ignored
+        }
     }
 
     private void OnWidgetDockModeChanged(WidgetDockMode mode)

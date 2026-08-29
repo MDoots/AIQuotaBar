@@ -17,12 +17,22 @@ public sealed class PowerResumeCoordinator : IPowerResumeCoordinator
     private readonly Dispatcher? _dispatcher;
     private readonly TimeSpan _resumeDelay;
     private readonly Func<Action, CancellationToken, Task>? _customDelayScheduler;
+    private readonly object _lock = new();
 
     private CancellationTokenSource? _pendingResumeCts;
     private bool _isStarted;
     private bool _disposed;
 
-    public bool IsPending => _pendingResumeCts != null && !_pendingResumeCts.IsCancellationRequested;
+    public bool IsPending
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _pendingResumeCts != null && !_pendingResumeCts.IsCancellationRequested;
+            }
+        }
+    }
 
     public PowerResumeCoordinator(
         Func<Task> refreshAction,
@@ -50,12 +60,16 @@ public sealed class PowerResumeCoordinator : IPowerResumeCoordinator
 
     public void Start()
     {
-        if (_disposed || _isStarted)
+        lock (_lock)
         {
-            return;
+            if (_disposed || _isStarted)
+            {
+                return;
+            }
+
+            _isStarted = true;
         }
 
-        _isStarted = true;
         try
         {
             SystemEvents.PowerModeChanged += HandleSystemPowerModeChanged;
@@ -73,7 +87,7 @@ public sealed class PowerResumeCoordinator : IPowerResumeCoordinator
 
     public void OnPowerModeChanged(PowerModes mode)
     {
-        if (_disposed || mode != PowerModes.Resume)
+        if (mode != PowerModes.Resume)
         {
             return;
         }
@@ -83,17 +97,33 @@ public sealed class PowerResumeCoordinator : IPowerResumeCoordinator
 
     private void ScheduleResumeRecovery()
     {
-        if (_disposed)
+        CancellationTokenSource cts;
+
+        lock (_lock)
         {
-            return;
+            if (_disposed)
+            {
+                return;
+            }
+
+            // Cancel any previously scheduled recovery
+            if (_pendingResumeCts != null)
+            {
+                try
+                {
+                    _pendingResumeCts.Cancel();
+                    _pendingResumeCts.Dispose();
+                }
+                catch
+                {
+                    // Ignore disposal race
+                }
+                _pendingResumeCts = null;
+            }
+
+            cts = new CancellationTokenSource();
+            _pendingResumeCts = cts;
         }
-
-        // Cancel and coalesce any previously scheduled recovery
-        _pendingResumeCts?.Cancel();
-        _pendingResumeCts?.Dispose();
-
-        var cts = new CancellationTokenSource();
-        _pendingResumeCts = cts;
 
         _ = ExecuteDelayedRecoveryAsync(cts);
     }
@@ -111,16 +141,22 @@ public sealed class PowerResumeCoordinator : IPowerResumeCoordinator
                 await Task.Delay(_resumeDelay, cts.Token).ConfigureAwait(false);
             }
 
-            if (_disposed || cts.IsCancellationRequested)
-            {
-                return;
-            }
-
-            void Execute()
+            lock (_lock)
             {
                 if (_disposed || cts.IsCancellationRequested)
                 {
                     return;
+                }
+            }
+
+            void Execute()
+            {
+                lock (_lock)
+                {
+                    if (_disposed || cts.IsCancellationRequested)
+                    {
+                        return;
+                    }
                 }
 
                 if (_asyncRefreshAction != null)
@@ -146,43 +182,71 @@ public sealed class PowerResumeCoordinator : IPowerResumeCoordinator
         {
             // Expected on cancellation or coalescing
         }
+        catch (ObjectDisposedException)
+        {
+            // Expected if CTS was disposed during coalescing
+        }
         catch
         {
             // Transient errors during recovery must not crash the application
         }
         finally
         {
-            if (ReferenceEquals(_pendingResumeCts, cts))
+            lock (_lock)
             {
-                _pendingResumeCts = null;
+                if (ReferenceEquals(_pendingResumeCts, cts))
+                {
+                    _pendingResumeCts = null;
+                }
             }
-            cts.Dispose();
+
+            try
+            {
+                cts.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed during coalescing or shutdown
+            }
         }
     }
 
     public void Dispose()
     {
-        if (_disposed)
+        lock (_lock)
         {
-            return;
-        }
-
-        _disposed = true;
-        if (_isStarted)
-        {
-            try
+            if (_disposed)
             {
-                SystemEvents.PowerModeChanged -= HandleSystemPowerModeChanged;
+                return;
             }
-            catch
-            {
-                // Ignore any unhook errors on shutdown
-            }
-            _isStarted = false;
-        }
 
-        _pendingResumeCts?.Cancel();
-        _pendingResumeCts?.Dispose();
-        _pendingResumeCts = null;
+            _disposed = true;
+            if (_isStarted)
+            {
+                try
+                {
+                    SystemEvents.PowerModeChanged -= HandleSystemPowerModeChanged;
+                }
+                catch
+                {
+                    // Ignore any unhook errors on shutdown
+                }
+                _isStarted = false;
+            }
+
+            if (_pendingResumeCts != null)
+            {
+                try
+                {
+                    _pendingResumeCts.Cancel();
+                    _pendingResumeCts.Dispose();
+                }
+                catch
+                {
+                    // Ignore
+                }
+                _pendingResumeCts = null;
+            }
+        }
     }
 }

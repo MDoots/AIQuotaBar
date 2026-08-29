@@ -9,7 +9,7 @@
   <Identity
     Name="AGIFutu.AIQuotaBar"
     Publisher="CN=63F366FC-16FC-4C0B-99DF-7E5B40742F24"
-    Version="1.0.1.0"
+    Version="1.0.2.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
@@ -28,7 +28,7 @@
 
   <Applications>
     <Application Id="AIQuotaBar"
-      Executable="AIQuotaBar.exe"
+      Executable="AIQuotaBar.App\AIQuotaBar.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         DisplayName="AIQuotaBar"

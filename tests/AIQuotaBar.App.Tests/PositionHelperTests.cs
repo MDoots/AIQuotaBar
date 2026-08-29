@@ -275,4 +275,30 @@ public class PositionHelperTests
         Assert.Equal(785, targetX);
         Assert.Equal(317, targetY);
     }
+
+    [Fact]
+    public void IsWindowMeaningfullyVisible_ReturnsFalse_ForInvalidInputs()
+    {
+        var screens = GetMockSingleScreen();
+        Assert.False(PositionHelper.IsWindowMeaningfullyVisible(double.NaN, 0, 300, 160, screens));
+        Assert.False(PositionHelper.IsWindowMeaningfullyVisible(0, double.PositiveInfinity, 300, 160, screens));
+        Assert.False(PositionHelper.IsWindowMeaningfullyVisible(0, 0, -100, 160, screens));
+        Assert.False(PositionHelper.IsWindowMeaningfullyVisible(0, 0, 300, 0, screens));
+        Assert.False(PositionHelper.IsWindowMeaningfullyVisible(0, 0, 300, 160, Array.Empty<Rectangle>()));
+    }
+
+    [Fact]
+    public void IsWindowMeaningfullyVisible_ReturnsTrue_WhenFullyVisible()
+    {
+        var screens = GetMockSingleScreen();
+        Assert.True(PositionHelper.IsWindowMeaningfullyVisible(100, 100, 300, 160, screens));
+    }
+
+    [Fact]
+    public void IsWindowMeaningfullyVisible_ReturnsFalse_WhenSliverOnly()
+    {
+        var screens = GetMockSingleScreen();
+        // Placed at X=1900 on 1920-width screen: 20px visible < 60px default threshold
+        Assert.False(PositionHelper.IsWindowMeaningfullyVisible(1900, 100, 300, 160, screens));
+    }
 }

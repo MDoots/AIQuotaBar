@@ -53,7 +53,7 @@ public sealed class TrayManager : IDisposable
         _contextMenu = new ContextMenuStrip();
 
         var baseFont = _contextMenu.Font ?? SystemFonts.DefaultFont;
-        _showMenuItem = new ToolStripMenuItem("Show AIQuotaBar", null, (s, e) => _showWindowAction())
+        _showMenuItem = new ToolStripMenuItem("Open AIQuotaBar", null, (s, e) => _showWindowAction())
         {
             Font = new Font(baseFont, FontStyle.Bold)
         };
@@ -165,6 +165,13 @@ public sealed class TrayManager : IDisposable
         };
 
         _notifyIcon.DoubleClick += (s, e) => _showWindowAction();
+        _notifyIcon.MouseClick += (s, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                _showWindowAction();
+            }
+        };
         _notifyIcon.BalloonTipClicked += (s, e) => _showWindowAction();
 
         // Subscribe to ViewModel property changes to keep tray checkmarks synchronized

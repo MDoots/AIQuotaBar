@@ -354,7 +354,7 @@
                                    HorizontalAlignment="Center"
                                    TextAlignment="Center"
                                    TextWrapping="Wrap" />
-                        <TextBlock Text="Install or sign in to Codex or Antigravity, then rescan."
+                        <TextBlock Text="Install or sign in to a supported provider, then rescan in Settings."
                                    FontSize="10"
                                    Foreground="#71717A"
                                    Margin="0,4,0,8"

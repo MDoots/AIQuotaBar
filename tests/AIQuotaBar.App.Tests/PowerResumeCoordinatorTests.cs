@@ -51,7 +51,7 @@ public class PowerResumeCoordinatorTests
                 refreshTcs.TrySetResult(true);
                 return Task.CompletedTask;
             },
-            resumeDelay: TimeSpan.FromMilliseconds(50));
+            resumeDelay: TimeSpan.FromMilliseconds(100));
 
         coordinator.Start();
 
@@ -144,6 +144,40 @@ public class PowerResumeCoordinatorTests
         }
 
         Assert.False(coordinator.IsPending);
+
+        coordinator.Dispose();
+    }
+
+    [Fact]
+    public async Task OnPowerModeChanged_CoalescingDisposesSupersededCts_NoObjectDisposedException()
+    {
+        var refreshCount = 0;
+        var refreshTcs = new TaskCompletionSource<bool>();
+        var coordinator = new PowerResumeCoordinator(
+            refreshAction: () =>
+            {
+                Interlocked.Increment(ref refreshCount);
+                refreshTcs.TrySetResult(true);
+                return Task.CompletedTask;
+            },
+            resumeDelay: TimeSpan.FromMilliseconds(50));
+
+        coordinator.Start();
+
+        // Fire 10 rapid resume events in parallel tasks to stress CTS cancellation/disposal races
+        var tasks = Enumerable.Range(0, 10).Select(_ => Task.Run(() => coordinator.OnPowerModeChanged(PowerModes.Resume)));
+        await Task.WhenAll(tasks);
+
+        var completed = await Task.WhenAny(refreshTcs.Task, Task.Delay(2000));
+        Assert.Same(refreshTcs.Task, completed);
+
+        for (var i = 0; i < 50 && coordinator.IsPending; i++)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.False(coordinator.IsPending);
+        Assert.Equal(1, refreshCount);
 
         coordinator.Dispose();
     }

@@ -231,4 +231,35 @@ public class GrokUsageNormalizerTests
         Assert.Equal(75.0, window.RemainingPercent);
         Assert.Equal(TimeSpan.FromDays(30), window.Duration);
     }
+
+    [Fact]
+    public void Normalize_FreeTierWithoutFiniteQuota_ReturnsUnavailableWithPlanAndNoWindows()
+    {
+        var result = new GrokBillingResult
+        {
+            SubscriptionTier = "Free",
+            Config = new GrokBillingConfig
+            {
+                IsUnifiedBillingUser = true,
+                CurrentPeriod = new GrokCurrentPeriod
+                {
+                    Type = "USAGE_PERIOD_TYPE_WEEKLY",
+                    Start = "2026-08-26T01:00:00+00:00",
+                    End = "2026-09-02T01:00:00+00:00"
+                },
+                BillingPeriodStart = "2026-08-26T01:00:00+00:00",
+                BillingPeriodEnd = "2026-09-02T01:00:00+00:00",
+                CreditUsagePercent = null,
+                Used = null,
+                MonthlyLimit = null
+            }
+        };
+
+        var snapshot = GrokUsageNormalizer.Normalize(result);
+
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Equal("No finite quota returned by Grok", snapshot.StatusMessage);
+        Assert.Equal("Free", snapshot.AccountPlan);
+        Assert.Empty(snapshot.Windows);
+    }
 }

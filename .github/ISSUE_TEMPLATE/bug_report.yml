@@ -41,6 +41,9 @@ body:
       options:
         - OpenAI Codex
         - Google Antigravity
+        - Claude Code
+        - Grok Build
+        - GitHub Copilot
         - General Widget UI / Tray
         - Settings & Persistence
     validations:
@@ -52,6 +55,6 @@ body:
       description: OS version, AIQuotaBar version, provider CLI versions (sanitized).
       value: |
         - OS: Windows 11 x64
-        - AIQuotaBar Version: 0.2.0
+        - AIQuotaBar Version: 1.0.0
     validations:
       required: true
