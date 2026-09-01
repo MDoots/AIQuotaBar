@@ -134,7 +134,7 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
             {
                 return $"AIQuotaBar {version.Major}.{version.Minor}.{version.Build}";
             }
-            return "AIQuotaBar 1.0.0";
+            return "AIQuotaBar 1.0.1";
         }
     }
 

@@ -59,10 +59,10 @@ AIQuotaBar is **plan-agnostic**. It does not require a paid tier itself. Where a
 
 ### Provider Requirements
 * **OpenAI Codex:** Requires the official Codex CLI installed and authenticated. AIQuotaBar launches a short-lived local child process connecting over stdio.
-* **Google Antigravity:** Requires the official Antigravity CLI (`agy`) installed in your `PATH` and authenticated.
-* **Claude Code:** Requires native Claude Code installed and authenticated with an active Claude Code entitlement.
-* **Grok Build:** Requires the official Grok CLI (`grok`) installed and authenticated.
-* **GitHub Copilot:** Requires GitHub Copilot CLI (`copilot.exe`) installed and authenticated with an active Copilot entitlement.
+* **Google Antigravity:** Requires the official Antigravity CLI (`agy`) installed and authenticated (standalone Antigravity desktop app is not supported).
+* **Claude Code:** Requires the official Claude Code CLI installed and authenticated with an active Claude Code entitlement (Claude Desktop alone is not supported).
+* **Grok Build:** Requires the official Grok CLI (`grok`) installed and authenticated (browser-only Grok accounts are not supported).
+* **GitHub Copilot:** Requires GitHub Copilot CLI (`copilot.exe`) installed and authenticated with an active Copilot entitlement (VS Code extension alone is not supported).
 
 > [!NOTE]
 > **Independent Local Execution:** The normal provider application, editor window, or terminal session does **not** need to stay open. AIQuotaBar launches isolated, short-lived query processes against installed CLIs.

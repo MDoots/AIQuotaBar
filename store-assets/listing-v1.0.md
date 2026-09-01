@@ -2,9 +2,9 @@
 
 **Product Name:** AIQuotaBar  
 **Product ID:** 9NTTSH588BQ9  
-**Publisher:** AGIFutures (CN=63F366FC-16FC-4C0B-99DF-7E5B40742F24)  
-**Package Version:** 1.0.2.0  
-**Public App Version:** 1.0.0  
+**Publisher:** AGIFutures (CN=63F366FC-16FC-4C0B-99DF-7E5B40742F24)<br />
+**Package Version:** 1.0.3.0<br />
+**Public App Version:** 1.0.1
 
 ---
 
@@ -47,26 +47,41 @@ AIQuotaBar displays live quota data from developer tools that you have installed
 
 ---
 
-## 3. Release Notes (v1.0.0 / Package 1.0.2.0)
+## 3. Release Notes (v1.0.1 / Package 1.0.3.0)
 
-* Added support for 5 major AI developer providers: OpenAI Codex, Google Antigravity, Claude Code, Grok Build, and GitHub Copilot.
-* Introduced magnetic desktop screen-edge docking (Top / Bottom) with auto-hide and horizontal anchor adjustment.
-* Added horizontal drag-resizing with adaptive typography and responsive label truncation.
-* Added per-provider visibility controls, provider discovery, and guided onboarding in Settings.
-* Added dynamic system tray health indicators and configurable low-quota desktop notifications.
-* Hardened Windows sleep/resume recovery and last-known-good quota retention.
-* Centralized and hardened window restoration from the notification area ("Open AIQuotaBar") with off-screen monitor recovery.
+* Hardened provider onboarding guidance across Settings cards to explicitly require official command-line interfaces.
+* Corrected Google Antigravity setup URL to the official CLI installation and authentication page (`https://antigravity.google/docs/cli/install/`).
+* Directed GitHub Copilot CLI setup URL directly to the official CLI installation instructions (`https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli`).
+* Enhanced reviewer certification notes and onboarding diagnostics for clean-machine testing.
 
 ---
 
 ## 4. Certification Notes for Microsoft App Reviewers
 
 ```
-Notes for Certification:
+Notes for Certification (Package 1.0.3.0):
 
-Previous submission feedback reported that the quota bar did not appear after selecting 'Show AIQuotaBar' from the notification-area menu.
+Resolution for Recent Certification Feedback:
+In the previous review, the reviewer reported 'No supported providers detected' after downloading the Antigravity desktop application.
 
-In this build (1.0.2.0), the notification-area command is labelled 'Open AIQuotaBar' and uses a consolidated, hardened foreground restoration path with automatic off-screen recovery.
+Important Clarification on Antigravity:
+- AIQuotaBar integrates with the official Antigravity CLI ('agy'), not the standalone Antigravity desktop IDE application.
+- The Antigravity desktop application and the Antigravity CLI are separate installations.
+- In this build, AIQuotaBar's Setup Guide button links directly to the official Antigravity CLI Installation & Auth page:
+  https://antigravity.google/docs/cli/install/
+- On Windows, the official installer places agy under:
+  %LOCALAPPDATA%\agy\bin\agy.exe
+- The official Windows installation command is:
+  irm https://antigravity.google/cli/install.ps1 | iex
+- After installing and authenticating the CLI, return to AIQuotaBar Settings and click 'Rescan providers' to immediately detect the installation.
+
+Equivalent Exact CLI Guidance for All Providers:
+AIQuotaBar provides equivalent explicit CLI requirements and direct official installation links for all 5 supported providers:
+1. OpenAI Codex: requires official Codex CLI (https://developers.openai.com/codex/cli/)
+2. Google Antigravity: requires official Antigravity CLI 'agy' (https://antigravity.google/docs/cli/install/)
+3. Claude Code: requires official Claude Code CLI (https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview; Claude Desktop alone is not supported)
+4. Grok Build: requires official Grok CLI (https://docs.x.ai/build/overview; browser-only accounts are not supported)
+5. GitHub Copilot: requires official GitHub Copilot CLI 'copilot.exe' (https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli; VS Code extension alone is not supported)
 
 How to Test Window Restore:
 1. Launch AIQuotaBar from the Start Menu.
@@ -76,13 +91,13 @@ How to Test Window Restore:
 5. Click 'Open AIQuotaBar'.
 6. The main window will immediately become visible and activate in the foreground.
 
-Note on Provider Quota Rows:
-AIQuotaBar reads quota and rate-limit statistics locally via inter-process communication with supported developer tools installed and authenticated on the user's computer (e.g. Codex CLI, Antigravity, Claude Code, Grok Build, GitHub Copilot). AIQuotaBar does not bundle third-party accounts or cloud backends.
+Note on Clean-Machine Onboarding:
+AIQuotaBar reads quota and rate-limit statistics locally via inter-process communication with supported developer tools installed and authenticated on the user's computer. AIQuotaBar does not bundle third-party accounts or cloud backends.
 
 On a clean test machine with no third-party AI provider CLIs installed, the expected and correct behavior is the clean onboarding state:
 - Header: 'No supported providers detected'
 - Description: 'Install or sign in to a supported provider, then rescan in Settings.'
-- Button: 'Set up providers' (opens the Settings window showing all 5 provider setup cards).
+- Button: 'Set up providers' (opens the Settings window showing all 5 provider setup cards with direct CLI installation links).
 
 This onboarding state represents full, expected functionality on a device without pre-installed AI developer tools.
 ```

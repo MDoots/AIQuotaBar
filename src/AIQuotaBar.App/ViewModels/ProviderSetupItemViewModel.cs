@@ -79,12 +79,12 @@ public sealed class ProviderSetupItemViewModel : ViewModelBase
             StatusBrush = "#71717A";
             DetailText = ProviderId.ToLowerInvariant() switch
             {
-                "codex" => "Install OpenAI Codex, then rescan.",
-                "antigravity" => "Install the Antigravity CLI, then rescan.",
-                "claude-code" => "Install Claude Code, then rescan.",
-                "grok-build" => "Install Grok Build, then rescan.",
-                "github-copilot" => "Install GitHub Copilot CLI, then rescan.",
-                _ => $"Install {DisplayName}, then rescan."
+                "codex" => "AIQuotaBar requires the Codex CLI. Install it, then rescan.",
+                "antigravity" => "AIQuotaBar requires the Antigravity CLI (agy). Install it, then rescan.",
+                "claude-code" => "AIQuotaBar requires the Claude Code CLI. Install it, then rescan.",
+                "grok-build" => "AIQuotaBar requires the Grok CLI. Install it, then rescan.",
+                "github-copilot" => "AIQuotaBar requires the GitHub Copilot CLI. Install it, then rescan.",
+                _ => $"AIQuotaBar requires {DisplayName}. Install it, then rescan."
             };
             return;
         }
@@ -114,7 +114,15 @@ public sealed class ProviderSetupItemViewModel : ViewModelBase
         {
             StatusLabel = "Sign-in required";
             StatusBrush = "#F59E0B";
-            DetailText = $"Open {ShortDisplayName} and sign in, then rescan.";
+            DetailText = ProviderId.ToLowerInvariant() switch
+            {
+                "codex" => "Sign in via the Codex CLI, then rescan.",
+                "antigravity" => "Sign in via the Antigravity CLI (agy), then rescan.",
+                "claude-code" => "Sign in via the Claude Code CLI, then rescan.",
+                "grok-build" => "Sign in via the Grok CLI, then rescan.",
+                "github-copilot" => "Sign in via the GitHub Copilot CLI, then rescan.",
+                _ => $"Open {ShortDisplayName} and sign in, then rescan."
+            };
             return;
         }
 

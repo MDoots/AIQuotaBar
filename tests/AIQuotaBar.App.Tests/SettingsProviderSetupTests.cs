@@ -43,11 +43,11 @@ public class SettingsProviderSetupTests
     }
 
     [Theory]
-    [InlineData("codex", "OpenAI Codex", "Codex", "Install OpenAI Codex, then rescan.")]
-    [InlineData("antigravity", "Google Antigravity", "Antigravity", "Install the Antigravity CLI, then rescan.")]
-    [InlineData("claude-code", "Claude Code", "Claude", "Install Claude Code, then rescan.")]
-    [InlineData("grok-build", "Grok Build", "Grok", "Install Grok Build, then rescan.")]
-    [InlineData("github-copilot", "GitHub Copilot", "Copilot", "Install GitHub Copilot CLI, then rescan.")]
+    [InlineData("codex", "OpenAI Codex", "Codex", "AIQuotaBar requires the Codex CLI. Install it, then rescan.")]
+    [InlineData("antigravity", "Google Antigravity", "Antigravity", "AIQuotaBar requires the Antigravity CLI (agy). Install it, then rescan.")]
+    [InlineData("claude-code", "Claude Code", "Claude", "AIQuotaBar requires the Claude Code CLI. Install it, then rescan.")]
+    [InlineData("grok-build", "Grok Build", "Grok", "AIQuotaBar requires the Grok CLI. Install it, then rescan.")]
+    [InlineData("github-copilot", "GitHub Copilot", "Copilot", "AIQuotaBar requires the GitHub Copilot CLI. Install it, then rescan.")]
     public void ProviderSetupItem_NotDetectedState_FormatsCorrectly(string id, string name, string shortName, string expectedDetail)
     {
         var descriptor = new ProviderDescriptor
@@ -108,7 +108,7 @@ public class SettingsProviderSetupTests
         item.UpdateStatus(ProviderDiscoveryStatus.Detected, section);
 
         Assert.Equal("Sign-in required", item.StatusLabel);
-        Assert.Equal("Open Codex and sign in, then rescan.", item.DetailText);
+        Assert.Equal("Sign in via the Codex CLI, then rescan.", item.DetailText);
     }
 
     [Fact]
@@ -230,5 +230,34 @@ public class SettingsProviderSetupTests
             windows: new[] { new QuotaWindow("primary", "5-Hour", 90.0, TimeSpan.FromHours(5), null, QuotaWindowStatus.Active) }));
 
         Assert.Equal("Sign-in required", codexItem.StatusLabel); // Unchanged after disposal!
+    }
+
+    [Fact]
+    public void ProviderCatalog_AllProviderSetupUris_PointToOfficialCliDocs()
+    {
+        Assert.Equal(new Uri("https://developers.openai.com/codex/cli/"), ProviderCatalog.Codex.SetupUri);
+        Assert.Equal(new Uri("https://antigravity.google/docs/cli/install/"), ProviderCatalog.Antigravity.SetupUri);
+        Assert.Equal(new Uri("https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview"), ProviderCatalog.ClaudeCode.SetupUri);
+        Assert.Equal(new Uri("https://docs.x.ai/build/overview"), ProviderCatalog.GrokBuild.SetupUri);
+        Assert.Equal(new Uri("https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli"), ProviderCatalog.GitHubCopilot.SetupUri);
+    }
+
+    [Theory]
+    [InlineData("codex", "Sign in via the Codex CLI, then rescan.")]
+    [InlineData("antigravity", "Sign in via the Antigravity CLI (agy), then rescan.")]
+    [InlineData("claude-code", "Sign in via the Claude Code CLI, then rescan.")]
+    [InlineData("grok-build", "Sign in via the Grok CLI, then rescan.")]
+    [InlineData("github-copilot", "Sign in via the GitHub Copilot CLI, then rescan.")]
+    public void ProviderSetupItem_SignRequiredState_ExplicitCliGuidance(string providerId, string expectedDetail)
+    {
+        var descriptor = ProviderCatalog.GetDescriptor(providerId)!;
+        var section = new ProviderSectionViewModel(new StubUsageProvider(descriptor.Id, descriptor.DisplayName), TimeSpan.FromSeconds(60), descriptor.ShortDisplayName, ProviderDiscoveryStatus.Detected);
+        section.ApplySnapshot(new ProviderSnapshot(descriptor.Id, descriptor.DisplayName, ProviderStatus.Unauthenticated));
+
+        var item = new ProviderSetupItemViewModel(descriptor);
+        item.UpdateStatus(ProviderDiscoveryStatus.Detected, section);
+
+        Assert.Equal("Sign-in required", item.StatusLabel);
+        Assert.Equal(expectedDetail, item.DetailText);
     }
 }
