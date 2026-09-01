@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-09-01
+
+### Changed
+
+* **Provider CLI Setup Guidance:** Hardened provider onboarding wording across Settings cards to explicitly require official command-line interfaces (`agy`, `codex`, `claude`, `grok`, and `copilot`).
+* **Corrected Antigravity Installation Link:** Updated Google Antigravity setup URL from generic desktop app download to the official CLI installation and authentication page (`https://antigravity.google/docs/cli/install/`).
+* **Direct GitHub Copilot Installation Link:** Updated GitHub Copilot setup URL directly to the official CLI installation guide (`https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli`).
+* **Store Certification Onboarding:** Refined clean-machine onboarding copy to clarify local CLI prerequisites for Microsoft certification reviewers.
+
+---
+
 ## [1.0.0] - 2026-08-29
 
 ### Added

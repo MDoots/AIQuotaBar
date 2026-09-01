@@ -36,7 +36,7 @@ public static class ProviderCatalog
         AccentColor = "#38BDF8",
         CreateProvider = () => new AntigravityUsageProvider(),
         LocateExecutable = () => AntigravityProcessLocator.LocateExecutable(),
-        SetupUri = new Uri("https://antigravity.google/download"),
+        SetupUri = new Uri("https://antigravity.google/docs/cli/install/"),
         KnownQuotaWindows = new[]
         {
             new KnownQuotaWindowDescriptor("gemini_gemini-5h", "Gemini · 5-Hour"),
@@ -90,7 +90,7 @@ public static class ProviderCatalog
         AccentColor = "#A78BFA",
         CreateProvider = () => new GitHubCopilotUsageProvider(),
         LocateExecutable = () => GitHubCopilotProcessLocator.LocateExecutable(),
-        SetupUri = new Uri("https://docs.github.com/copilot/how-tos/copilot-cli"),
+        SetupUri = new Uri("https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli"),
         KnownQuotaWindows = new[]
         {
             new KnownQuotaWindowDescriptor("premium", "Premium interactions"),

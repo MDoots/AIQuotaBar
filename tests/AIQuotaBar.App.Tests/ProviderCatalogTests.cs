@@ -86,7 +86,7 @@ public class ProviderCatalogTests
         Assert.Equal("Antigravity", agy.ShortDisplayName);
         Assert.Equal(TimeSpan.FromSeconds(180), agy.RefreshInterval);
         Assert.Equal("#38BDF8", agy.AccentColor);
-        Assert.Equal(new Uri("https://antigravity.google/download"), agy.SetupUri);
+        Assert.Equal(new Uri("https://antigravity.google/docs/cli/install/"), agy.SetupUri);
 
         Assert.Equal(4, agy.KnownQuotaWindows.Count);
         Assert.Equal("gemini_gemini-5h", agy.KnownQuotaWindows[0].Id);
@@ -164,7 +164,7 @@ public class ProviderCatalogTests
         Assert.Equal("Copilot", copilot.ShortDisplayName);
         Assert.Equal(TimeSpan.FromSeconds(180), copilot.RefreshInterval);
         Assert.Equal("#A78BFA", copilot.AccentColor);
-        Assert.Equal(new Uri("https://docs.github.com/copilot/how-tos/copilot-cli"), copilot.SetupUri);
+        Assert.Equal(new Uri("https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli"), copilot.SetupUri);
 
         Assert.Equal(3, copilot.KnownQuotaWindows.Count);
         Assert.Equal("premium", copilot.KnownQuotaWindows[0].Id);

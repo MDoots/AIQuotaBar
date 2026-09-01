@@ -153,7 +153,7 @@ public class WidgetDiscoveryTests
             RefreshInterval = TimeSpan.FromSeconds(180),
             CreateProvider = () => agyProvider,
             LocateExecutable = () => null,
-            SetupUri = new Uri("https://antigravity.google/download"),
+            SetupUri = new Uri("https://antigravity.google/docs/cli/install/"),
             KnownQuotaWindows = Array.Empty<KnownQuotaWindowDescriptor>()
         };
 
@@ -199,7 +199,7 @@ public class WidgetDiscoveryTests
             RefreshInterval = TimeSpan.FromSeconds(180),
             CreateProvider = () => new MockUsageProvider("antigravity", "Antigravity", () => new ProviderSnapshot("antigravity", "Antigravity", ProviderStatus.Available)),
             LocateExecutable = () => null,
-            SetupUri = new Uri("https://antigravity.google/download"),
+            SetupUri = new Uri("https://antigravity.google/docs/cli/install/"),
             KnownQuotaWindows = Array.Empty<KnownQuotaWindowDescriptor>()
         };
 
@@ -440,7 +440,7 @@ public class WidgetDiscoveryTests
             RefreshInterval = TimeSpan.FromSeconds(180),
             CreateProvider = () => agyProvider,
             LocateExecutable = () => @"C:\agy.exe",
-            SetupUri = new Uri("https://antigravity.google/download"),
+            SetupUri = new Uri("https://antigravity.google/docs/cli/install/"),
             KnownQuotaWindows = Array.Empty<KnownQuotaWindowDescriptor>()
         };
 
