@@ -29,7 +29,8 @@ public static class CopilotUsageNormalizer
         {
             // Filter to finite entitlements only
             var finiteQuotas = fetchResult.Quotas
-                .Where(q => !q.IsUnlimitedEntitlement && q.EntitlementRequests != -1)
+                .Where(q => !q.IsUnlimitedEntitlement && q.EntitlementRequests != -1 &&
+                    q.RemainingPercentage.HasValue && double.IsFinite(q.RemainingPercentage.Value))
                 .ToList();
 
             // Map and deduplicate understood quota keys
@@ -39,7 +40,7 @@ public static class CopilotUsageNormalizer
 
             if (premiumQuota != null)
             {
-                var clampedRemaining = Math.Clamp(premiumQuota.RemainingPercentage, 0.0, 100.0);
+                var clampedRemaining = Math.Clamp(premiumQuota.RemainingPercentage!.Value, 0.0, 100.0);
                 var rawUsed = Math.Clamp(100.0 - clampedRemaining, 0.0, 100.0);
                 var status = rawUsed >= 100.0 ? QuotaWindowStatus.Exhausted : QuotaWindowStatus.Active;
 
@@ -56,7 +57,7 @@ public static class CopilotUsageNormalizer
             var chatQuota = finiteQuotas.FirstOrDefault(q => string.Equals(q.Key, "chat", StringComparison.OrdinalIgnoreCase));
             if (chatQuota != null)
             {
-                var clampedRemaining = Math.Clamp(chatQuota.RemainingPercentage, 0.0, 100.0);
+                var clampedRemaining = Math.Clamp(chatQuota.RemainingPercentage!.Value, 0.0, 100.0);
                 var rawUsed = Math.Clamp(100.0 - clampedRemaining, 0.0, 100.0);
                 var status = rawUsed >= 100.0 ? QuotaWindowStatus.Exhausted : QuotaWindowStatus.Active;
 
@@ -73,7 +74,7 @@ public static class CopilotUsageNormalizer
             var completionsQuota = finiteQuotas.FirstOrDefault(q => string.Equals(q.Key, "completions", StringComparison.OrdinalIgnoreCase));
             if (completionsQuota != null)
             {
-                var clampedRemaining = Math.Clamp(completionsQuota.RemainingPercentage, 0.0, 100.0);
+                var clampedRemaining = Math.Clamp(completionsQuota.RemainingPercentage!.Value, 0.0, 100.0);
                 var rawUsed = Math.Clamp(100.0 - clampedRemaining, 0.0, 100.0);
                 var status = rawUsed >= 100.0 ? QuotaWindowStatus.Exhausted : QuotaWindowStatus.Active;
 

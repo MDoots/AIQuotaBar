@@ -7,6 +7,9 @@ public sealed record ProviderSnapshot
     public ProviderStatus Status { get; init; }
     public string? StatusMessage { get; init; }
     public string? AccountPlan { get; init; }
+    // Opaque, process-local generation supplied only from official account status.
+    // Never an account name, identifier or credential; never persisted by the app.
+    public string? AccountScope { get; init; }
     public DateTimeOffset Timestamp { get; init; }
     public IReadOnlyList<QuotaWindow> Windows { get; init; }
 

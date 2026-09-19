@@ -9,6 +9,33 @@ using Xunit;
 
 public class LastKnownGoodQuotaTests
 {
+    [Fact]
+    public async Task ObservedAccountChangeInvalidatesOldQuotaEvenWhenNewReadFails()
+    {
+        var provider = new StubUsageProvider();
+        using var vm = new ProviderSectionViewModel(provider, TimeSpan.FromMinutes(1));
+        vm.ApplySnapshot((await provider.GetUsageAsync()) with { AccountScope = "generation-one" });
+        Assert.Single(vm.VisibleWindows);
+        vm.ApplySnapshot(new ProviderSnapshot(provider.Id, provider.DisplayName, ProviderStatus.Timeout)
+            { AccountScope = "generation-two" });
+        Assert.Empty(vm.VisibleWindows);
+        Assert.Null(vm.AccountPlan);
+        Assert.Null(vm.LastSuccessfulRefreshAt);
+        Assert.False(vm.IsQuotaStale);
+    }
+
+    [Fact]
+    public async Task CancelledAccountObservationDoesNotInvalidateGoodQuota()
+    {
+        var provider = new StubUsageProvider();
+        using var vm = new ProviderSectionViewModel(provider, TimeSpan.FromMinutes(1));
+        vm.ApplySnapshot((await provider.GetUsageAsync()) with { AccountScope = "generation-one" });
+        vm.ApplySnapshot(new ProviderSnapshot(provider.Id, provider.DisplayName, ProviderStatus.Cancelled)
+            { AccountScope = "generation-two" });
+        Assert.Single(vm.VisibleWindows);
+        Assert.False(vm.IsQuotaStale);
+    }
+
     private sealed class StubUsageProvider : IUsageProvider
     {
         public string Id { get; init; } = "test-provider";

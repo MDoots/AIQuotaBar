@@ -21,11 +21,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <PublishTrimmed>false</PublishTrimmed>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>Assets\AIQuotaBar.ico</ApplicationIcon>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF owns startup and DPI through its manifest. WinForms is used only for
+         tray/monitor APIs; its ApplicationConfiguration DPI advice does not apply. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
     <Product>AIQuotaBar</Product>
     <Company>AGIFutures</Company>
     <Description>AIQuotaBar - AI Quota &amp; Usage Monitor</Description>

@@ -15,6 +15,7 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
     private readonly Action<Uri>? _urlLauncher;
     private bool _lowQuotaNotificationsEnabled;
     private bool _isRescanning;
+    private string _rescanStatusText = "Run a scan to check provider availability.";
     private bool _disposed;
 
     public Action? RequestClose { get; set; }
@@ -30,11 +31,20 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
             if (SetProperty(ref _isRescanning, value))
             {
                 OnPropertyChanged(nameof(CanRescan));
+                OnPropertyChanged(nameof(RescanButtonText));
             }
         }
     }
 
     public bool CanRescan => !IsRescanning && (_widgetViewModel == null || !_widgetViewModel.IsDiscoveringProviders);
+
+    public string RescanStatusText
+    {
+        get => _rescanStatusText;
+        private set => SetProperty(ref _rescanStatusText, value);
+    }
+
+    public string RescanButtonText => IsRescanning ? "Scanning..." : "Rescan providers";
 
     public WidgetDockMode DockMode
     {
@@ -245,18 +255,55 @@ public sealed class SettingsViewModel : ViewModelBase, IDisposable
         }
 
         IsRescanning = true;
+        RescanStatusText = "Scanning...";
         try
         {
             if (_widgetViewModel != null)
             {
                 await _widgetViewModel.RescanProvidersAsync();
             }
+
+            RescanStatusText = BuildRescanSummary();
+        }
+        catch (OperationCanceledException)
+        {
+            RescanStatusText = "Scan cancelled. Try again.";
+        }
+        catch
+        {
+            RescanStatusText = "Scan failed. Unable to check provider installations.";
         }
         finally
         {
             IsRescanning = false;
             UpdateProviderSetupStatus();
         }
+    }
+
+    private string BuildRescanSummary()
+    {
+        IEnumerable<ProviderSectionViewModel> sections = (IEnumerable<ProviderSectionViewModel>?)_widgetViewModel?.Providers
+            ?? Array.Empty<ProviderSectionViewModel>();
+        var detected = sections.Count(section => section.DiscoveryStatus == ProviderDiscoveryStatus.Detected);
+        var notDetected = sections.Count(section => section.DiscoveryStatus == ProviderDiscoveryStatus.NotDetected);
+        var total = sections.Count();
+        var needsAttention = sections.Count(section =>
+            section.DiscoveryStatus == ProviderDiscoveryStatus.Error
+            || (section.DiscoveryStatus == ProviderDiscoveryStatus.Detected && section.Status != AIQuotaBar.Core.Models.ProviderStatus.Available));
+
+        if (total == 0 || (detected == 0 && notDetected == total))
+        {
+            return "Scan complete: no supported providers detected.";
+        }
+
+        var summary = $"Scan complete: {detected} provider{(detected == 1 ? "" : "s")} detected locally, "
+            + $"{notDetected} not detected";
+        if (needsAttention > 0)
+        {
+            summary += $", {needsAttention} need{(needsAttention == 1 ? "s" : "")} attention";
+        }
+
+        return summary + ".";
     }
 
     public void UpdateProviderSetupStatus()

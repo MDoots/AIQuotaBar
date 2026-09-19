@@ -8,6 +8,7 @@ public class CodexUsageProviderTests
 {
     private sealed class MockRunner : ICodexProcessRunner
     {
+        public string? Arguments { get; private set; }
         private readonly Func<ICodexProcessSession, CancellationToken, Task> _handler;
 
         public MockRunner(Func<ICodexProcessSession, CancellationToken, Task> handler)
@@ -22,8 +23,23 @@ public class CodexUsageProviderTests
             TimeSpan timeout,
             CancellationToken cancellationToken = default)
         {
+            Arguments = arguments;
             await _handler(new StubSession(), cancellationToken);
         }
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_UsesDocumentedDefaultStdioTransport()
+    {
+        var runner = new MockRunner((_, _) => throw new EndOfStreamException("private diagnostic"));
+        var provider = new CodexUsageProvider(runner, () => @"C:\codex.exe");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal("app-server", runner.Arguments);
+        Assert.Equal(ProviderStatus.Error, snapshot.Status);
+        Assert.Empty(snapshot.Windows);
+        Assert.DoesNotContain("private diagnostic", snapshot.StatusMessage);
     }
 
     private sealed class StubSession : ICodexProcessSession
@@ -103,5 +119,38 @@ public class CodexUsageProviderTests
 
         Assert.Equal(ProviderStatus.Unauthenticated, snapshot.Status);
         Assert.Equal("Codex is not authenticated", snapshot.StatusMessage);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_ReturnsUnauthenticated_WhenInvalidRequestContainsAuthPhrase()
+    {
+        var rawMessage = "Invalid Request: authentication required; token=sk-secret123";
+        var runner = new MockRunner((_, _) => throw new CodexRpcException(-32600, rawMessage));
+        var provider = new CodexUsageProvider(
+            processRunner: runner,
+            executableLocator: () => @"C:\codex.exe");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Unauthenticated, snapshot.Status);
+        Assert.Equal("Codex is not authenticated", snapshot.StatusMessage);
+        Assert.DoesNotContain(rawMessage, snapshot.StatusMessage);
+        Assert.DoesNotContain("sk-secret123", snapshot.StatusMessage);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_PreservesGenericInvalidRequestMessage()
+    {
+        var rawMessage = "Invalid Request: malformed quota payload";
+        var runner = new MockRunner((_, _) => throw new CodexRpcException(-32600, rawMessage));
+        var provider = new CodexUsageProvider(
+            processRunner: runner,
+            executableLocator: () => @"C:\codex.exe");
+
+        var snapshot = await provider.GetUsageAsync();
+
+        Assert.Equal(ProviderStatus.Error, snapshot.Status);
+        Assert.Equal("Codex rejected the request", snapshot.StatusMessage);
+        Assert.DoesNotContain(rawMessage, snapshot.StatusMessage);
     }
 }

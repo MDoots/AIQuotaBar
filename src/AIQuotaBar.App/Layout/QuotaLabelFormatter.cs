@@ -12,7 +12,7 @@ public static class QuotaLabelFormatter
         var isCodex = !string.IsNullOrWhiteSpace(providerId) &&
                       providerId.Contains("codex", StringComparison.OrdinalIgnoreCase);
 
-        if (isCodex)
+        if (isCodex && !displayName.Contains(" · ", StringComparison.Ordinal))
         {
             return GetCodexCandidateLabels(displayName, windowId);
         }
@@ -237,6 +237,7 @@ public static class QuotaLabelFormatter
     {
         if (micro)
         {
+            if (prefix.Contains("Spark", StringComparison.OrdinalIgnoreCase)) return "Spark";
             if (prefix.Contains("Gemini", StringComparison.OrdinalIgnoreCase)) return "G";
             if (prefix.Contains("Claude", StringComparison.OrdinalIgnoreCase) && prefix.Contains("GPT", StringComparison.OrdinalIgnoreCase)) return "CG";
             if (prefix.Contains("Claude", StringComparison.OrdinalIgnoreCase)) return "C";

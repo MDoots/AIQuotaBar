@@ -9,13 +9,15 @@ public sealed class CodexRpcException : Exception
     public string? ErrorMessage { get; }
 
     public CodexRpcException(int? code, string? message)
-        : base($"Codex RPC error {code}: {message}")
+        : base($"Codex RPC error {code}")
     {
         ErrorCode = code;
-        ErrorMessage = message;
+        ErrorMessage = message?.Contains("auth", StringComparison.OrdinalIgnoreCase) == true ||
+            message?.Contains("login", StringComparison.OrdinalIgnoreCase) == true
+            ? "Authentication required" : "Provider request failed";
     }
 
-    public CodexRpcException(string message) : base(message)
+    public CodexRpcException(string message) : base("Codex RPC communication failed")
     {
     }
 }

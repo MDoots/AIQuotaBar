@@ -12,7 +12,7 @@ Before proposing changes, please keep our core architectural rules in mind:
 
 1. **Local-First & Private:** AIQuotaBar makes zero outbound network requests of its own, sends no telemetry or analytics, and operates without any cloud backend.
 2. **Provider-Owned Authentication:** We never capture, parse, store, or transmit user credentials. Never inspect credential stores (e.g. `.codex\auth.json`) directly. All usage is queried through local official CLI / app-server processes owned by each provider.
-3. **Zero Production Third-Party Dependencies:** Production projects in `src/` must rely strictly on the standard .NET Base Class Library (BCL) and Windows Desktop APIs. Do not add NuGet dependencies to `src/` without prior architectural approval.
+3. **Production Dependencies:** Use the .NET Base Class Library and Windows Desktop APIs. The existing `GitHub.Copilot.SDK`, encapsulated inside its provider, is the sole approved third-party exception. New production dependencies need architectural approval.
 4. **Offline Testability:** All provider parsing, normalization, timeout handling, and transport layers must be unit testable offline using JSON fixtures without requiring a live user login or active network connection.
 
 ---
@@ -27,9 +27,9 @@ The repository is structured into strict, decoupled layers:
                                       ▼
                      [ AIQuotaBar.Core (Domain Abstractions) ]
                                       ▲
-                         ┌────────────┴────────────┐
-                         │                         │
-[ AIQuotaBar.Providers.Codex ]          [ AIQuotaBar.Providers.Antigravity ]
+                  ┌──────────────────┼──────────────────┐
+                  │                  │                  │
+ [ Codex / Antigravity ] [ Claude / Grok Build ] [ GitHub Copilot ]
 ```
 
 * **`AIQuotaBar.Core`:** Defines domain abstractions (`IUsageProvider`, `ProviderSnapshot`, `QuotaWindow`, `ProviderStatus`). Targets `net10.0` and must remain completely agnostic of WPF, WinForms, or UI frameworks.
@@ -59,13 +59,13 @@ If you are interested in adding support for another AI provider:
 
 * **Build Solution:**
   ```powershell
-  dotnet build AIQuotaBar.slnx -c Release
+  dotnet build AIQuotaBar.slnf -c Release
   ```
   *All builds must complete with `0 Warning(s)` and `0 Error(s)`.*
 
 * **Run Test Suite:**
   ```powershell
-  dotnet test AIQuotaBar.slnx -c Release
+  dotnet test AIQuotaBar.slnf -c Release
   ```
   *100% of tests must pass offline.*
 

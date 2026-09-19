@@ -4,13 +4,18 @@ using System;
 
 public static class DockingHelper
 {
-    public const double DefaultMinDockedWidthDip = 640.0;
+    // Docked content already includes the measured grip, payload, menu and
+    // spacing. A second fixed floor made a single chip or empty state expand
+    // to an arbitrary 640 DIP strip.
+    public const double DefaultMinDockedWidthDip = 0.0;
     public const double SafeWorkAreaInsetDip = 20.0;
 
     /// <summary>
     /// Calculates the outer DIP width for a docked window based on the desired content width
     /// and the available work area DIP width.
-    /// Clamps desired width between minDockedWidth (640 DIP default) and workAreaDipWidth - safeInset (safe work area cap).
+    /// Clamps desired width between the supplied minimum and the work-area cap.
+    /// The default minimum is zero because callers pass measured visible
+    /// payload plus actual chrome as desiredContentWidthDip.
     /// </summary>
     public static double CalculateDockedOuterWidth(
         double desiredContentWidthDip,

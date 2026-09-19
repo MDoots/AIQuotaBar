@@ -8,6 +8,25 @@ using Xunit;
 
 public class AntigravityUsageNormalizerTests
 {
+    [Fact]
+    public void Normalize_RejectsResponseWithModelActivity()
+    {
+        var response = LoadFixture("antigravity_usage_nonquota.json");
+        var snapshot = AntigravityUsageNormalizer.Normalize(response);
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Empty(snapshot.Windows);
+    }
+
+    [Fact]
+    public void Normalize_RejectsUnrelatedCommandEvenWithQuotaShapedData()
+    {
+        var response = LoadFixture("antigravity_usage_success.json");
+        response.Command!.Name = "unrelated";
+        var snapshot = AntigravityUsageNormalizer.Normalize(response);
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Empty(snapshot.Windows);
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private static AntigravityCliResponse LoadFixture(string filename)
@@ -155,6 +174,7 @@ public class AntigravityUsageNormalizerTests
             Status = "SUCCESS",
             Command = new AntigravityCommand
             {
+                Name = "usage",
                 Data = new AntigravityUsageData
                 {
                     Groups = new List<AntigravityGroup>
@@ -195,6 +215,7 @@ public class AntigravityUsageNormalizerTests
             Status = "SUCCESS",
             Command = new AntigravityCommand
             {
+                Name = "usage",
                 Data = new AntigravityUsageData
                 {
                     Groups = new List<AntigravityGroup>

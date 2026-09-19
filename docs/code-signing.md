@@ -1,14 +1,14 @@
 # Windows Code Signing & SmartScreen Investigation
 
 **Document Version:** 1.1  
-**Target Release:** AIQuotaBar v0.2.0 Public Preview  
+**Target Release:** Candidate-specific; verify the version and artifact record before release
 **Audience:** Repository Maintainers & Release Engineers  
 
 ---
 
 ## Executive Summary
 
-When distributing Windows desktop binaries directly via GitHub Releases, digital signing and Windows Defender SmartScreen directly impact the first-run user experience. This document outlines the technical distinctions between Authenticode signature verification and SmartScreen reputation, evaluates current code-signing mechanisms (specifically Microsoft Artifact Signing and traditional Authenticode), and details the architectural decision to distribute **v0.2.0 as an unsigned preview**.
+When distributing Windows desktop binaries directly via GitHub Releases, digital signing and Windows Defender SmartScreen directly impact the first-run user experience. This document outlines the technical distinctions between Authenticode signature verification and SmartScreen reputation, and evaluates current code-signing mechanisms including Microsoft Artifact Signing and traditional Authenticode.
 
 ---
 
@@ -64,13 +64,13 @@ When users download a `.zip` archive or `.exe` binary from a browser:
 
 ---
 
-## 4. Architectural Decision: v0.2.0 Ships Unsigned
+## 4. Candidate Signing Status
 
-For the **v0.2.0 initial public preview**, the lead architect has approved shipping as an **unsigned portable release**:
+Do not infer signing status or a release version from this document. For each candidate, record whether the exact portable archive, executable, and package are signed, by whom, and through which certificate or Store route. If an unsigned portable candidate is approved for local preview, document that fact in its release record:
 
 1. **Distribution Integrity:**
    * Distributed exclusively via the canonical GitHub repository (`https://github.com/MDoots/AIQuotaBar`).
-   * Packaged in a clean ZIP archive (`AIQuotaBar-v0.2.0-win-x64.zip`) containing only `AIQuotaBar.exe`, `LICENSE`, and `README.md`.
-   * Accompanied by an authoritative SHA-256 checksum file (`AIQuotaBar-v0.2.0-win-x64.zip.sha256`).
-2. **Transparent Documentation:** `README.md` and release notes transparently document that the initial preview is unsigned, explaining how users can verify archive integrity and run the application.
-3. **Future Improvement:** Enrolling in Microsoft Artifact Signing remains a planned enhancement for post-preview distribution and does not block the v0.2.0 preview release.
+   * Packaged in a clean ZIP archive whose candidate version and exact contents are recorded.
+   * Accompanied by an authoritative SHA-256 checksum for the frozen archive.
+2. **Transparent Documentation:** `README.md` and release notes transparently document the candidate's signing status, explaining how users can verify archive integrity and run the application.
+3. **Future Improvement:** Artifact Signing or Microsoft Store signing may be evaluated for a later candidate after identity, package, and certification evidence are confirmed.

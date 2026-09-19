@@ -10,19 +10,36 @@ using Xunit;
 
 public class SettingsProviderSetupTests
 {
+    private sealed class ControlledDiscoveryService : IProviderDiscoveryService
+    {
+        public TaskCompletionSource<IReadOnlyList<ProviderDiscoveryResult>> NextResult { get; set; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<IReadOnlyList<ProviderDiscoveryResult>> DiscoverAsync(
+            IReadOnlyList<ProviderDescriptor> descriptors,
+            CancellationToken cancellationToken = default) => NextResult.Task;
+
+        public Task<ProviderDiscoveryResult> DiscoverSingleAsync(
+            ProviderDescriptor descriptor,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ProviderDiscoveryResult(descriptor.Id, ProviderDiscoveryStatus.NotDetected));
+    }
+
     private sealed class StubUsageProvider : IUsageProvider
     {
         public string Id { get; }
         public string DisplayName { get; }
+        private readonly ProviderStatus _status;
 
-        public StubUsageProvider(string id, string displayName)
+        public StubUsageProvider(string id, string displayName, ProviderStatus status = ProviderStatus.Available)
         {
             Id = id;
             DisplayName = displayName;
+            _status = status;
         }
 
         public Task<ProviderSnapshot> GetUsageAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(new ProviderSnapshot(Id, DisplayName, ProviderStatus.Available));
+            Task.FromResult(new ProviderSnapshot(Id, DisplayName, _status));
     }
 
     [Fact]
@@ -165,6 +182,102 @@ public class SettingsProviderSetupTests
 
         Assert.True(settingsVm.CanRescan);
         Assert.False(settingsVm.IsRescanning);
+    }
+
+    [Fact]
+    public async Task SettingsViewModel_RescanCommand_ShowsProgressAndPersistsNoProviderResult()
+    {
+        var descriptor = new ProviderDescriptor
+        {
+            Id = "codex",
+            DisplayName = "OpenAI Codex",
+            ShortDisplayName = "Codex",
+            RefreshInterval = TimeSpan.FromSeconds(60),
+            CreateProvider = () => new StubUsageProvider("codex", "OpenAI Codex", ProviderStatus.Error),
+            LocateExecutable = () => null,
+            SetupUri = new Uri("https://example.com"),
+            KnownQuotaWindows = Array.Empty<KnownQuotaWindowDescriptor>()
+        };
+        var discovery = new ControlledDiscoveryService();
+        using var widgetVm = new WidgetViewModel(new[] { descriptor }, discovery);
+        var manager = new SettingsManager(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "settings.json"));
+        using var settingsVm = new SettingsViewModel(new AppSettings(), manager, widgetVm);
+
+        var scan = settingsVm.RescanProvidersAsync();
+
+        Assert.True(settingsVm.IsRescanning);
+        Assert.Equal("Scanning...", settingsVm.RescanStatusText);
+        Assert.Equal("Scanning...", settingsVm.RescanButtonText);
+
+        discovery.NextResult.SetResult(new[]
+        {
+            new ProviderDiscoveryResult(descriptor.Id, ProviderDiscoveryStatus.NotDetected)
+        });
+        await scan;
+
+        Assert.False(settingsVm.IsRescanning);
+        Assert.Equal("Scan complete: no supported providers detected.", settingsVm.RescanStatusText);
+        Assert.Equal("Rescan providers", settingsVm.RescanButtonText);
+
+        discovery.NextResult = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var repeat = settingsVm.RescanProvidersAsync();
+        discovery.NextResult.SetResult(new[]
+        {
+            new ProviderDiscoveryResult(descriptor.Id, ProviderDiscoveryStatus.NotDetected)
+        });
+        await repeat;
+
+        Assert.Equal("Scan complete: no supported providers detected.", settingsVm.RescanStatusText);
+    }
+
+    [Fact]
+    public async Task SettingsViewModel_RescanCommand_SanitizesFailureAndDoesNotCallDetectedProviderConnected()
+    {
+        var descriptor = new ProviderDescriptor
+        {
+            Id = "codex",
+            DisplayName = "OpenAI Codex",
+            ShortDisplayName = "Codex",
+            RefreshInterval = TimeSpan.FromSeconds(60),
+            CreateProvider = () => new StubUsageProvider("codex", "OpenAI Codex", ProviderStatus.Error),
+            LocateExecutable = () => null,
+            SetupUri = new Uri("https://example.com"),
+            KnownQuotaWindows = Array.Empty<KnownQuotaWindowDescriptor>()
+        };
+        var discovery = new ControlledDiscoveryService();
+        using var widgetVm = new WidgetViewModel(new[] { descriptor }, discovery);
+        var manager = new SettingsManager(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "settings.json"));
+        using var settingsVm = new SettingsViewModel(new AppSettings(), manager, widgetVm);
+
+        var failedScan = settingsVm.RescanProvidersAsync();
+        discovery.NextResult.SetException(new InvalidOperationException("private diagnostic should not surface"));
+        await failedScan;
+
+        Assert.False(settingsVm.IsRescanning);
+        Assert.True(settingsVm.CanRescan);
+        Assert.Equal("Scan failed. Unable to check provider installations.", settingsVm.RescanStatusText);
+        Assert.DoesNotContain("private diagnostic", settingsVm.RescanStatusText, StringComparison.Ordinal);
+
+        discovery.NextResult = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cancelledScan = settingsVm.RescanProvidersAsync();
+        discovery.NextResult.SetCanceled();
+        await cancelledScan;
+
+        Assert.False(settingsVm.IsRescanning);
+        Assert.True(settingsVm.CanRescan);
+        Assert.Equal("Scan cancelled. Try again.", settingsVm.RescanStatusText);
+
+        discovery.NextResult = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        var detectedScan = settingsVm.RescanProvidersAsync();
+        discovery.NextResult.SetResult(new[]
+        {
+            new ProviderDiscoveryResult(descriptor.Id, ProviderDiscoveryStatus.Detected)
+        });
+        await detectedScan;
+
+        Assert.Contains("1 provider detected locally", settingsVm.RescanStatusText, StringComparison.Ordinal);
+        Assert.Contains("1 needs attention", settingsVm.RescanStatusText, StringComparison.Ordinal);
+        Assert.DoesNotContain("connected", settingsVm.RescanStatusText, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

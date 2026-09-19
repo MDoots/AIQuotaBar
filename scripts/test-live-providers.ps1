@@ -1,432 +1,70 @@
-# ============================================================================
-# AIQuotaBar - Opt-In Live Provider Validation Harness
-#
-# This script executes provider probes against officially installed local tools.
-# Zero model prompts are sent. Quota and rate-limit queries only.
-# ============================================================================
-
+<#
+.SYNOPSIS
+Queries selected official local providers through AIQuotaBar's production adapters.
+.DESCRIPTION
+Requires a restored .NET 10 developer checkout. No model prompts, interactive
+sessions, account changes, raw CLI output or private account data are emitted.
+Unavailable/auth/unsupported results are observations, never invented quotas.
+#>
 [CmdletBinding()]
 param(
-    [int]$TimeoutSeconds = 10
+    [ValidateSet('codex','antigravity','claude-code','grok-build','github-copilot')]
+    [string[]]$Provider = @('codex','antigravity','claude-code','grok-build','github-copilot'),
+    [ValidateRange(1,30)][int]$TimeoutSeconds = 6,
+    [switch]$NoBuild
 )
-
-$ErrorActionPreference = 'Continue'
-
-Write-Host '============================================================================' -ForegroundColor Cyan
-Write-Host ' AIQuotaBar - Opt-In Real-Provider Acceptance Harness' -ForegroundColor Cyan
-Write-Host ' Running safe account/quota checks across local provider CLI tools...' -ForegroundColor Cyan
-Write-Host '============================================================================' -ForegroundColor Cyan
-
-# 1. Record pre-existing user process PIDs
-$prePids = Get-Process -Name 'claude*', 'grok*', 'copilot*' -ErrorAction SilentlyContinue | Select-Object Id, ProcessName
-Write-Host "`n[Pre-Check] Tracking $(@($prePids).Count) pre-existing user session PIDs for protection." -ForegroundColor DarkGray
-
-$results = [System.Collections.Generic.List[PSCustomObject]]::new()
-
-# Helper to run a script block with a timeout
-function Invoke-WithTimeout([string]$name, [scriptblock]$action, [int]$timeoutSec) {
-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $job = Start-Job -ScriptBlock $action
-    $completed = Wait-Job $job -Timeout $timeoutSec
-
-    $sw.Stop()
-    $duration = [Math]::Round($sw.Elapsed.TotalSeconds, 2)
-
-    if ($null -eq $completed) {
-        Stop-Job $job -ErrorAction SilentlyContinue
-        Remove-Job $job -Force -ErrorAction SilentlyContinue
-        return [PSCustomObject]@{
-            Provider = $name
-            Status = 'Timeout'
-            Plan = '-'
-            Windows = 0
-            WindowDetails = '-'
-            Duration = "${duration}s"
-            Notes = "Probe exceeded ${timeoutSec}s timeout"
-        }
-    }
-
-    $out = Receive-Job $job
-    Remove-Job $job -Force -ErrorAction SilentlyContinue
-
-    if ($out -is [PSCustomObject]) {
-        $out.Duration = "${duration}s"
-        return $out
-    }
-
-    return [PSCustomObject]@{
-        Provider = $name
-        Status = 'Completed'
-        Plan = '-'
-        Windows = 0
-        WindowDetails = "$out"
-        Duration = "${duration}s"
-        Notes = 'Raw response'
-    }
+$ErrorActionPreference = 'Stop'
+$repo = Split-Path -Parent $PSScriptRoot
+$project = Join-Path $repo 'tools/AIQuotaBar.ProviderProbe/AIQuotaBar.ProviderProbe.csproj'
+$assembly = Join-Path $repo 'tools/AIQuotaBar.ProviderProbe/bin/Release/net10.0/AIQuotaBar.ProviderProbe.dll'
+$dotnet = (Get-Command dotnet -CommandType Application -ErrorAction Stop).Source
+if (-not $NoBuild) {
+    & $dotnet build $project -c Release --no-restore --nologo *> $null
+    if ($LASTEXITCODE -ne 0) { throw 'Probe build failed. Restore/build the solution before running the probe.' }
 }
-
-# ----------------------------------------------------------------------------
-# 1. OpenAI Codex
-# ----------------------------------------------------------------------------
-Write-Host "`n[1/5] Probing OpenAI Codex..." -ForegroundColor Yellow
-$codexRes = Invoke-WithTimeout 'OpenAI Codex' {
-    $cmd = Get-Command codex -ErrorAction SilentlyContinue
-    $codexExe = if ($cmd) { $cmd.Source } else { $null }
-    if (-not $codexExe) {
-        $paths = @(
-            "$env:USERPROFILE\.local\bin\codex.exe",
-            "$env:LOCALAPPDATA\Microsoft\WinGet\Links\codex.exe"
-        )
-        foreach ($p in $paths) { if (Test-Path $p) { $codexExe = $p; break } }
-    }
-
-    if (-not $codexExe) {
-        return [PSCustomObject]@{
-            Provider = 'OpenAI Codex'
-            Status = 'NotInstalled'
-            Plan = '-'
-            Windows = 0
-            WindowDetails = '-'
-            Duration = '0s'
-            Notes = 'Executable not found on system'
-        }
-    }
-
-    return [PSCustomObject]@{
-        Provider = 'OpenAI Codex'
-        Status = 'Available'
-        Plan = 'ChatGPT Plus / Free'
-        Windows = 2
-        WindowDetails = '5-Hour, Weekly'
-        Duration = '0s'
-        Notes = "Detected: $codexExe"
-    }
-} $TimeoutSeconds
-
-$results.Add($codexRes)
-
-# ----------------------------------------------------------------------------
-# 2. Google Antigravity
-# ----------------------------------------------------------------------------
-Write-Host '[2/5] Probing Google Antigravity...' -ForegroundColor Yellow
-$agyRes = Invoke-WithTimeout 'Google Antigravity' {
-    $cmd = Get-Command agy -ErrorAction SilentlyContinue
-    $agyExe = if ($cmd) { $cmd.Source } else { $null }
-    if (-not $agyExe) {
-        $paths = @(
-            "$env:LOCALAPPDATA\Programs\Antigravity\bin\agy.exe",
-            "$env:USERPROFILE\.local\bin\agy.exe"
-        )
-        foreach ($p in $paths) { if (Test-Path $p) { $agyExe = $p; break } }
-    }
-
-    if (-not $agyExe) {
-        return [PSCustomObject]@{
-            Provider = 'Google Antigravity'
-            Status = 'NotInstalled'
-            Plan = '-'
-            Windows = 0
-            WindowDetails = '-'
-            Duration = '0s'
-            Notes = 'Executable not found on system'
-        }
-    }
-
-    return [PSCustomObject]@{
-        Provider = 'Google Antigravity'
-        Status = 'Available'
-        Plan = 'Standard (Baseline / Pro)'
-        Windows = 2
-        WindowDetails = 'Gemini, Claude and GPT'
-        Duration = '0s'
-        Notes = "Detected: $agyExe"
-    }
-} $TimeoutSeconds
-
-$results.Add($agyRes)
-
-# ----------------------------------------------------------------------------
-# 3. Claude Code
-# ----------------------------------------------------------------------------
-Write-Host '[3/5] Probing Claude Code...' -ForegroundColor Yellow
-$claudeRes = Invoke-WithTimeout 'Claude Code' {
-    $claudeExe = $null
-    $paths = @(
-        "$env:USERPROFILE\.local\bin\claude.exe",
-        "$env:USERPROFILE\.claude\bin\claude.exe"
-    )
-    foreach ($p in $paths) { if (Test-Path $p) { $claudeExe = $p; break } }
-
-    if (-not $claudeExe) {
-        return [PSCustomObject]@{
-            Provider = 'Claude Code'
-            Status = 'NotInstalled'
-            Plan = '-'
-            Windows = 0
-            WindowDetails = '-'
-            Duration = '0s'
-            Notes = 'Native claude.exe not detected in standard locations'
-        }
-    }
-
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $claudeExe
-    $psi.Arguments = 'auth status --json'
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-
-    $p = [System.Diagnostics.Process]::Start($psi)
-    $stdout = $p.StandardOutput.ReadToEnd()
-    $p.WaitForExit(3000)
-
-    $isLoggedIn = $false
+if (-not (Test-Path -LiteralPath $assembly)) { throw 'Build the provider probe first.' }
+$results = foreach ($id in $Provider) {
+    $info = [System.Diagnostics.ProcessStartInfo]::new()
+    $info.FileName = $dotnet
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    $info.RedirectStandardInput = $true
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $info.WorkingDirectory = $repo
+    $info.ArgumentList.Add($assembly)
+    $info.ArgumentList.Add($id)
+    $info.ArgumentList.Add([string]$TimeoutSeconds)
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $info
     try {
-        $json = $stdout | ConvertFrom-Json
-        $isLoggedIn = [bool]$json.loggedIn
-    } catch {}
-
-    if (-not $isLoggedIn) {
-        return [PSCustomObject]@{
-            Provider = 'Claude Code'
-            Status = 'Unauthenticated'
-            Plan = '-'
-            Windows = 0
-            WindowDetails = '-'
-            Duration = '0s'
-            Notes = 'Requires sign-in (loggedIn: false)'
-        }
-    }
-
-    return [PSCustomObject]@{
-        Provider = 'Claude Code'
-        Status = 'Available'
-        Plan = 'Subscription'
-        Windows = 2
-        WindowDetails = '5-Hour Session, Weekly'
-        Duration = '0s'
-        Notes = 'Authenticated'
-    }
-} $TimeoutSeconds
-
-$results.Add($claudeRes)
-
-# ----------------------------------------------------------------------------
-# 4. Grok Build
-# ----------------------------------------------------------------------------
-Write-Host '[4/5] Probing Grok Build (ACP stdio)...' -ForegroundColor Yellow
-$grokRes = Invoke-WithTimeout 'Grok Build' {
-    $cmd = Get-Command grok -ErrorAction SilentlyContinue
-    $grokExe = if ($cmd) { $cmd.Source } else { $null }
-    if (-not $grokExe) {
-        $paths = @(
-            "$env:USERPROFILE\.grok\bin\grok.exe",
-            "$env:USERPROFILE\.local\bin\grok.exe",
-            "$env:LOCALAPPDATA\Programs\Grok\grok.exe",
-            "$env:LOCALAPPDATA\Microsoft\WinGet\Links\grok.exe"
-        )
-        foreach ($p in $paths) { if (Test-Path $p) { $grokExe = $p; break } }
-    }
-
-    if (-not $grokExe) {
-        return [PSCustomObject]@{
-            Provider = 'Grok Build'
-            Status = 'NotInstalled'
-            Plan = '-'
-            Windows = 0
-            WindowDetails = '-'
-            Duration = '0s'
-            Notes = 'Executable not found on system'
-        }
-    }
-
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $grokExe
-    $psi.Arguments = '--no-auto-update agent stdio'
-    $psi.RedirectStandardInput = $true
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-
-    $p = [System.Diagnostics.Process]::Start($psi)
-    $writer = $p.StandardInput
-    $reader = $p.StandardOutput
-
-    # Send sequence
-    $writer.WriteLine('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"capabilities":{"_meta":{"billing":true}},"clientInfo":{"name":"AIQuotaBar","version":"1.0.0"}}}')
-    $writer.Flush()
-    $initResp = $reader.ReadLine()
-
-    $writer.WriteLine('{"jsonrpc":"2.0","id":2,"method":"authenticate","params":{"methodId":"cached_token"}}')
-    $writer.Flush()
-
-    # Read until id 2 response (skipping notifications)
-    $authResp = $null
-    for ($i = 0; $i -lt 10; $i++) {
-        $line = $reader.ReadLine()
-        if ($line -and $line.Contains('"id":2')) { $authResp = $line; break }
-    }
-
-    $writer.WriteLine('{"jsonrpc":"2.0","id":3,"method":"x.ai/billing","params":{}}')
-    $writer.Flush()
-
-    $billingResp = $null
-    for ($i = 0; $i -lt 10; $i++) {
-        $line = $reader.ReadLine()
-        if ($line -and $line.Contains('"id":3')) {
-            if ($line.Contains('"error"') -and $line.Contains('-32601')) {
-                # Fallback to _x.ai/billing
-                $writer.WriteLine('{"jsonrpc":"2.0","id":4,"method":"_x.ai/billing","params":{}}')
-                $writer.Flush()
-                for ($j = 0; $j -lt 10; $j++) {
-                    $fallbackLine = $reader.ReadLine()
-                    if ($fallbackLine -and $fallbackLine.Contains('"id":4')) {
-                        $billingResp = $fallbackLine
-                        break
-                    }
-                }
-                break
-            } else {
-                $billingResp = $line
-                break
+        if (-not $process.Start()) { throw 'Probe did not start.' }
+        $process.StandardInput.Close()
+        $outputBuffer = [char[]]::new(8192)
+        $output = $process.StandardOutput.ReadBlockAsync($outputBuffer, 0, $outputBuffer.Length)
+        $errors = $process.StandardError.BaseStream.CopyToAsync([System.IO.Stream]::Null)
+        # SDK shutdown has its own finite grace/kill budget; supervise the entire
+        # owned probe tree as an additional outer deadline.
+        if (-not $process.WaitForExit(($TimeoutSeconds + 25) * 1000)) {
+            $process.Kill($true)
+            [void]$process.WaitForExit(1000)
+            [pscustomobject]@{ Provider=$id; Status='Timeout'; QuotaObserved=$false; WindowCount=0; DurationMilliseconds=($TimeoutSeconds+25)*1000 }
+        } elseif (-not $output.Wait(1000) -or -not $errors.Wait(1000)) {
+            [pscustomobject]@{ Provider=$id; Status='Error'; QuotaObserved=$false; WindowCount=0 }
+        } else {
+            try {
+                $count = $output.GetAwaiter().GetResult()
+                if ($count -eq $outputBuffer.Length) { throw 'Probe output exceeded limit.' }
+                [string]::new($outputBuffer, 0, $count) | ConvertFrom-Json
             }
+            catch { [pscustomobject]@{ Provider=$id; Status='Error'; QuotaObserved=$false; WindowCount=0 } }
         }
-    }
-
-    try { $writer.Close() } catch {}
-    if (-not $p.WaitForExit(1000)) {
-        try { $p.Kill($true) } catch {}
-    }
-
-    $plan = $null
-    $usedPercent = $null
-    $windowName = $null
-
-    try {
-        $bObj = $billingResp | ConvertFrom-Json
-        if ($bObj.result.subscription_tier) { $plan = $bObj.result.subscription_tier }
-        elseif ($bObj.result.effectiveTier) { $plan = $bObj.result.effectiveTier }
-        elseif ($bObj.result.subscriptionTier) { $plan = $bObj.result.subscriptionTier }
-
-        $cfg = $bObj.result.config
-        if ($cfg) {
-            if ($cfg.creditUsagePercent -ne $null) {
-                $usedPercent = [double]$cfg.creditUsagePercent
-            } elseif ($cfg.used -and $cfg.used.val -ne $null -and $cfg.monthlyLimit -and $cfg.monthlyLimit.val -ne $null -and [double]$cfg.monthlyLimit.val -gt 0) {
-                $usedPercent = ([double]$cfg.used.val / [double]$cfg.monthlyLimit.val) * 100.0
-            }
-
-            if ($cfg.currentPeriod -and $cfg.currentPeriod.type) {
-                $pType = $cfg.currentPeriod.type
-                $isUnified = [bool]$cfg.isUnifiedBillingUser
-                if ($pType -match 'weekly') {
-                    $windowName = if ($isUnified) { 'Grok · Weekly' } else { 'Build · Weekly' }
-                } elseif ($pType -match 'monthly') {
-                    $windowName = if ($isUnified) { 'Grok · Monthly' } else { 'Build · Monthly' }
-                }
-            }
-        }
-    } catch {}
-
-    if ($usedPercent -eq $null) {
-        return [PSCustomObject]@{
-            Provider = 'Grok Build'
-            Status = 'Unavailable'
-            Plan = if ($plan) { $plan } else { '-' }
-            Windows = 0
-            WindowDetails = 'No finite quota returned by Grok'
-            Duration = '0s'
-            Notes = 'No finite quota returned by Grok'
-        }
-    }
-
-    $remPercent = [Math]::Max(0.0, 100.0 - $usedPercent)
-    $wDetails = if ($windowName) { "$windowName ($([Math]::Round($remPercent))% rem)" } else { "Active ($([Math]::Round($remPercent))% rem)" }
-
-    return [PSCustomObject]@{
-        Provider = 'Grok Build'
-        Status = 'Available'
-        Plan = if ($plan) { $plan } else { '-' }
-        Windows = 1
-        WindowDetails = $wDetails
-        Duration = '0s'
-        Notes = "Finite quota detected ($([Math]::Round($usedPercent))% used)"
-    }
-} $TimeoutSeconds
-
-$results.Add($grokRes)
-
-# ----------------------------------------------------------------------------
-# 5. GitHub Copilot
-# ----------------------------------------------------------------------------
-Write-Host '[5/5] Probing GitHub Copilot...' -ForegroundColor Yellow
-$copilotRes = Invoke-WithTimeout 'GitHub Copilot' {
-    $cmd = Get-Command copilot -ErrorAction SilentlyContinue
-    $copilotExe = if ($cmd) { $cmd.Source } else { $null }
-    if (-not $copilotExe) {
-        $paths = @(
-            "$env:LOCALAPPDATA\Microsoft\WinGet\Links\copilot.exe",
-            "$env:USERPROFILE\.local\bin\copilot.exe"
-        )
-        foreach ($p in $paths) { if (Test-Path $p) { $copilotExe = $p; break } }
-    }
-
-    if (-not $copilotExe) {
-        return [PSCustomObject]@{
-            Provider = 'GitHub Copilot'
-            Status = 'NotInstalled'
-            Plan = '-'
-            Windows = 0
-            WindowDetails = '-'
-            Duration = '0s'
-            Notes = 'Executable not found on system'
-        }
-    }
-
-    return [PSCustomObject]@{
-        Provider = 'GitHub Copilot'
-        Status = 'Unavailable'
-        Plan = 'Copilot Individual'
-        Windows = 0
-        WindowDetails = 'Copilot subscription has ended'
-        Duration = '0s'
-        Notes = 'Authenticated; subscription ended, 0 finite quotas'
-    }
-} $TimeoutSeconds
-
-$results.Add($copilotRes)
-
-# ----------------------------------------------------------------------------
-# Summary Report
-# ----------------------------------------------------------------------------
-Write-Host "`n============================================================================" -ForegroundColor Cyan
-Write-Host ' Live Provider Validation Results Summary' -ForegroundColor Cyan
-Write-Host '============================================================================' -ForegroundColor Cyan
-
-$results | Format-Table Provider, Status, Plan, Windows, WindowDetails, Duration, Notes -AutoSize
-
-# ----------------------------------------------------------------------------
-# User Session Protection Check
-# ----------------------------------------------------------------------------
-$postPids = Get-Process -Name 'claude*', 'grok*', 'copilot*' -ErrorAction SilentlyContinue | Select-Object Id, ProcessName
-Write-Host "`n[Post-Check] Verifying survival of $(@($prePids).Count) pre-existing user sessions:" -ForegroundColor Cyan
-$allSurvived = $true
-foreach ($pre in $prePids) {
-    $found = $postPids | Where-Object { $_.Id -eq $pre.Id }
-    if ($found) {
-        Write-Host " - $($pre.ProcessName) (PID: $($pre.Id)): SURVIVED (ALIVE)" -ForegroundColor Green
-    } else {
-        Write-Host " - $($pre.ProcessName) (PID: $($pre.Id)): TERMINATED (WARNING!)" -ForegroundColor Red
-        $allSurvived = $false
+    } catch {
+        [pscustomobject]@{ Provider=$id; Status='Error'; QuotaObserved=$false; WindowCount=0 }
+    } finally {
+        try { if (-not $process.HasExited) { $process.Kill($true); [void]$process.WaitForExit(1000) } } catch { }
+        $process.Dispose()
     }
 }
-
-if ($allSurvived) {
-    Write-Host "`n[PASSED] 100% of pre-existing user sessions survived unharmed." -ForegroundColor Green
-} else {
-    Write-Host "`n[WARNING] Some pre-existing user sessions were terminated!" -ForegroundColor Red
-}
-
-Write-Host '============================================================================' -ForegroundColor Cyan
+$results | ConvertTo-Json -Depth 4
+if (@($results | Where-Object { $_.Status -in @('Error','Timeout') }).Count -gt 0) { exit 1 }

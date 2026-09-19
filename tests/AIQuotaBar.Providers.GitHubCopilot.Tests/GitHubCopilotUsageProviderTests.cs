@@ -36,8 +36,10 @@ public class GitHubCopilotUsageProviderTests
     {
         var methods = typeof(ICopilotClientAdapter).GetMethods(BindingFlags.Public | BindingFlags.Instance);
 
-        Assert.Single(methods);
-        Assert.Equal(nameof(ICopilotClientAdapter.FetchQuotasAsync), methods[0].Name);
+        var operations = methods.Where(method => !method.IsSpecialName).ToArray();
+        Assert.Single(operations);
+        Assert.Equal(nameof(ICopilotClientAdapter.FetchQuotasAsync), operations[0].Name);
+        Assert.Equal(typeof(string), typeof(ICopilotClientAdapter).GetProperty(nameof(ICopilotClientAdapter.AccountScope))!.PropertyType);
 
         var forbiddenNames = new[] { "session", "prompt", "message", "chat", "completion", "turn", "conversation" };
         foreach (var method in methods)

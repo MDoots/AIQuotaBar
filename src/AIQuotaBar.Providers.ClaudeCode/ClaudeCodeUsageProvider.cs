@@ -111,6 +111,14 @@ public sealed class ClaudeCodeUsageProvider : IUsageProvider
                 status: ProviderStatus.Timeout,
                 statusMessage: "Claude Code did not respond");
         }
+        catch (NotSupportedException)
+        {
+            return new ProviderSnapshot(
+                providerId: Id,
+                providerDisplayName: DisplayName,
+                status: ProviderStatus.Unavailable,
+                statusMessage: "Automatic quota is unavailable; view /usage in Claude Code.");
+        }
         catch (Exception)
         {
             return new ProviderSnapshot(

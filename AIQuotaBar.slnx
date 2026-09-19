@@ -10,6 +10,8 @@
     <Project Path="src/AIQuotaBar.Providers.GrokBuild/AIQuotaBar.Providers.GrokBuild.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/AIQuotaBar.Process.Tests/AIQuotaBar.Process.Tests.csproj" />
+    <Project Path="tests/AIQuotaBar.ProcessFixture/AIQuotaBar.ProcessFixture.csproj" />
     <Project Path="tests/AIQuotaBar.App.Tests/AIQuotaBar.App.Tests.csproj" />
     <Project Path="tests/AIQuotaBar.Core.Tests/AIQuotaBar.Core.Tests.csproj" />
     <Project Path="tests/AIQuotaBar.Providers.Antigravity.Tests/AIQuotaBar.Providers.Antigravity.Tests.csproj" />
@@ -17,5 +19,9 @@
     <Project Path="tests/AIQuotaBar.Providers.Codex.Tests/AIQuotaBar.Providers.Codex.Tests.csproj" />
     <Project Path="tests/AIQuotaBar.Providers.GitHubCopilot.Tests/AIQuotaBar.Providers.GitHubCopilot.Tests.csproj" />
     <Project Path="tests/AIQuotaBar.Providers.GrokBuild.Tests/AIQuotaBar.Providers.GrokBuild.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/AIQuotaBar.LayoutProbe/AIQuotaBar.LayoutProbe.csproj" />
+    <Project Path="tools/AIQuotaBar.ProviderProbe/AIQuotaBar.ProviderProbe.csproj" />
   </Folder>
 </Solution>

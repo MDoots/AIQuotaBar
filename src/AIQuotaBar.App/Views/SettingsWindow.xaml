@@ -449,13 +449,21 @@
 
                     <!-- Rescan Button -->
                     <Button Style="{StaticResource SecondaryButtonStyle}"
-                            Content="Rescan providers"
+                            Content="{Binding RescanButtonText}"
                             Command="{Binding RescanCommand}"
                             HorizontalAlignment="Left"
                             Margin="0,0,0,14"
                             Padding="10,4"
                             FontSize="11"
                             AutomationProperties.Name="Rescan providers" />
+
+                    <TextBlock Text="{Binding RescanStatusText}"
+                               FontSize="10.5"
+                               Foreground="#A1A1AA"
+                               Margin="0,-8,0,14"
+                               TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.Name="Provider scan status" />
 
                     <!-- Providers & Quotas Subheading -->
                     <TextBlock Text="Providers &amp; Quotas"

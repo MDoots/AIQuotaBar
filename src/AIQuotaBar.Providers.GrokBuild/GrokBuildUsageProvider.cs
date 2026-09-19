@@ -118,6 +118,11 @@ public sealed class GrokBuildUsageProvider : IUsageProvider
                 status: ProviderStatus.Cancelled,
                 statusMessage: "Refresh cancelled by user");
         }
+        catch (GrokRpcException ex) when (ex.ErrorCode == -32601)
+        {
+            return new ProviderSnapshot(Id, ProviderName, ProviderStatus.Unavailable,
+                "This Grok Build version does not expose a supported quota interface.");
+        }
         catch (Exception ex)
         {
             var isAuth = IsAuthError(ex);

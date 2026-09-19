@@ -20,6 +20,7 @@ public class ClaudeCodeUsageProviderTests
         public ClaudeAuthStatusResult? AuthStatusResult { get; set; }
         public string UsageOutput { get; set; } = string.Empty;
         public Exception? ExceptionToThrow { get; set; }
+        public Exception? UsageException { get; set; }
         public bool CaptureUsageCalled { get; private set; }
 
         public Task<ClaudeAuthStatusResult?> CheckAuthStatusAsync(string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
@@ -32,6 +33,7 @@ public class ClaudeCodeUsageProviderTests
         public Task<string> CaptureUsageAsync(string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             CaptureUsageCalled = true;
+            if (UsageException != null) throw UsageException;
             cancellationToken.ThrowIfCancellationRequested();
             if (ExceptionToThrow != null) throw ExceptionToThrow;
             return Task.FromResult(UsageOutput);
@@ -47,6 +49,19 @@ public class ClaudeCodeUsageProviderTests
 
         Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
         Assert.Equal("Claude Code executable not found on system", snapshot.StatusMessage);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_WhenQuotaRouteUnsupported_DoesNotInventBalance()
+    {
+        var auth = System.Text.Json.JsonSerializer.Deserialize<ClaudeAuthStatusResult>(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "auth_signed_in.json")));
+        var runner = new MockClaudeProcessRunner { AuthStatusResult = auth, UsageException = new NotSupportedException() };
+        var provider = new ClaudeCodeUsageProvider(runner, () => "fixture.exe");
+        var snapshot = await provider.GetUsageAsync();
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Contains("view /usage", snapshot.StatusMessage);
+        Assert.Empty(snapshot.Windows);
     }
 
     [Fact]

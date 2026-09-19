@@ -29,6 +29,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
     private DateTimeOffset? _lastRefreshedAt;
     private DateTimeOffset? _lastSuccessfulRefreshAt;
     private bool _isQuotaStale;
+    private string? _accountScope;
     private AppSettings? _lastSettings;
     private readonly List<QuotaWindowViewModel> _allWindows = new();
 
@@ -196,6 +197,8 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         ? "Refresh timed out · showing last update"
         : "Refresh failed · showing last update";
 
+    public string StaleDetails => "Previously observed quota. Current account and allowance could not be verified; refresh after changing accounts.";
+
     public bool IsLoading
     {
         get => _isLoading;
@@ -352,6 +355,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
         }
         finally
         {
+            cts.Dispose();
             if (ReferenceEquals(_currentRefreshCts, cts))
             {
                 _currentRefreshCts = null;
@@ -391,6 +395,23 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
             if (_discoveryStatus is ProviderDiscoveryStatus.Checking or ProviderDiscoveryStatus.Unknown)
             {
                 DiscoveryStatus = ProviderDiscoveryStatus.Detected;
+            }
+
+            // Cancellation never changes entitlement or cached-account state.
+            if (snapshot.Status != ProviderStatus.Cancelled && snapshot.AccountScope != null)
+            {
+                if (_accountScope != null && !string.Equals(_accountScope, snapshot.AccountScope, StringComparison.Ordinal))
+                {
+                    _allWindows.Clear();
+                    Windows.Clear();
+                    VisibleWindows.Clear();
+                    LastSuccessfulRefreshAt = null;
+                    AccountPlan = null;
+                    IsQuotaStale = false;
+                    OnPropertyChanged(nameof(HasWindows));
+                    OnPropertyChanged(nameof(HasVisibleWindows));
+                }
+                _accountScope = snapshot.AccountScope;
             }
 
             if (snapshot.Status == ProviderStatus.Available && snapshot.Windows.Count > 0)

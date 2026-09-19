@@ -136,4 +136,68 @@ public class ClaudeUsageNormalizerTests
         Assert.Equal("Usage-based billing — no fixed Claude Code quota", snapshot.StatusMessage);
         Assert.Empty(snapshot.Windows);
     }
+
+    [Fact]
+    public void Normalize_WithMultiUnitAndFollowingResetLine_ParsesAllUnits()
+    {
+        var now = new DateTimeOffset(2026, 8, 29, 12, 0, 0, TimeSpan.Zero);
+        var raw = "Current session allowance: 15% used\nResets in 1d 2h 30m 10s";
+
+        var snapshot = ClaudeUsageNormalizer.Normalize(raw, now: now);
+
+        Assert.Equal(now.AddDays(1).AddHours(2).AddMinutes(30).AddSeconds(10), snapshot.Windows.Single().ResetsAt);
+    }
+
+    [Fact]
+    public void Normalize_WithAmbiguousDaylightTimeReset_LeavesResetUnknown()
+    {
+        var zone = TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
+        var now = new DateTimeOffset(2026, 10, 24, 12, 0, 0, TimeSpan.Zero);
+        var raw = "Current session allowance: 15% used (resets at 01:30)";
+
+        var snapshot = ClaudeUsageNormalizer.Normalize(raw, now: now, timeZone: zone);
+
+        Assert.Null(snapshot.Windows.Single().ResetsAt);
+    }
+
+    [Fact]
+    public void Normalize_WithFullWordUnits_DoesNotTruncateHours()
+    {
+        var now = new DateTimeOffset(2026, 8, 29, 12, 0, 0, TimeSpan.Zero);
+        var snapshot = ClaudeUsageNormalizer.Normalize(
+            "Current session allowance: 15% used (resets in 1 day 2 hours 5 minutes)", now: now);
+
+        Assert.Equal(now.AddDays(1).AddHours(2).AddMinutes(5), snapshot.Windows.Single().ResetsAt);
+    }
+
+    [Fact]
+    public void Normalize_WithResetBetweenRows_AssociatesOnlyFollowingQuota()
+    {
+        var raw = "Current session allowance: 15% used\nResets in 1h\nWeekly limit: 20% used";
+        var snapshot = ClaudeUsageNormalizer.Normalize(raw, now: new DateTimeOffset(2026, 8, 29, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.NotNull(snapshot.Windows.Single(w => w.Id == "session-5h").ResetsAt);
+        Assert.Null(snapshot.Windows.Single(w => w.Id == "weekly-all").ResetsAt);
+    }
+
+    [Fact]
+    public void Normalize_WithExplicitUtcSuffix_UsesOutputTimezone()
+    {
+        var bst = TimeZoneInfo.CreateCustomTimeZone("BST", TimeSpan.FromHours(1), "BST", "BST");
+        var now = new DateTimeOffset(2026, 8, 29, 23, 30, 0, TimeSpan.FromHours(1));
+        var snapshot = ClaudeUsageNormalizer.Normalize(
+            "Current session allowance: 15% used (resets at 00:15 UTC)", now: now, timeZone: bst);
+
+        Assert.Equal(new DateTimeOffset(2026, 8, 30, 0, 15, 0, TimeSpan.Zero), snapshot.Windows.Single().ResetsAt);
+    }
+
+    [Fact]
+    public void Normalize_WithUnknownTimezoneSuffix_LeavesResetUnknown()
+    {
+        var snapshot = ClaudeUsageNormalizer.Normalize(
+            "Current session allowance: 15% used (resets at 01:15 Mars/Colony)",
+            now: new DateTimeOffset(2026, 8, 29, 12, 0, 0, TimeSpan.Zero));
+
+        Assert.Null(snapshot.Windows.Single().ResetsAt);
+    }
 }

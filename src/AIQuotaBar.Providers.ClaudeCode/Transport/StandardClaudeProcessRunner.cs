@@ -28,224 +28,76 @@ public sealed partial class StandardClaudeProcessRunner : IClaudeProcessRunner
     private static partial Regex RemainingColonPercentRegex();
 
     public async Task<ClaudeAuthStatusResult?> CheckAuthStatusAsync(
-        string executablePath,
-        TimeSpan timeout,
-        CancellationToken cancellationToken = default)
+        string executablePath, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(executablePath);
-
+        ProcessIo.ValidateExecutable(executablePath);
+        cancellationToken.ThrowIfCancellationRequested();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(timeout);
-
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = new UTF8Encoding(false),
-            StandardErrorEncoding = new UTF8Encoding(false)
-        };
-
-        startInfo.ArgumentList.Add("auth");
-        startInfo.ArgumentList.Add("status");
-        startInfo.ArgumentList.Add("--json");
-
-        Process? process = null;
-        try
-        {
-            process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException($"Failed to start Claude process: '{executablePath}'");
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cts.Token);
-            var stderrTask = process.StandardError.ReadToEndAsync(cts.Token);
-
-            await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
-            var stdout = await stdoutTask.ConfigureAwait(false);
-
-            if (string.IsNullOrWhiteSpace(stdout))
-            {
-                return null;
-            }
-
-            try
-            {
-                return JsonSerializer.Deserialize<ClaudeAuthStatusResult>(stdout.Trim(), JsonOptions);
-            }
-            catch (JsonException)
-            {
-                return null;
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            throw;
-        }
-        catch (OperationCanceledException) when (cts.IsCancellationRequested)
-        {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            throw new TimeoutException($"Claude auth check timed out after {timeout.TotalSeconds:0.##}s");
-        }
-        catch
-        {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            throw;
-        }
-        finally
-        {
-            if (process != null)
-            {
-                if (!process.HasExited)
-                {
-                    KillProcessTreeSafe(process);
-                }
-                process.Dispose();
-            }
-        }
-    }
-
-    public async Task<string> CaptureUsageAsync(
-        string executablePath,
-        TimeSpan timeout,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(executablePath);
-
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(timeout);
-
-        var neutralWorkingDir = Path.Combine(Path.GetTempPath(), "AIQuotaBar", "provider-runtime");
-        try
-        {
-            Directory.CreateDirectory(neutralWorkingDir);
-        }
-        catch
-        {
-            neutralWorkingDir = Path.GetTempPath();
-        }
-
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = executablePath,
-            WorkingDirectory = neutralWorkingDir,
+            WorkingDirectory = ProcessIo.NeutralDirectory(),
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
-            StandardInputEncoding = new UTF8Encoding(false),
             StandardOutputEncoding = new UTF8Encoding(false),
             StandardErrorEncoding = new UTF8Encoding(false)
         };
-
+        startInfo.ArgumentList.Add("auth");
+        startInfo.ArgumentList.Add("status");
+        startInfo.ArgumentList.Add("--json");
         Process? process = null;
+        Task<string>? stdoutTask = null;
+        Task<string>? stderrTask = null;
+        Task? completion = null;
         try
         {
-            process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException($"Failed to start Claude process: '{executablePath}'");
-
-            process.ErrorDataReceived += (_, _) => { };
-            process.BeginErrorReadLine();
-
-            var sb = new StringBuilder();
-
-            // Send /usage immediately
-            await process.StandardInput.WriteLineAsync("/usage".AsMemory(), cts.Token).ConfigureAwait(false);
-            await process.StandardInput.FlushAsync(cts.Token).ConfigureAwait(false);
-
-            // Single outstanding read state machine
-            var buffer = new char[1024];
-            var isCompleted = false;
-
-            while (!cts.IsCancellationRequested)
+            process = Process.Start(startInfo) ?? throw new InvalidOperationException("Unable to start Claude Code.");
+            process.StandardInput.Close();
+            stdoutTask = ProcessIo.ReadBoundedAsync(process.StandardOutput, true, cts.Token);
+            stderrTask = ProcessIo.ReadBoundedAsync(process.StandardError, false, cts.Token);
+            async Task FinishAsync()
             {
-                var charsRead = await process.StandardOutput.ReadAsync(buffer.AsMemory(), cts.Token).ConfigureAwait(false);
-                if (charsRead <= 0)
-                {
-                    break;
-                }
-
-                sb.Append(buffer, 0, charsRead);
-                var current = sb.ToString();
-
-                if (IsUsagePanelComplete(current))
-                {
-                    isCompleted = true;
-                    break;
-                }
+                await stdoutTask.ConfigureAwait(false);
+                await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+                await stderrTask.ConfigureAwait(false);
             }
-
-            if (!isCompleted && !cancellationToken.IsCancellationRequested)
-            {
-                // Partial output must never be accepted as valid quota
-                throw new TimeoutException($"Claude /usage capture did not complete within {timeout.TotalSeconds:0.##}s");
-            }
-
+            completion = FinishAsync();
+            await ProcessIo.CompleteAsync(completion, stderrTask, cts.Token).ConfigureAwait(false);
             try
             {
-                await process.StandardInput.WriteLineAsync("/exit".AsMemory(), cts.Token).ConfigureAwait(false);
-                await process.StandardInput.FlushAsync(cts.Token).ConfigureAwait(false);
-                process.StandardInput.Close();
+                // Signed-out status can use a nonzero exit code with valid JSON.
+                return JsonSerializer.Deserialize<ClaudeAuthStatusResult>(await stdoutTask.ConfigureAwait(false), JsonOptions);
             }
-            catch
-            {
-                // Stdin already closed
-            }
-
-            var exitedCleanly = await WaitForExitAsync(process, TimeSpan.FromMilliseconds(500), cts.Token).ConfigureAwait(false);
-            if (!exitedCleanly && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-
-            return sb.ToString();
+            catch (JsonException) { return null; }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && cts.IsCancellationRequested)
         {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            throw;
+            throw new TimeoutException("Claude auth check did not respond within the time limit.");
         }
-        catch (OperationCanceledException) when (cts.IsCancellationRequested)
-        {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            throw new TimeoutException($"Claude usage capture timed out after {timeout.TotalSeconds:0.##}s");
-        }
-        catch
-        {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            throw;
-        }
+        catch (System.ComponentModel.Win32Exception) { throw new InvalidOperationException("Unable to start Claude Code."); }
+        catch (IOException) { throw new IOException("Claude Code communication failed."); }
         finally
         {
-            if (process != null)
-            {
-                if (!process.HasExited)
-                {
-                    KillProcessTreeSafe(process);
-                }
-                process.Dispose();
-            }
+            await cts.CancelAsync().ConfigureAwait(false);
+            await ProcessIo.CleanupAsync(process).ConfigureAwait(false);
+            ProcessIo.Observe(stdoutTask);
+            ProcessIo.Observe(stderrTask);
+            ProcessIo.Observe(completion);
         }
+    }
+
+    public Task<string> CaptureUsageAsync(string executablePath, TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        // /usage is documented for an interactive terminal, not as a safe
+        // unattended pipe protocol. Never start a model session to obtain quota.
+        if (cancellationToken.IsCancellationRequested) return Task.FromCanceled<string>(cancellationToken);
+        return Task.FromException<string>(new NotSupportedException(
+            "Automatic quota is unavailable; view /usage in Claude Code."));
     }
 
     public static int FindUnderstoodContentEndIndex(string text)

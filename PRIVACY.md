@@ -1,6 +1,7 @@
 # Privacy Policy for AIQuotaBar
 
-**Last updated:** August 2026  
+**Last updated:** September 2026
+
 **Publisher:** AGIFutures  
 **Contact:** marc@agifutures.io  
 
@@ -29,6 +30,7 @@ Your privacy and security are fundamental principles of our design.
 * **Provider Authentication:** AIQuotaBar **never** reads, copies, or persists your passwords, API keys, session tokens, or provider credential files. All authentication is managed exclusively by the respective provider tools.
 * **Network Egress:** AIQuotaBar itself makes no outbound network connections on its own behalf. Note that provider-owned CLI tools and processes communicate directly with their own service backends in accordance with their respective privacy policies.
 * **No Data History Database:** AIQuotaBar does not maintain a database of historical prompts, model interactions, or usage history.
+* **Account Changes:** Where official tools expose account metadata, AIQuotaBar compares an in-memory fingerprint to avoid displaying a previous account's cached quota. These fingerprints and temporary account markers are not saved or included in diagnostics.
 
 ---
 
@@ -38,7 +40,7 @@ Your privacy and security are fundamental principles of our design.
   ```
   %LOCALAPPDATA%\AIQuotaBar\settings.json
   ```
-* **Data Removal:** Deleting the `%LOCALAPPDATA%\AIQuotaBar\` directory or uninstalling the application completely removes all local settings stored by AIQuotaBar.
+* **Data Removal:** Deleting the `%LOCALAPPDATA%\AIQuotaBar\` directory removes the local settings stored there by AIQuotaBar. Uninstalling the application may leave local settings behind, depending on the distribution route.
 
 ---
 

@@ -1,61 +1,36 @@
 namespace AIQuotaBar.Providers.GrokBuild.Transport;
-
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 
 public sealed class StandardGrokProcessRunner : IGrokProcessRunner
 {
-    private sealed class ProcessSession : IGrokProcessSession
+    private sealed class ProcessSession(StreamWriter writer, StreamReader reader) : IGrokProcessSession
     {
-        private readonly StreamWriter _writer;
-        private readonly StreamReader _reader;
-
-        public ProcessSession(StreamWriter writer, StreamReader reader)
-        {
-            _writer = writer;
-            _reader = reader;
-        }
-
+        private readonly BoundedLineReader _reader = new(reader);
         public async Task WriteLineAsync(string line, CancellationToken cancellationToken = default)
         {
-            await _writer.WriteLineAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
-            await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+            if (line.Length > ProcessIo.MaxOutputChars) throw new InvalidDataException("Provider request exceeded the supported limit.");
+            await writer.WriteLineAsync(line.AsMemory(), cancellationToken).ConfigureAwait(false);
+            await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
-
-        public async Task<string?> ReadLineAsync(CancellationToken cancellationToken = default)
-        {
-            return await _reader.ReadLineAsync(cancellationToken).ConfigureAwait(false);
-        }
+        public Task<string?> ReadLineAsync(CancellationToken cancellationToken = default) => _reader.ReadLineAsync(cancellationToken);
     }
 
-    public async Task RunAsync(
-        string executablePath,
-        IReadOnlyList<string> arguments,
-        Func<IGrokProcessSession, CancellationToken, Task> sessionAction,
-        TimeSpan timeout,
+    public async Task RunAsync(string executablePath, IReadOnlyList<string> arguments,
+        Func<IGrokProcessSession, CancellationToken, Task> sessionAction, TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(executablePath);
+        ProcessIo.ValidateExecutable(executablePath);
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(sessionAction);
-
+        cancellationToken.ThrowIfCancellationRequested();
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(timeout);
-
-        var neutralWorkingDir = Path.Combine(Path.GetTempPath(), "AIQuotaBar", "provider-runtime");
-        try
-        {
-            Directory.CreateDirectory(neutralWorkingDir);
-        }
-        catch
-        {
-            neutralWorkingDir = Path.GetTempPath();
-        }
-
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
-            WorkingDirectory = neutralWorkingDir,
+            WorkingDirectory = ProcessIo.NeutralDirectory(),
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -65,144 +40,36 @@ public sealed class StandardGrokProcessRunner : IGrokProcessRunner
             StandardOutputEncoding = new UTF8Encoding(false),
             StandardErrorEncoding = new UTF8Encoding(false)
         };
-
-        foreach (var arg in arguments)
-        {
-            startInfo.ArgumentList.Add(arg);
-        }
-
+        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
         Process? process = null;
         Task? sessionTask = null;
-
+        Task? stderrTask = null;
         try
         {
-            process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException($"Failed to start Grok process: '{executablePath}'");
-
-            process.ErrorDataReceived += (_, _) => { };
-            process.BeginErrorReadLine();
-
-            var session = new ProcessSession(process.StandardInput, process.StandardOutput);
-
-            sessionTask = sessionAction(session, cts.Token);
-
-            // Authoritative runner-level bounded await to prevent hanging on stuck pipe reads
-            await sessionTask.WaitAsync(cts.Token).ConfigureAwait(false);
-
-            if (cancellationToken.IsCancellationRequested)
-            {
-                throw new OperationCanceledException(cancellationToken);
-            }
-
-            if (cts.IsCancellationRequested)
-            {
-                throw new TimeoutException($"Grok process timed out after {timeout.TotalSeconds:0.##}s");
-            }
-
-            try
-            {
-                process.StandardInput.Close();
-            }
-            catch
-            {
-                // Process may already have closed stdin
-            }
-
-            var exitedCleanly = await WaitForExitAsync(process, TimeSpan.FromMilliseconds(500), cts.Token).ConfigureAwait(false);
-            if (!exitedCleanly && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
+            process = Process.Start(startInfo) ?? throw new InvalidOperationException("Unable to start provider process.");
+            stderrTask = ProcessIo.ReadBoundedAsync(process.StandardError, false, cts.Token);
+            sessionTask = sessionAction(new ProcessSession(process.StandardInput, process.StandardOutput), cts.Token);
+            await ProcessIo.CompleteAsync(sessionTask, stderrTask, cts.Token).ConfigureAwait(false);
+            cts.Token.ThrowIfCancellationRequested();
+            process.StandardInput.Close();
+            // Graceful shutdown is inside the request budget; force cleanup adds at most one second.
+            using var graceful = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+            graceful.CancelAfter(TimeSpan.FromMilliseconds(500));
+            try { await process.WaitForExitAsync(graceful.Token).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (!cts.IsCancellationRequested) { }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && cts.IsCancellationRequested)
         {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            if (sessionTask != null)
-            {
-                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
-            }
-            throw;
+            throw new TimeoutException("Grok process did not respond within the time limit.");
         }
-        catch (OperationCanceledException) when (cts.IsCancellationRequested)
-        {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            if (sessionTask != null)
-            {
-                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
-            }
-            throw new TimeoutException($"Grok process timed out after {timeout.TotalSeconds:0.##}s");
-        }
-        catch (TimeoutException)
-        {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            if (sessionTask != null)
-            {
-                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
-            }
-            throw;
-        }
-        catch
-        {
-            if (process != null && !process.HasExited)
-            {
-                KillProcessTreeSafe(process);
-            }
-            if (sessionTask != null)
-            {
-                _ = sessionTask.ContinueWith(t => _ = t.Exception, TaskContinuationOptions.OnlyOnFaulted);
-            }
-            throw;
-        }
+        catch (Win32Exception) { throw new InvalidOperationException("Unable to start provider process."); }
+        catch (IOException) { throw new IOException("Provider communication failed."); }
         finally
         {
-            if (process != null)
-            {
-                if (!process.HasExited)
-                {
-                    KillProcessTreeSafe(process);
-                }
-                process.Dispose();
-            }
-        }
-    }
-
-    private static async Task<bool> WaitForExitAsync(Process process, TimeSpan timeout, CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            delayCts.CancelAfter(timeout);
-
-            await process.WaitForExitAsync(delayCts.Token).ConfigureAwait(false);
-            return true;
-        }
-        catch
-        {
-            return process.HasExited;
-        }
-    }
-
-    private static void KillProcessTreeSafe(Process process)
-    {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(entireProcessTree: true);
-            }
-        }
-        catch
-        {
-            // Ignore failure if process has already exited
+            await cts.CancelAsync().ConfigureAwait(false);
+            await ProcessIo.CleanupAsync(process).ConfigureAwait(false);
+            ProcessIo.Observe(sessionTask);
+            ProcessIo.Observe(stderrTask);
         }
     }
 }

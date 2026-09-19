@@ -82,7 +82,9 @@ public class CodexJsonRpcClientTests
             client.SendRequestAsync<CodexRateLimitsResult>("invalid/method"));
 
         Assert.Equal(-32600, ex.ErrorCode);
-        Assert.Contains("Invalid Request", ex.Message);
+        Assert.Equal("Codex RPC error -32600", ex.Message);
+        Assert.Equal("Provider request failed", ex.ErrorMessage);
+        Assert.DoesNotContain("Invalid Request", ex.ToString());
     }
 
     [Fact]

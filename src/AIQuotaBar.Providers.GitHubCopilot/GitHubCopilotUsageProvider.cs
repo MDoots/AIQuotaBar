@@ -29,6 +29,12 @@ public sealed class GitHubCopilotUsageProvider : IUsageProvider
 
     public async Task<ProviderSnapshot> GetUsageAsync(CancellationToken cancellationToken = default)
     {
+        var snapshot = await FetchAsync(cancellationToken).ConfigureAwait(false);
+        return snapshot with { AccountScope = _adapter.AccountScope };
+    }
+
+    private async Task<ProviderSnapshot> FetchAsync(CancellationToken cancellationToken)
+    {
         var executablePath = _executableLocator();
         if (string.IsNullOrWhiteSpace(executablePath))
         {

@@ -28,8 +28,8 @@ public class CodexUsageNormalizerTests
         Assert.Equal(2, snapshot.Windows.Count);
 
         var primary = snapshot.Windows[0];
-        Assert.Equal("primary", primary.Id);
-        Assert.Equal("5-Hour", primary.DisplayName);
+        Assert.Equal("codex_primary", primary.Id);
+        Assert.Equal("codex · 5-Hour", primary.DisplayName);
         Assert.Equal(28, primary.RawUsedPercent);
         Assert.Equal(72, primary.RemainingPercent);
         Assert.Equal(TimeSpan.FromHours(5), primary.Duration);
@@ -37,8 +37,8 @@ public class CodexUsageNormalizerTests
         Assert.Equal(QuotaWindowStatus.Active, primary.Status);
 
         var secondary = snapshot.Windows[1];
-        Assert.Equal("secondary", secondary.Id);
-        Assert.Equal("Weekly", secondary.DisplayName);
+        Assert.Equal("codex_secondary", secondary.Id);
+        Assert.Equal("codex · Weekly", secondary.DisplayName);
         Assert.Equal(46, secondary.RawUsedPercent);
         Assert.Equal(54, secondary.RemainingPercent);
         Assert.Equal(TimeSpan.FromDays(7), secondary.Duration);
@@ -178,5 +178,19 @@ public class CodexUsageNormalizerTests
         Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
         Assert.Equal("No rate limit data returned", snapshot.StatusMessage);
         Assert.Empty(snapshot.Windows);
+    }
+
+    [Fact]
+    public void Normalize_PopulatedDictionaryIsAuthoritativeAndDeterministic()
+    {
+        var json = File.ReadAllText(Path.Combine("Fixtures", "codex_mixed_buckets.json"));
+        var rateLimits = JsonSerializer.Deserialize<CodexRateLimitsResult>(json, JsonOptions);
+
+        var snapshot = CodexUsageNormalizer.Normalize(rateLimits);
+
+        Assert.Equal(new[] { "alpha_primary", "zeta_primary" }, snapshot.Windows.Select(w => w.Id));
+        Assert.Equal("Alpha pool · 5-Hour", snapshot.Windows[0].DisplayName);
+        Assert.Equal("Zeta pool · 5-Hour", snapshot.Windows[1].DisplayName);
+        Assert.Equal(QuotaWindowStatus.Exhausted, snapshot.Windows[1].Status);
     }
 }

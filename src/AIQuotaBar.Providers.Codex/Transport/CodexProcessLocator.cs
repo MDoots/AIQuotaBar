@@ -33,7 +33,7 @@ public static class CodexProcessLocator
             if (Directory.Exists(openAiCodexDir) || findFiles != null)
             {
                 var matches = findFiles(openAiCodexDir, "codex.exe", SearchOption.AllDirectories);
-                var candidate = matches.FirstOrDefault(fileExists);
+                var candidate = matches.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).FirstOrDefault(fileExists);
                 if (!string.IsNullOrEmpty(candidate))
                 {
                     return candidate;

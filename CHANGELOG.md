@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.4] - 2026-09-19
+
+### Fixed
+
+* Show rescan progress and completion in Settings even when provider results are unchanged.
+* Use Codex app-server's documented default stdio transport without a version-specific flag.
+* Explicitly declare per-monitor DPI awareness in the executable manifest.
+* Preserve distinct Codex quota pools and unknown percentages.
+* Show a clear authentication message when signed-out Codex reports an invalid-request error.
+* Bound provider output, cancellation and owned-process cleanup; sanitize RPC errors and avoid interactive Claude usage queries.
+* Clear cached quotas after an observed account change while preserving last-known-good data through transient failures.
+* Size docked bars to visible content and retain a reachable actions menu at the 170-DIP floating minimum.
+
+### Changed
+
+* Validation probes now exercise production adapters and report unavailable or unsupported quota truthfully.
+* Portable builds support isolated candidate directories. Release documentation distinguishes automated checks from pending Windows and Store acceptance.
+
 ## [1.0.1] - 2026-09-01
 
 ### Changed

@@ -15,7 +15,7 @@ public sealed class CopilotQuotaDto
     public long EntitlementRequests { get; set; }
     public bool IsUnlimitedEntitlement { get; set; }
     public long UsedRequests { get; set; }
-    public double RemainingPercentage { get; set; }
+    public double? RemainingPercentage { get; set; }
     public DateTimeOffset? ResetDate { get; set; }
     public double Overage { get; set; }
 }
@@ -28,6 +28,7 @@ public sealed class CopilotFetchResult
 
 public interface ICopilotClientAdapter
 {
+    string? AccountScope => null;
     Task<CopilotFetchResult> FetchQuotasAsync(
         string executablePath,
         TimeSpan timeout,

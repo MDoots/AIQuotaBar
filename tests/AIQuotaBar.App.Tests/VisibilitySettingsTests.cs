@@ -10,6 +10,21 @@ using Xunit;
 
 public class VisibilitySettingsTests
 {
+    [Fact]
+    public void CodexNamedPoolMigrationPreservesHiddenLegacyAndExplicitNewChoices()
+    {
+        var settings = new AppSettings();
+        settings.SetQuotaWindowVisible("codex", "primary", false);
+        settings.SetQuotaWindowVisible("codex", "secondary", false);
+        settings.SetQuotaWindowVisible("codex", "codex_secondary", true);
+        settings.NormalizeVisibilityDictionaries();
+        Assert.False(settings.IsQuotaWindowVisible("codex", "codex_primary"));
+        Assert.True(settings.IsQuotaWindowVisible("codex", "codex_secondary"));
+        Assert.True(settings.IsQuotaWindowVisible("codex", "codex_bengalfox_primary"));
+        settings.NormalizeVisibilityDictionaries();
+        Assert.False(settings.IsQuotaWindowVisible("codex", "codex_primary"));
+    }
+
     private sealed class MockUsageProvider : IUsageProvider
     {
         private readonly Func<CancellationToken, Task<ProviderSnapshot>> _handler;

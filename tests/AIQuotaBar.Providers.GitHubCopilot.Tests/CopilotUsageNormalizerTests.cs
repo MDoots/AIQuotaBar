@@ -8,6 +8,19 @@ using Xunit;
 public class CopilotUsageNormalizerTests
 {
     [Fact]
+    public void Normalize_MissingPercentageDoesNotInventExhaustionOrAvailability()
+    {
+        var result = new CopilotFetchResult
+        {
+            AuthInfo = new CopilotAuthInfoDto { IsAuthenticated = true },
+            Quotas = [new CopilotQuotaDto { Key = "premium", EntitlementRequests = 100 }]
+        };
+        var snapshot = CopilotUsageNormalizer.Normalize(result);
+        Assert.Equal(ProviderStatus.Unavailable, snapshot.Status);
+        Assert.Empty(snapshot.Windows);
+    }
+
+    [Fact]
     public void Normalize_WhenNull_ReturnsUnauthenticated()
     {
         var snapshot = CopilotUsageNormalizer.Normalize(null);

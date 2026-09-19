@@ -143,6 +143,9 @@ public sealed class CodexAccountResult
 
 public sealed class CodexAccountInfo
 {
+    [JsonPropertyName("email")]
+    public string? Email { get; set; }
+
     [JsonPropertyName("type")]
     public string? Type { get; set; }
 

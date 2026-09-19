@@ -41,6 +41,14 @@ public sealed class AppSettings
         QuotaWindowVisibility = new Dictionary<string, bool>(
             QuotaWindowVisibility ?? Enumerable.Empty<KeyValuePair<string, bool>>(),
             StringComparer.OrdinalIgnoreCase);
+
+        // The named default Codex pool replaces the legacy primary/secondary IDs.
+        // Preserve an explicit new preference if it already exists.
+        foreach (var window in new[] { "primary", "secondary" })
+        {
+            if (QuotaWindowVisibility.TryGetValue($"codex:{window}", out var visible))
+                QuotaWindowVisibility.TryAdd($"codex:codex_{window}", visible);
+        }
     }
 
     public bool IsProviderVisible(string? providerId)

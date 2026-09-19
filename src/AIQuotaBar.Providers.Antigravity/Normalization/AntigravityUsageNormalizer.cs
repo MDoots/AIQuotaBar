@@ -44,6 +44,16 @@ public static class AntigravityUsageNormalizer
                 statusMessage: "Antigravity CLI returned an error");
         }
 
+        if (!string.Equals(cliResponse.Command?.Name, "usage", StringComparison.OrdinalIgnoreCase) ||
+            cliResponse.NumTurns is > 0 || cliResponse.TotalTokens is > 0 || cliResponse.Usage?.TotalTokens is > 0)
+        {
+            return new ProviderSnapshot(
+                providerId: ProviderIdentifier,
+                providerDisplayName: ProviderDisplayName,
+                status: ProviderStatus.Unavailable,
+                statusMessage: "This Antigravity CLI response is not a supported quota command.");
+        }
+
         var groups = cliResponse.Command?.Data?.Groups;
         if (groups == null || groups.Count == 0)
         {

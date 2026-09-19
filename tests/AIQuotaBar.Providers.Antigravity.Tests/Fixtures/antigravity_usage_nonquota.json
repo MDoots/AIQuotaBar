@@ -1,0 +1,1 @@
+{"status":"SUCCESS","num_turns":1,"usage":{"total_tokens":12},"command":{"name":"usage","data":{"groups":[{"name":"Gemini","buckets":[{"id":"weekly","window":"weekly","remaining_fraction":1}]}]}}}

@@ -7,6 +7,17 @@ using Xunit;
 
 public class WidgetViewModelTests
 {
+    [Fact]
+    public void NarrowWidthRetainsMenuAccessToSettingsAndWindowActions()
+    {
+        using var vm = new WidgetViewModel(providerSections: Array.Empty<ProviderSectionViewModel>());
+        vm.WidgetWidth = 150;
+        Assert.True(vm.ShowOverflowMenu);
+        Assert.False(vm.ShowSettingsButton);
+        vm.WidgetWidth = 330;
+        Assert.False(vm.ShowOverflowMenu);
+        Assert.True(vm.ShowSettingsButton);
+    }
     private sealed class MockUsageProvider : IUsageProvider
     {
         private readonly Func<CancellationToken, Task<ProviderSnapshot>> _handler;

@@ -1,0 +1,17 @@
+{
+  "rateLimits": {
+    "primary": { "usedPercent": 1, "windowDurationMins": 300 },
+    "secondary": { "usedPercent": 2, "windowDurationMins": 300 }
+  },
+  "rateLimitsByLimitId": {
+    "zeta": {
+      "limitName": "Zeta pool",
+      "primary": { "usedPercent": 100, "windowDurationMins": 300 },
+      "secondary": { "windowDurationMins": 300 }
+    },
+    "alpha": {
+      "limitName": "Alpha pool",
+      "primary": { "usedPercent": 25, "windowDurationMins": 300 }
+    }
+  }
+}

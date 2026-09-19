@@ -14,6 +14,8 @@ public sealed class CodexUsageProvider : IUsageProvider
     private readonly ICodexProcessRunner _processRunner;
     private readonly Func<string?> _executableLocator;
     private readonly TimeSpan _defaultTimeout;
+    private string? _accountFingerprint;
+    private string? _accountScope;
 
     public string Id => ProviderIdentifier;
     public string DisplayName => ProviderName;
@@ -29,6 +31,12 @@ public sealed class CodexUsageProvider : IUsageProvider
     }
 
     public async Task<ProviderSnapshot> GetUsageAsync(CancellationToken cancellationToken = default)
+    {
+        var snapshot = await FetchAsync(cancellationToken).ConfigureAwait(false);
+        return snapshot with { AccountScope = _accountScope };
+    }
+
+    private async Task<ProviderSnapshot> FetchAsync(CancellationToken cancellationToken)
     {
         var executablePath = _executableLocator();
         if (string.IsNullOrWhiteSpace(executablePath))
@@ -47,7 +55,8 @@ public sealed class CodexUsageProvider : IUsageProvider
         {
             await _processRunner.RunAsync(
                 executablePath,
-                "app-server --stdio",
+                // Stdio is the documented default; avoid a version-specific alias.
+                "app-server",
                 async (session, runnerToken) =>
                 {
                     var client = new CodexJsonRpcClient(session);
@@ -55,24 +64,33 @@ public sealed class CodexUsageProvider : IUsageProvider
                     // 1. Send initialize and wait for initialize response + send initialized notification
                     await client.InitializeAsync("AIQuotaBar", "0.1.0", runnerToken).ConfigureAwait(false);
 
-                    // 2. Query rate limits
-                    rateLimitsResult = await client.SendRequestAsync<CodexRateLimitsResult>(
-                        "account/rateLimits/read",
-                        null,
-                        runnerToken).ConfigureAwait(false);
-
-                    // 3. Query account information (best-effort)
+                    // Observe an account transition before a quota read can fail.
+                    // Authentication remains owned by the official app-server.
                     try
                     {
                         accountResult = await client.SendRequestAsync<CodexAccountResult>(
                             "account/read",
                             null,
                             runnerToken).ConfigureAwait(false);
+                        var identity = accountResult?.Account?.Email;
+                        if (!string.IsNullOrWhiteSpace(identity))
+                        {
+                            var fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                                System.Text.Encoding.UTF8.GetBytes(identity)));
+                            if (!string.Equals(fingerprint, _accountFingerprint, StringComparison.Ordinal))
+                            {
+                                _accountFingerprint = fingerprint;
+                                _accountScope = Guid.NewGuid().ToString("N");
+                            }
+                        }
                     }
                     catch
                     {
                         // Best-effort enrichment; rateLimits is the primary source
                     }
+
+                    rateLimitsResult = await client.SendRequestAsync<CodexRateLimitsResult>(
+                        "account/rateLimits/read", null, runnerToken).ConfigureAwait(false);
                 },
                 _defaultTimeout,
                 cancellationToken).ConfigureAwait(false);
@@ -122,9 +140,9 @@ public sealed class CodexUsageProvider : IUsageProvider
             TimeoutException => "Codex app-server did not respond",
             EndOfStreamException => "Codex app-server closed connection unexpectedly",
             System.Text.Json.JsonException => "Codex returned an unexpected response",
+            CodexRpcException rpcEx when IsAuthError(rpcEx) => "Codex is not authenticated",
             CodexRpcException rpcEx when rpcEx.ErrorCode == -32600 => "Codex rejected the request",
             CodexRpcException rpcEx when rpcEx.ErrorCode == -32601 => "Codex method not found",
-            CodexRpcException rpcEx when IsAuthError(rpcEx) => "Codex is not authenticated",
             CodexRpcException => "Codex returned an unexpected response",
             _ => "Unable to communicate with Codex"
         };

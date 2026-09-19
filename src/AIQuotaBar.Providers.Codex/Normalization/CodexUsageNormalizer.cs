@@ -34,37 +34,29 @@ public static class CodexUsageNormalizer
 
         var windows = new List<QuotaWindow>();
 
-        // 1. Process primary and secondary from the main rateLimits snapshot (preferred v0.1 presentation)
-        var mainSnapshot = rateLimitsResult.RateLimits;
-        if (mainSnapshot != null)
+        // A populated dictionary is authoritative. It contains the per-pool view and
+        // must not be supplemented with an older aggregate snapshot.
+        if (rateLimitsResult.RateLimitsByLimitId is { Count: > 0 } byLimitId)
         {
-            if (mainSnapshot.Primary != null && mainSnapshot.Primary.UsedPercent.HasValue)
+            foreach (var entry in byLimitId.OrderBy(pair => pair.Key, StringComparer.Ordinal))
             {
-                windows.Add(CreateQuotaWindow("primary", mainSnapshot.Primary, "Primary Window"));
-            }
+                var limitId = string.IsNullOrWhiteSpace(entry.Key) ? "limit" : entry.Key.Trim();
+                var snapshot = entry.Value;
+                if (snapshot is null)
+                {
+                    continue;
+                }
 
-            if (mainSnapshot.Secondary != null && mainSnapshot.Secondary.UsedPercent.HasValue)
-            {
-                windows.Add(CreateQuotaWindow("secondary", mainSnapshot.Secondary, "Secondary Window"));
+                var poolLabel = string.IsNullOrWhiteSpace(snapshot.LimitName) ? limitId : snapshot.LimitName;
+                AddWindow(windows, $"{limitId}_primary", snapshot.Primary, poolLabel, "Primary");
+                AddWindow(windows, $"{limitId}_secondary", snapshot.Secondary, poolLabel, "Secondary");
             }
         }
-
-        // 2. Fallback: If main rateLimits produced no windows, check rateLimitsByLimitId dictionary.
-        // Richer multi-bucket / model-specific quota presentation is intentionally deferred to future milestones.
-        if (windows.Count == 0 && rateLimitsResult.RateLimitsByLimitId != null)
+        else if (rateLimitsResult.RateLimits is { } mainSnapshot)
         {
-            foreach (var (limitId, snapshot) in rateLimitsResult.RateLimitsByLimitId)
-            {
-                if (snapshot.Primary != null && snapshot.Primary.UsedPercent.HasValue)
-                {
-                    windows.Add(CreateQuotaWindow($"{limitId}_primary", snapshot.Primary, $"{limitId} Primary"));
-                }
-
-                if (snapshot.Secondary != null && snapshot.Secondary.UsedPercent.HasValue)
-                {
-                    windows.Add(CreateQuotaWindow($"{limitId}_secondary", snapshot.Secondary, $"{limitId} Secondary"));
-                }
-            }
+            // Legacy responses have only one pool, so retain the stable historic IDs.
+            AddWindow(windows, "primary", mainSnapshot.Primary, null, "Primary Window");
+            AddWindow(windows, "secondary", mainSnapshot.Secondary, null, "Secondary Window");
         }
 
         // 3. Determine status
@@ -80,14 +72,36 @@ public static class CodexUsageNormalizer
             windows: windows);
     }
 
+    private static void AddWindow(
+        List<QuotaWindow> windows,
+        string id,
+        CodexRateLimitWindow? window,
+        string? limitName,
+        string roleLabel)
+    {
+        if (window != null)
+        {
+            if (!window.UsedPercent.HasValue)
+            {
+                return;
+            }
+
+            windows.Add(CreateQuotaWindow(id, window, limitName, roleLabel));
+        }
+    }
+
     private static QuotaWindow CreateQuotaWindow(
         string id,
         CodexRateLimitWindow window,
-        string defaultLabel)
+        string? limitName,
+        string roleLabel)
     {
-        var rawUsedPercent = window.UsedPercent ?? 0;
+        var rawUsedPercent = Math.Clamp(window.UsedPercent!.Value, 0, 100);
         var duration = DurationFormatter.ToTimeSpan(window.WindowDurationMins);
-        var displayName = DurationFormatter.FormatWindowName(window.WindowDurationMins, defaultLabel);
+        var durationLabel = DurationFormatter.FormatWindowName(window.WindowDurationMins, roleLabel);
+        var displayName = string.IsNullOrWhiteSpace(limitName)
+            ? durationLabel
+            : $"{limitName.Trim()} · {durationLabel}";
         
         DateTimeOffset? resetsAt = null;
         if (window.ResetsAt.HasValue && window.ResetsAt.Value > 0)
@@ -102,7 +116,7 @@ public static class CodexUsageNormalizer
             }
         }
 
-        var status = rawUsedPercent >= 100 
+        var status = rawUsedPercent >= 100
             ? QuotaWindowStatus.Exhausted 
             : QuotaWindowStatus.Active;
 

@@ -968,7 +968,8 @@ public partial class WidgetWindow : Window
     {
         if (DockedMenuButton.ContextMenu != null)
         {
-            DockedMenuButton.ContextMenu.PlacementTarget = DockedMenuButton;
+            DockedMenuButton.ContextMenu.PlacementTarget = sender as UIElement ?? DockedMenuButton;
+            DockedMenuButton.ContextMenu.DataContext = DataContext;
             DockedMenuButton.ContextMenu.Placement = PlacementMode.Bottom;
             DockedMenuButton.ContextMenu.IsOpen = true;
         }

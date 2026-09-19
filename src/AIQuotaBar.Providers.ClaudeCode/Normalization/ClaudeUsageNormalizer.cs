@@ -24,15 +24,27 @@ public static partial class ClaudeUsageNormalizer
     [GeneratedRegex(@"(?:remaining|left)\s*[:=]\s*(\d+(?:\.\d+)?)\s*%", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex RemainingColonPercentRegex();
 
-    [GeneratedRegex(@"resets?\s+(?:in\s+)?([0-9]+\s*(?:h|hr|hours?|m|min|minutes?|d|days?)(?:\s+[0-9]+\s*(?:m|min|minutes?))?)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [GeneratedRegex(@"resets?\s+(?:in\s+)?((?:[0-9]+\s*(?:weeks?|days?|hours?|minutes?|seconds?|hr|min|sec|w|d|h|m|s)(?=\s|$|\d|[),])\s*)+)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex RelativeResetRegex();
 
-    [GeneratedRegex(@"resets?\s+(?:at\s+)?([0-9]{1,2}:[0-9]{2}(?:\s*[ap]m)?)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [GeneratedRegex(@"resets?\s+(?:at\s+)?([0-9]{1,2}:[0-9]{2}(?:\s*[ap]m)?)(?:\s+\(?((?:UTC|GMT)?[+-][0-9]{2}:?[0-9]{2}|[A-Za-z_]+(?:/[A-Za-z_]+)*))?", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex AbsoluteTimeResetRegex();
 
-    public static ProviderSnapshot Normalize(string? rawOutput, string? plan = null, DateTimeOffset? now = null)
+    public static ProviderSnapshot Normalize(
+        string? rawOutput,
+        string? plan = null,
+        DateTimeOffset? now = null,
+        TimeZoneInfo? timeZone = null)
     {
-        var currentWallClock = now ?? DateTimeOffset.UtcNow;
+        // An explicit instant is commonly supplied by deterministic callers. If
+        // no zone is supplied, preserve that instant's offset; live calls use the
+        // machine's local wall clock.
+        var zone = timeZone ?? (now.HasValue
+            ? TimeZoneInfo.CreateCustomTimeZone("ExplicitOffset", now.Value.Offset, "Explicit offset", "Explicit offset")
+            : TimeZoneInfo.Local);
+        var currentWallClock = now.HasValue
+            ? TimeZoneInfo.ConvertTime(now.Value, zone)
+            : TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
 
         if (string.IsNullOrWhiteSpace(rawOutput))
         {
@@ -62,8 +74,9 @@ public static partial class ClaudeUsageNormalizer
         var lines = cleaned.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var windows = new List<QuotaWindow>();
 
-        foreach (var line in lines)
+        for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
         {
+            var line = lines[lineIndex];
             var rawUsedPercent = ParseExplicitUsedPercent(line);
             if (!rawUsedPercent.HasValue)
             {
@@ -109,7 +122,19 @@ public static partial class ClaudeUsageNormalizer
                 continue;
             }
 
-            var resetsAt = ParseResetTime(line, currentWallClock);
+            // Some Claude versions put the reset on the following line. Associate
+            // only adjacent reset text with this quota row.
+            var resetContext = line;
+            if (!HasResetText(resetContext) && lineIndex + 1 < lines.Length && HasResetText(lines[lineIndex + 1]))
+            {
+                var nextLineHasQuota = ParseExplicitUsedPercent(lines[lineIndex + 1]).HasValue;
+                if (!nextLineHasQuota)
+                {
+                    resetContext = lines[lineIndex + 1];
+                }
+            }
+
+            var resetsAt = ParseResetTime(resetContext, currentWallClock, zone);
             var status = usedVal >= 100.0 ? QuotaWindowStatus.Exhausted : QuotaWindowStatus.Active;
 
             windows.Add(new QuotaWindow(
@@ -183,60 +208,100 @@ public static partial class ClaudeUsageNormalizer
         return null;
     }
 
-    private static DateTimeOffset? ParseResetTime(string line, DateTimeOffset now)
+    private static bool HasResetText(string line) => line.Contains("reset", StringComparison.OrdinalIgnoreCase);
+
+    private static DateTimeOffset? ParseResetTime(string line, DateTimeOffset now, TimeZoneInfo zone)
     {
         var relMatch = RelativeResetRegex().Match(line);
         if (relMatch.Success)
         {
             var relText = relMatch.Groups[1].Value.ToLowerInvariant();
-            var days = 0;
-            var hours = 0;
-            var minutes = 0;
-
-            var dMatch = Regex.Match(relText, @"(\d+)\s*(?:d|days?)");
-            if (dMatch.Success && int.TryParse(dMatch.Groups[1].Value, out var d))
+            var duration = TimeSpan.Zero;
+            foreach (Match component in Regex.Matches(relText, @"(\d+)\s*(weeks?|days?|hours?|minutes?|seconds?|hr|min|sec|w|d|h|m|s)(?=\s|$|\d|[),])", RegexOptions.IgnoreCase))
             {
-                days = d;
+                if (!long.TryParse(component.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var value))
+                {
+                    return null;
+                }
+
+                var unit = component.Groups[2].Value.ToLowerInvariant();
+                try
+                {
+                    duration += unit.StartsWith("w", StringComparison.Ordinal) ? TimeSpan.FromDays(checked(value * 7)) :
+                        unit.StartsWith("d", StringComparison.Ordinal) ? TimeSpan.FromDays(value) :
+                        unit.StartsWith("h", StringComparison.Ordinal) ? TimeSpan.FromHours(value) :
+                        unit.StartsWith("s", StringComparison.Ordinal) ? TimeSpan.FromSeconds(value) :
+                        TimeSpan.FromMinutes(value);
+                }
+                catch (OverflowException)
+                {
+                    return null;
+                }
             }
 
-            var hMatch = Regex.Match(relText, @"(\d+)\s*(?:h|hr|hours?)");
-            if (hMatch.Success && int.TryParse(hMatch.Groups[1].Value, out var h))
-            {
-                hours = h;
-            }
-
-            var mMatch = Regex.Match(relText, @"(\d+)\s*(?:m|min|minutes?)");
-            if (mMatch.Success && int.TryParse(mMatch.Groups[1].Value, out var m))
-            {
-                minutes = m;
-            }
-
-            if (days > 0 || hours > 0 || minutes > 0)
-            {
-                return now.AddDays(days).AddHours(hours).AddMinutes(minutes);
-            }
+            if (duration > TimeSpan.Zero)
+                try
+                {
+                    return now.Add(duration);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    return null;
+                }
         }
 
         var absMatch = AbsoluteTimeResetRegex().Match(line);
         if (absMatch.Success)
         {
             var timeText = absMatch.Groups[1].Value;
+            var suffix = absMatch.Groups[2].Value;
+            if (suffix.Length > 3 && (suffix.StartsWith("UTC", StringComparison.OrdinalIgnoreCase) || suffix.StartsWith("GMT", StringComparison.OrdinalIgnoreCase)))
+                suffix = suffix[3..];
+            var effectiveZone = zone;
+            if (!string.IsNullOrWhiteSpace(suffix))
+            {
+                if (suffix.Equals("UTC", StringComparison.OrdinalIgnoreCase) || suffix.Equals("GMT", StringComparison.OrdinalIgnoreCase))
+                {
+                    effectiveZone = TimeZoneInfo.Utc;
+                }
+                else if (suffix.StartsWith("+", StringComparison.Ordinal) || suffix.StartsWith("-", StringComparison.Ordinal))
+                {
+                    var sign = suffix[0] == '-' ? -1 : 1;
+                    var offsetText = suffix[1..].Replace(":", string.Empty, StringComparison.Ordinal);
+                    if (!int.TryParse(offsetText[..2], NumberStyles.None, CultureInfo.InvariantCulture, out var offsetHours) ||
+                        !int.TryParse(offsetText[2..], NumberStyles.None, CultureInfo.InvariantCulture, out var offsetMinutes) ||
+                        offsetHours > 14 || offsetMinutes > 59 || (offsetHours == 14 && offsetMinutes != 0))
+                    {
+                        return null;
+                    }
+                    var offset = new TimeSpan(sign * offsetHours, sign * offsetMinutes, 0);
+                    effectiveZone = TimeZoneInfo.CreateCustomTimeZone("OutputOffset", offset, "Output offset", "Output offset");
+                }
+                else
+                {
+                    try { effectiveZone = TimeZoneInfo.FindSystemTimeZoneById(suffix); }
+                    catch (TimeZoneNotFoundException) { return null; }
+                    catch (InvalidTimeZoneException) { return null; }
+                }
+            }
             if (TimeOnly.TryParse(timeText, CultureInfo.InvariantCulture, DateTimeStyles.None, out var timeOnly))
             {
-                var candidate = new DateTimeOffset(now.Year, now.Month, now.Day, timeOnly.Hour, timeOnly.Minute, 0, now.Offset);
-                if (candidate <= now)
+                var effectiveNow = TimeZoneInfo.ConvertTime(now, effectiveZone);
+                var localDateTime = new DateTime(effectiveNow.Year, effectiveNow.Month, effectiveNow.Day, timeOnly.Hour, timeOnly.Minute, 0, DateTimeKind.Unspecified);
+                if (effectiveZone.IsInvalidTime(localDateTime) || effectiveZone.IsAmbiguousTime(localDateTime))
                 {
-                    candidate = candidate.AddDays(1);
+                    return null;
                 }
-                return candidate;
-            }
 
-            if (DateTime.TryParse(timeText, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var dt))
-            {
-                var candidate = new DateTimeOffset(dt);
-                if (candidate <= now)
+                var candidate = new DateTimeOffset(localDateTime, effectiveZone.GetUtcOffset(localDateTime));
+                if (candidate <= effectiveNow)
                 {
-                    candidate = candidate.AddDays(1);
+                    localDateTime = localDateTime.AddDays(1);
+                    if (effectiveZone.IsInvalidTime(localDateTime) || effectiveZone.IsAmbiguousTime(localDateTime))
+                    {
+                        return null;
+                    }
+                    candidate = new DateTimeOffset(localDateTime, effectiveZone.GetUtcOffset(localDateTime));
                 }
                 return candidate;
             }

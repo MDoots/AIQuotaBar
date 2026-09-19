@@ -14,10 +14,10 @@
 
 ## Key Features
 
-* **Five-Provider Monitoring:** Track quotas across OpenAI Codex, Google Antigravity, Claude Code, Grok Build, and GitHub Copilot in a single, unified widget.
+* **Five Provider Integrations:** Monitor available quota and setup status for OpenAI Codex, Google Antigravity, Claude Code, Grok Build, and GitHub Copilot. Claude Code currently provides authentication status only.
 * **Local-First & Private:** Direct local inter-process communication (IPC) with official installed tools. No telemetry, no analytics, and no remote server backend.
 * **Provider-Owned Authentication:** Never asks for or stores API keys, tokens, or passwords. Authentication remains 100% managed by each provider's official CLI or application.
-* **Plan-Agnostic Quota Display:** Displays finite quotas whether using Free, trial, promotional, or paid subscription tiers where exposed by the provider.
+* **Plan-Agnostic Quota Display:** Displays finite quotas where a provider exposes them; account tier and provider capability determine what can be shown.
 * **Adaptive & Resizable Floating Widget:** Responsive width adjustment with both Expanded and Compact layout modes.
 * **Soft Docked Mode:** Dock the bar smoothly to the Top or Bottom of your screen with optional auto-hide and horizontal alignment controls.
 * **Provider & Quota-Row Visibility:** Customize which providers and individual quota windows appear in the widget.
@@ -25,6 +25,8 @@
 * **Low Quota Notifications:** Desktop alerts when quotas drop below warning or exhaustion thresholds, with automatic baseline re-arming.
 * **Windows Sleep/Resume Recovery:** Automatically coordinates recovery refreshes when waking your PC from sleep.
 * **Last-Known-Good Resilience:** Preserves valid quota data during transient refresh timeouts or communication glitches with subtle status indicators.
+* **Clear Rescan Feedback:** Settings shows provider-scan progress and a persistent completion result, including when nothing changed.
+* **DPI-Aware Windows UI:** Declares per-monitor DPI awareness for Windows scaling support.
 * **Zero Runtime Dependencies:** Packaged as a self-contained, single-file Windows x64 executable requiring no separate .NET installation.
 
 ---
@@ -35,9 +37,9 @@ AIQuotaBar communicates directly with official locally installed developer tools
 
 | Provider | Status | Integration Mechanism |
 | :--- | :--- | :--- |
-| **OpenAI Codex** | Supported | Official local Codex app-server via local stdio JSON-RPC (`codex app-server --stdio`). |
+| **OpenAI Codex** | Supported when the app-server responds | Official local Codex app-server via local stdio JSON-RPC (`codex app-server`). |
 | **Google Antigravity** | Supported | Official `agy` CLI using structured usage output (`agy -p "/usage" --output-format json`). |
-| **Claude Code** | Supported | Official native Claude Code CLI (`claude auth status --json` and local `/usage` surface). |
+| **Claude Code** | Authentication status supported; quota currently unavailable | Official Claude Code CLI authentication status (`claude auth status --json`). Open Claude Code's own usage view for quota details; AIQuotaBar does not capture an interactive usage session. |
 | **Grok Build** | Supported | Official local Grok Build ACP stdio server (`grok --no-auto-update agent stdio`) via provider-owned `x.ai/billing` (with fallback). |
 | **GitHub Copilot** | Supported | Official `GitHub.Copilot.SDK` connected to local `copilot.exe` using account quota RPC (`account.getQuota`). No model session created. |
 
@@ -60,14 +62,16 @@ AIQuotaBar is **plan-agnostic**. It does not require a paid tier itself. Where a
 ### Provider Requirements
 * **OpenAI Codex:** Requires the official Codex CLI installed and authenticated. AIQuotaBar launches a short-lived local child process connecting over stdio.
 * **Google Antigravity:** Requires the official Antigravity CLI (`agy`) installed and authenticated (standalone Antigravity desktop app is not supported).
-* **Claude Code:** Requires the official Claude Code CLI installed and authenticated with an active Claude Code entitlement (Claude Desktop alone is not supported).
-* **Grok Build:** Requires the official Grok CLI (`grok`) installed and authenticated (browser-only Grok accounts are not supported).
+* **Claude Code:** Requires the official Claude Code CLI installed and authenticated with an active Claude Code entitlement (Claude Desktop alone is not supported). AIQuotaBar reports official authentication status; quota details remain in Claude Code's own usage view until a supported non-interactive quota interface is available.
+* **Grok Build:** Requires the official Grok CLI (`grok`) installed and authenticated (browser-only Grok accounts are not supported). Quota windows appear only when the official local interface exposes finite values.
 * **GitHub Copilot:** Requires GitHub Copilot CLI (`copilot.exe`) installed and authenticated with an active Copilot entitlement (VS Code extension alone is not supported).
 
 > [!NOTE]
 > **Independent Local Execution:** The normal provider application, editor window, or terminal session does **not** need to stay open. AIQuotaBar launches isolated, short-lived query processes against installed CLIs.
 >
 > On a clean machine without developer tools installed, AIQuotaBar displays a clean onboarding view (**"No supported providers detected"**) with quick access to Settings where you can view setup guidance for all five supported providers.
+>
+> Provider CLIs own their authentication and may contact their respective services. AIQuotaBar's own process is local-only; it does not guarantee that every provider, account tier, or billing model exposes a finite quota.
 
 ---
 
@@ -82,7 +86,7 @@ AIQuotaBar is **plan-agnostic**. It does not require a paid tier itself. Where a
 > AIQuotaBar requires no installer or administrator privileges. Settings and preferences are automatically saved to `%LOCALAPPDATA%\AIQuotaBar\settings.json`.
 
 ### Microsoft Store
-AIQuotaBar is packaged for the Microsoft Store. The v1.0 release is pending certification.
+AIQuotaBar is packaged for the Microsoft Store. Version 1.0.4 is the resubmission build; Store certification is pending. The [release acceptance record](docs/release-acceptance-1.0.4.md) describes the completed checks and remaining limitations.
 
 ---
 
@@ -150,7 +154,7 @@ For full details, please review our comprehensive [Privacy Policy](PRIVACY.md).
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\scripts\build-portable.ps1
    ```
-   The self-contained binary will be generated at `artifacts/portable/win-x64/AIQuotaBar.exe`.
+   The self-contained binary will be generated at `artifacts/portable/win-x64/AIQuotaBar.exe`. Record the hash of the exact frozen artifact before distribution.
 
 ---
 

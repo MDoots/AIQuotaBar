@@ -2,6 +2,10 @@
   "solution": {
     "path": "AIQuotaBar.slnx",
     "projects": [
+      "tools/AIQuotaBar.LayoutProbe/AIQuotaBar.LayoutProbe.csproj",
+      "tools/AIQuotaBar.ProviderProbe/AIQuotaBar.ProviderProbe.csproj",
+      "tests/AIQuotaBar.Process.Tests/AIQuotaBar.Process.Tests.csproj",
+      "tests/AIQuotaBar.ProcessFixture/AIQuotaBar.ProcessFixture.csproj",
       "src/AIQuotaBar.App/AIQuotaBar.App.csproj",
       "src/AIQuotaBar.Core/AIQuotaBar.Core.csproj",
       "src/AIQuotaBar.Providers.Antigravity/AIQuotaBar.Providers.Antigravity.csproj",

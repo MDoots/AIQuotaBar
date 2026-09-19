@@ -4,6 +4,15 @@ using System.Text.Json.Serialization;
 
 public sealed class AntigravityCliResponse
 {
+    [JsonPropertyName("num_turns")]
+    public int? NumTurns { get; set; }
+
+    [JsonPropertyName("total_tokens")]
+    public long? TotalTokens { get; set; }
+
+    [JsonPropertyName("usage")]
+    public AntigravityTokenUsage? Usage { get; set; }
+
     [JsonPropertyName("conversation_id")]
     public string? ConversationId { get; set; }
 
@@ -18,6 +27,12 @@ public sealed class AntigravityCliResponse
 
     [JsonPropertyName("command")]
     public AntigravityCommand? Command { get; set; }
+}
+
+public sealed class AntigravityTokenUsage
+{
+    [JsonPropertyName("total_tokens")]
+    public long? TotalTokens { get; set; }
 }
 
 public sealed class AntigravityCommand

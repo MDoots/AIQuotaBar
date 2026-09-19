@@ -5,6 +5,16 @@ using Xunit;
 
 public class QuotaLabelFormatterTests
 {
+    [Fact]
+    public void CodexNamedPoolsKeepTheirIdentityWhenDurationsMatch()
+    {
+        var main = QuotaLabelFormatter.GetCandidateLabels("codex · Weekly", "codex", "codex_primary");
+        var spark = QuotaLabelFormatter.GetCandidateLabels("GPT-5.3-Codex-Spark · Weekly", "codex", "codex_bengalfox_primary");
+        Assert.Contains("codex", main[0]);
+        Assert.Contains("Spark", spark[0]);
+        Assert.NotEqual(main[^1], spark[^1]);
+    }
+
     [Theory]
     [InlineData("Gemini · 5-Hour", WidgetLayoutMode.Full, "Gemini · 5-Hour")]
     [InlineData("Gemini · 5-Hour", WidgetLayoutMode.Compact, "Gemini · 5h")]

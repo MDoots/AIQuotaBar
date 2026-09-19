@@ -204,6 +204,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(ShowAppTitle));
                 OnPropertyChanged(nameof(ShowModeToggle));
                 OnPropertyChanged(nameof(ShowSettingsButton));
+                OnPropertyChanged(nameof(ShowOverflowMenu));
                 OnPropertyChanged(nameof(MainCardMargin));
                 foreach (var provider in Providers)
                 {
@@ -217,6 +218,7 @@ public sealed class WidgetViewModel : ViewModelBase, IDisposable
     public bool ShowAppTitle => LayoutMode != WidgetLayoutMode.Micro;
     public bool ShowModeToggle => LayoutMode != WidgetLayoutMode.Micro;
     public bool ShowSettingsButton => LayoutMode is WidgetLayoutMode.Full or WidgetLayoutMode.Compact;
+    public bool ShowOverflowMenu => !ShowSettingsButton;
     public Thickness MainCardMargin => LayoutMode == WidgetLayoutMode.Micro ? new Thickness(6, 6, 6, 6) : new Thickness(10, 8, 10, 8);
 
     public bool ShowFooter => !IsCompactMode && LayoutMode != WidgetLayoutMode.Micro;

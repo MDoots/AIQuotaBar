@@ -17,6 +17,12 @@
 
 .PARAMETER NoLogo
     Whether to suppress standard banner.
+
+.PARAMETER OutputDirectory
+    Optional isolated output directory beneath the repository artifacts directory.
+
+.PARAMETER NoRestore
+    Use previously restored dependencies, for example after an offline restore.
 #>
 
 [CmdletBinding()]
@@ -24,7 +30,9 @@ param (
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
     [bool]$Clean = $true,
-    [switch]$NoLogo
+    [switch]$NoLogo,
+    [string]$OutputDirectory,
+    [switch]$NoRestore
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,7 +40,18 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Resolve-Path "$scriptDir\..").Path
 $projectPath = Join-Path $repoRoot "src\AIQuotaBar.App\AIQuotaBar.App.csproj"
-$outputDir = Join-Path $repoRoot "artifacts\portable\$Runtime"
+$outputDir = if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    Join-Path $repoRoot "artifacts\portable\$Runtime"
+} elseif ([IO.Path]::IsPathRooted($OutputDirectory)) {
+    $OutputDirectory
+} else {
+    Join-Path $repoRoot $OutputDirectory
+}
+$outputDir = [IO.Path]::GetFullPath($outputDir)
+$artifactRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts')) + [IO.Path]::DirectorySeparatorChar
+if (-not $outputDir.StartsWith($artifactRoot, [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Portable output must be a subdirectory of the repository artifacts directory.'
+}
 
 if (-not $NoLogo) {
     Write-Host "========================================================" -ForegroundColor Cyan
@@ -47,7 +66,7 @@ if (-not (Test-Path $projectPath)) {
 # 1. Clean stale artifacts if requested
 if ($Clean -and (Test-Path $outputDir)) {
     Write-Host "Cleaning output directory: $outputDir" -ForegroundColor Yellow
-    Remove-Item -Path $outputDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $outputDir -Recurse -Force
 }
 
 # 2. Ensure output directory exists
@@ -58,7 +77,10 @@ if (-not (Test-Path $outputDir)) {
 Write-Host "Publishing AIQuotaBar [$Configuration, $Runtime, Self-Contained, Single-File]..." -ForegroundColor Green
 
 # 3. Execute dotnet publish
+[string[]]$restoreArgs = @()
+if ($NoRestore) { $restoreArgs += '--no-restore' }
 & dotnet publish $projectPath `
+    @restoreArgs `
     -c $Configuration `
     -r $Runtime `
     --self-contained true `

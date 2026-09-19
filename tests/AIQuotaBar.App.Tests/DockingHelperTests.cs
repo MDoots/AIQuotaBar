@@ -227,6 +227,27 @@ public class DockingHelperTests
     }
 
     [Theory]
+    [InlineData(0.0, 1920.0, 0.0)]
+    [InlineData(160.0, 1920.0, 160.0)]
+    [InlineData(400.0, 1920.0, 400.0)]
+    [InlineData(400.0, 300.0, 280.0)]
+    public void CalculateDockedOuterWidth_DefaultIsContentSized(double desiredContentWidth, double workAreaWidth, double expected)
+    {
+        var width = DockingHelper.CalculateDockedOuterWidth(desiredContentWidth, workAreaWidth);
+
+        Assert.Equal(expected, width);
+        Assert.True(width <= workAreaWidth);
+    }
+
+    [Fact]
+    public void CalculateDockedOuterWidth_ExplicitMinimumRemainsAvailableForMeasuredChrome()
+    {
+        var width = DockingHelper.CalculateDockedOuterWidth(0.0, 1920.0, minDockedWidthDip: 48.0, safeInsetDip: 0.0);
+
+        Assert.Equal(48.0, width);
+    }
+
+    [Theory]
     [InlineData(0.0, 0)]      // Left-most: X = 0
     [InlineData(0.5, 480)]    // Centre: X = (1920 - 960) / 2 = 480
     [InlineData(1.0, 960)]    // Right-most: X = 1920 - 960 = 960

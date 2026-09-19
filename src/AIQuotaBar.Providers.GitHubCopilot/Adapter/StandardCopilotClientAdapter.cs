@@ -6,6 +6,8 @@ using GitHub.Copilot.Rpc;
 
 public sealed class StandardCopilotClientAdapter : ICopilotClientAdapter
 {
+    private string? _accountFingerprint;
+    public string? AccountScope { get; private set; }
     public async Task<CopilotFetchResult> FetchQuotasAsync(
         string executablePath,
         TimeSpan timeout,
@@ -35,10 +37,9 @@ public sealed class StandardCopilotClientAdapter : ICopilotClientAdapter
 
         using var client = new CopilotClient(options);
 
-        await client.StartAsync(cts.Token).ConfigureAwait(false);
-
         try
         {
+            await client.StartAsync(cts.Token).ConfigureAwait(false);
             var authStatus = await client.GetAuthStatusAsync(cts.Token).ConfigureAwait(false);
             var currentAuth = await client.Rpc.Account.GetCurrentAuthAsync(cts.Token).ConfigureAwait(false);
 
@@ -92,6 +93,17 @@ public sealed class StandardCopilotClientAdapter : ICopilotClientAdapter
                 Plan = plan,
                 AccessTypeSku = accessTypeSku
             };
+
+            if (!string.IsNullOrWhiteSpace(login))
+            {
+                var fingerprint = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(login)));
+                if (!string.Equals(fingerprint, _accountFingerprint, StringComparison.Ordinal))
+                {
+                    _accountFingerprint = fingerprint;
+                    AccountScope = Guid.NewGuid().ToString("N");
+                }
+            }
 
             var quotaSnapshots = await client.Rpc.Account.GetQuotaAsync(cancellationToken: cts.Token).ConfigureAwait(false);
 

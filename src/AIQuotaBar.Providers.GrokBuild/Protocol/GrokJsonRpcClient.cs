@@ -9,10 +9,12 @@ public class GrokRpcException : Exception
     public string? ErrorMessage { get; }
 
     public GrokRpcException(int errorCode, string? errorMessage)
-        : base($"Grok RPC error {errorCode}: {errorMessage ?? "Unknown error"}")
+        : base($"Grok RPC error {errorCode}")
     {
         ErrorCode = errorCode;
-        ErrorMessage = errorMessage;
+        ErrorMessage = errorMessage?.Contains("auth", StringComparison.OrdinalIgnoreCase) == true ||
+            errorMessage?.Contains("login", StringComparison.OrdinalIgnoreCase) == true
+            ? "Authentication required" : "Provider request failed";
     }
 }
 
@@ -62,7 +64,8 @@ public sealed class GrokJsonRpcClient
     {
         var authParams = new
         {
-            methodId = methodId
+            methodId = methodId,
+            _meta = new { headless = true }
         };
 
         try
@@ -71,7 +74,7 @@ public sealed class GrokJsonRpcClient
         }
         catch (GrokRpcException rpcEx) when (rpcEx.ErrorCode == -32602 || rpcEx.ErrorMessage?.Contains("auth", StringComparison.OrdinalIgnoreCase) == true)
         {
-            throw new GrokAuthException("Grok authentication failed: " + rpcEx.ErrorMessage);
+            throw new GrokAuthException("Grok authentication failed");
         }
     }
 
