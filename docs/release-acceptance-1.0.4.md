@@ -46,4 +46,10 @@ The earlier WACK run (10.0.28000.2705) reported **WARNING**, not PASS: twelve re
 
 ## Release gate
 
-The host and VM results support resubmission for the reported Codex/rescan functionality failure. Retain the full WACK WARNING report with its diagnostic rather than representing it as PASS. A release-workflow rebuild still needs a downloaded-asset checksum and launch check. Do not claim a complete manual DPI, multi-monitor, sleep/resume, or five-cycle tray matrix until separately recorded for the rebuilt candidate. No Store certification outcome is implied by local acceptance.
+The host and VM results support resubmission for the reported Codex/rescan functionality failure. Retain the full WACK WARNING report with its diagnostic rather than representing it as PASS. Do not claim a complete manual DPI, multi-monitor, sleep/resume, or five-cycle tray matrix until separately recorded for the rebuilt candidate. No Store certification outcome is implied by local acceptance.
+
+## Publication and submission
+
+GitHub release [v1.0.4](https://github.com/MDoots/AIQuotaBar/releases/tag/v1.0.4) was published from commit `8a32f3d82e25c1a7ab646943fc122318e90a8028`; CI and the release workflow succeeded. The downloaded ZIP checksum matched both its published checksum file and GitHub asset digest: `E0B29078684AC037A6D17D98F23AAF570307F5BD555BB0E3FF51709E4570BB89`. Its executable reported version 1.0.4.0 and remained running and responsive during a host launch check. This workflow rebuild has different bytes from the frozen local candidate above.
+
+On 19 September 2026, Partner Center validated the frozen 1.0.4.0 upload and accepted the resubmission for product `9NTTSH588BQ9`. The listing, capability explanation and reviewer notes were updated. The dashboard showed **In certification**, with pre-processing in progress and automatic publication selected after certification succeeds. Microsoft approval remains pending.
