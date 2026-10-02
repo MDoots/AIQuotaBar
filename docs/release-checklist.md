@@ -2,7 +2,7 @@
 
 This document details the repeatable end-to-end verification and quality checklist for approving, packaging, and publishing releases of **AIQuotaBar** across GitHub Releases and the Microsoft Store.
 
-For the current candidate's completed checks, exact hashes and remaining limitations, see [1.0.4 acceptance](release-acceptance-1.0.4.md). This checklist remains a reusable verification template.
+For the current candidate's completed checks, exact hashes and remaining limitations, see [1.0.5 release record](release-acceptance-1.0.5.md). This checklist remains a reusable verification template.
 
 ---
 

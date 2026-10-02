@@ -1,6 +1,6 @@
 # AIQuotaBar 1.0.5 release and Store submission
 
-Release date: 2 October 2026. The user approved the functional update and explicitly authorized commit, push, GitHub publication and Microsoft Store submission. Publication and submission are in progress; Microsoft certification is a separate decision.
+Release date: 2 October 2026. The user approved the functional update and explicitly authorized commit, push, GitHub publication and Microsoft Store submission. GitHub v1.0.5 is published. Store submission preparation is in progress; Microsoft certification is a separate decision.
 
 ## Version and product
 
@@ -24,14 +24,17 @@ The original alpha.16 folder writer remains unknown. Enabled global plugins can 
 
 The accepted pre-commit portable candidate is artifacts/candidates/2026-10-02-codex-functional/portable/AIQuotaBar.exe, SHA-256 ACB64DC306BABDE2F5DE4E1485B929A27225471AD9B973291795325454025B81. It was built from the recorded working tree based on 82f0191, so its informational commit suffix is not the subsequent release commit.
 
-GitHub workflow artifacts and the new Store payload will have their own recorded hashes. Do not substitute the preserved paused 1.0.5 Store upload. Fresh StoreUpload rebuild and nested-payload identity/version validation are required before submission. Installed-package and WACK results must be recorded for the new bytes; the previous 1.0.4 WACK WARNING does not establish a 1.0.5 result.
+GitHub workflow artifacts and the new Store payload have separately recorded hashes below. Do not substitute the preserved paused 1.0.5 Store upload. Fresh StoreUpload rebuild and nested-payload identity/version validation are required before submission. Installed-package and WACK results must be recorded for the new bytes; the previous 1.0.4 WACK WARNING does not establish a 1.0.5 result.
 
-## Remaining results
+## Publication results
 
-- Commit/push and GitHub release: in progress.
-- Fresh Store upload and payload validation: in progress.
-- Current-package installed/WACK validation: pending.
-- Store listing/reviewer notes and submission: in progress.
-- Microsoft certification: not yet submitted or approved.
+- Source commit d22d011ebe09b4b9b67704805c48af146d5a5586 was pushed and merged through [PR #11](https://github.com/MDoots/AIQuotaBar/pull/11). The repository requires squash merges; the resulting main/tag revision is d4dde6e0f5896f7e126c19bb0bd08ae2652eea54. Its source tree is identical to the tested branch.
+- [PR CI](https://github.com/MDoots/AIQuotaBar/actions/runs/36999111769) passed on one failed-job retry. The first run failed an existing Grok cancellation elapsed-time assertion under hosted-runner load; no production code or timeouts were changed. The packaging job's SDK-dependent build was skipped, so local packaging validation supplies that evidence.
+- [Release workflow](https://github.com/MDoots/AIQuotaBar/actions/runs/37000333393) passed build, tests and publication. [GitHub v1.0.5](https://github.com/MDoots/AIQuotaBar/releases/tag/v1.0.5) contains the versioned ZIP and checksum, with final functional release notes.
+- Downloaded archive SHA-256: 89B7D7D8940061B61623D70AD8131BA0A717CC3C9BAFECFE2B1937E5481D821A, matching the published checksum. Extracted executable SHA-256: 99DEB42454E58BA06BF164E57AC989A6DBB23B019F4884FBE98DE136E154D2F2, 213100780 bytes, file version 1.0.5.0, product version 1.0.5+d4dde6e0f5896f7e126c19bb0bd08ae2652eea54. A bounded launch smoke survived startup and was cleaned up by owned-tree termination; it is not an additional graceful-exit or UI quota test. Earlier manual acceptance applies to the separately hashed pre-commit candidate.
+- Fresh unsigned StoreUpload was rebuilt from clean d22d011 source using Visual Studio MSBuild and SDK 10.0.22621. The merge/tag has identical source. Upload: AIQuotaBar.Package_1.0.5.0_x64.msixupload, SHA-256 CEFBBED2755D6932470936589BA1D7464E59FCB8F813AD86DD9F3441D13FE40F. Nested MSIX SHA-256 B4DA0EFD39027F793AF5B028FFCDAD72906711533572214A2262F51A671E22D6. The repository validator passed actual nested identity, version, executable and startup checks. Partner Center validated and saved the 1.0.5.0 x64 replacement package.
+- New Store draft: submission 1152921505702028367 (Submission 2). English release notes now describe 1.0.5; existing product description, screenshots, pricing and availability are preserved.
+- Fresh installed-package and WACK validation could not run: the project-owned disposable Windows VM aborted after resuming an old saved guest session, and aborted again on one restart before guest preflight. Guest control returned RPC_S_CALL_FAILED/RPC_S_SERVER_UNAVAILABLE initially and "currently aborted" on the second preflight. A pre-test snapshot is preserved (9d7bc21d-c2e2-4fa0-ad50-4ab2bbcc32d3). No new package was installed on the host or guest. Current-package clean-machine, upgrade and WACK results remain unverified. The previous 1.0.4 WACK WARNING is not transferred to this package. The next local experiment requires repairing or replacing the disposable Windows validation environment.
+- Store reviewer notes disclose the functional validation and current-package installed/WACK limitation. Submission/certification status will be recorded after the portal's final submission step. Microsoft approval is not established by upload validation.
 
 No host installation over the user's existing app is included in this release work.
