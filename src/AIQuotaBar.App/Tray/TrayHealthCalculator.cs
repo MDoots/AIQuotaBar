@@ -45,6 +45,8 @@ public static class TrayHealthCalculator
 
         // Filter for valid quota values
         var validCandidates = visibleWindows
+            .Where(vw => !vw.Provider.IsQuotaStale ||
+                vw.Provider.StatusMessage?.Contains("polling paused", StringComparison.OrdinalIgnoreCase) != true)
             .Where(vw => IsValidPercentage(vw.Window.RemainingPercent))
             .ToList();
 

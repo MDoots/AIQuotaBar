@@ -10,6 +10,28 @@ using Xunit;
 public class LastKnownGoodQuotaTests
 {
     [Fact]
+    public async Task ManualRefreshWhileTimerRefreshIsPending_DoesNotOverlapOrQueueRetries()
+    {
+        var pending = new TaskCompletionSource<ProviderSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+        var provider = new StubUsageProvider
+        {
+            OnGetUsage = _ => { calls++; return pending.Task; }
+        };
+        using var vm = new ProviderSectionViewModel(provider, TimeSpan.FromMinutes(1));
+        var timerRefresh = vm.RefreshAsync();
+        await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => vm.RefreshAsync()));
+        Assert.Equal(1, calls);
+        Assert.True(vm.IsLoading);
+        pending.SetResult(new ProviderSnapshot(provider.Id, provider.DisplayName, ProviderStatus.Available,
+            windows: [new QuotaWindow("fixture", "Fixture", 20, TimeSpan.FromHours(5), null)]));
+        await timerRefresh;
+        Assert.False(vm.IsLoading);
+        Assert.Equal(1, calls);
+        Assert.Equal(80, Assert.Single(vm.AllWindows).RemainingPercent);
+    }
+
+    [Fact]
     public async Task ObservedAccountChangeInvalidatesOldQuotaEvenWhenNewReadFails()
     {
         var provider = new StubUsageProvider();
@@ -151,6 +173,28 @@ public class LastKnownGoodQuotaTests
         Assert.Single(vm.VisibleWindows);
         Assert.Equal(80.0, vm.VisibleWindows[0].RemainingPercent);
         Assert.Equal(initialTime, vm.LastSuccessfulRefreshAt);
+    }
+
+    [Fact]
+    public void PausedCodexPolling_PreservesCachedQuotaAsExplicitlyStale()
+    {
+        var stub = new StubUsageProvider();
+        var vm = new ProviderSectionViewModel(stub, TimeSpan.FromMinutes(1));
+        var observedAt = DateTimeOffset.UtcNow.AddMinutes(-2);
+        vm.ApplySnapshot(new ProviderSnapshot(
+            stub.Id, stub.DisplayName, ProviderStatus.Available,
+            timestamp: observedAt,
+            windows: new[] { new QuotaWindow("weekly", "Weekly", 20.0, TimeSpan.FromDays(7), observedAt.AddDays(4)) }));
+
+        vm.ApplySnapshot(new ProviderSnapshot(
+            stub.Id, stub.DisplayName, ProviderStatus.Error,
+            "Codex quota polling paused: this Codex version has not been verified for safe polling"));
+
+        Assert.True(vm.IsQuotaStale);
+        Assert.Single(vm.VisibleWindows);
+        Assert.Contains("polling paused", vm.StatusMessage);
+        Assert.Equal("Quota polling paused · showing last update", vm.StaleStatusText);
+        Assert.Equal(observedAt, vm.LastSuccessfulRefreshAt);
     }
 
     [Fact]

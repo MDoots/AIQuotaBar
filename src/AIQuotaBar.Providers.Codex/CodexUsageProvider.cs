@@ -10,12 +10,15 @@ public sealed class CodexUsageProvider : IUsageProvider
 {
     public const string ProviderIdentifier = "codex";
     public const string ProviderName = "OpenAI Codex";
+    public const string PausedMessage =
+        "Codex quota polling paused to prevent marketplace scratch growth. Check quota in Codex.";
 
     private readonly ICodexProcessRunner _processRunner;
     private readonly Func<string?> _executableLocator;
     private readonly TimeSpan _defaultTimeout;
     private string? _accountFingerprint;
     private string? _accountScope;
+    private string? _configurationRejectedExecutable;
 
     public string Id => ProviderIdentifier;
     public string DisplayName => ProviderName;
@@ -38,6 +41,10 @@ public sealed class CodexUsageProvider : IUsageProvider
 
     private async Task<ProviderSnapshot> FetchAsync(CancellationToken cancellationToken)
     {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return new ProviderSnapshot(Id, DisplayName, ProviderStatus.Cancelled, "Refresh cancelled by user");
+        }
         var executablePath = _executableLocator();
         if (string.IsNullOrWhiteSpace(executablePath))
         {
@@ -48,6 +55,13 @@ public sealed class CodexUsageProvider : IUsageProvider
                 statusMessage: "Codex executable not found on system");
         }
 
+        // Do not repeatedly launch a helper whose effective configuration could not
+        // verify this safeguard. A different installation or app restart can retry.
+        if (string.Equals(executablePath, _configurationRejectedExecutable, StringComparison.OrdinalIgnoreCase))
+        {
+            return new ProviderSnapshot(Id, DisplayName, ProviderStatus.Error, PausedMessage);
+        }
+
         CodexRateLimitsResult? rateLimitsResult = null;
         CodexAccountResult? accountResult = null;
 
@@ -55,14 +69,34 @@ public sealed class CodexUsageProvider : IUsageProvider
         {
             await _processRunner.RunAsync(
                 executablePath,
-                // Stdio is the documented default; avoid a version-specific alias.
-                "app-server",
+                // This override applies only to our helper. It suppresses plugin
+                // marketplace startup without changing the user's global settings.
+                "--disable plugins app-server",
                 async (session, runnerToken) =>
                 {
                     var client = new CodexJsonRpcClient(session);
 
                     // 1. Send initialize and wait for initialize response + send initialized notification
                     await client.InitializeAsync("AIQuotaBar", "0.1.0", runnerToken).ConfigureAwait(false);
+
+                    // Confirm the official app-server applied the feature override.
+                    // Inspect only this field; never retain or log configuration.
+                    try
+                    {
+                        var config = await client.SendRequestAsync<System.Text.Json.JsonElement>(
+                            "config/read", new { includeLayers = false }, runnerToken).ConfigureAwait(false);
+                        if (config.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                            !config.TryGetProperty("config", out var effective) || effective.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                            !effective.TryGetProperty("features", out var features) || features.ValueKind != System.Text.Json.JsonValueKind.Object ||
+                            !features.TryGetProperty("plugins", out var plugins) || plugins.ValueKind != System.Text.Json.JsonValueKind.False)
+                        {
+                            throw new UnsafeConfigurationException();
+                        }
+                    }
+                    catch (CodexRpcException ex) when (ex.ErrorCode == -32601)
+                    {
+                        throw new UnsafeConfigurationException();
+                    }
 
                     // Observe an account transition before a quota read can fail.
                     // Authentication remains owned by the official app-server.
@@ -84,6 +118,10 @@ public sealed class CodexUsageProvider : IUsageProvider
                             }
                         }
                     }
+                    catch (OperationCanceledException) when (runnerToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
                     catch
                     {
                         // Best-effort enrichment; rateLimits is the primary source
@@ -96,6 +134,11 @@ public sealed class CodexUsageProvider : IUsageProvider
                 cancellationToken).ConfigureAwait(false);
 
             return CodexUsageNormalizer.Normalize(rateLimitsResult, accountResult);
+        }
+        catch (UnsafeConfigurationException)
+        {
+            _configurationRejectedExecutable = executablePath;
+            return new ProviderSnapshot(Id, DisplayName, ProviderStatus.Error, PausedMessage);
         }
         catch (TimeoutException)
         {
@@ -123,6 +166,8 @@ public sealed class CodexUsageProvider : IUsageProvider
                 statusMessage: SafeErrorMessage(ex));
         }
     }
+
+    private sealed class UnsafeConfigurationException : Exception;
 
     private static bool IsAuthError(Exception ex)
     {

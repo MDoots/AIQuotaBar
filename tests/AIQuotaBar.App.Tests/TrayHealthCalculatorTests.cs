@@ -56,6 +56,38 @@ public class TrayHealthCalculatorTests
         Assert.Equal("Lowest quota: 80% — Codex 5-Hour", state.StatusMenuText);
     }
 
+    [Fact]
+    public void Calculate_ExcludesPausedStaleQuotaFromTrayHealth()
+    {
+        var codexSnapshot = new ProviderSnapshot("codex", "OpenAI Codex", ProviderStatus.Available, windows: new[]
+        {
+            new QuotaWindow("weekly", "Weekly", 99, null, null)
+        });
+        var otherSnapshot = new ProviderSnapshot("antigravity", "Google Antigravity", ProviderStatus.Available, windows: new[]
+        {
+            new QuotaWindow("weekly", "Weekly", 50, null, null)
+        });
+        var codex = new ProviderSectionViewModel(
+            new MockUsageProvider("codex", "OpenAI Codex", _ => Task.FromResult(codexSnapshot)), TimeSpan.FromMinutes(1));
+        var other = new ProviderSectionViewModel(
+            new MockUsageProvider("antigravity", "Google Antigravity", _ => Task.FromResult(otherSnapshot)), TimeSpan.FromMinutes(1));
+        codex.ApplySnapshot(codexSnapshot);
+        codex.ApplySnapshot(new ProviderSnapshot("codex", "OpenAI Codex", ProviderStatus.Error,
+            "Codex quota polling paused to prevent marketplace scratch growth."));
+        other.ApplySnapshot(otherSnapshot);
+
+        var state = TrayHealthCalculator.Calculate(new[] { codex, other });
+
+        Assert.Single(codex.VisibleWindows);
+        Assert.True(codex.IsQuotaStale);
+        Assert.Equal(50.0, state.LowestRemainingPercent);
+        Assert.Equal("Google Antigravity", state.ProviderName);
+
+        var staleOnly = TrayHealthCalculator.Calculate(new[] { codex });
+        Assert.False(staleOnly.HasVisibleQuotaData);
+        Assert.Null(staleOnly.LowestRemainingPercent);
+    }
+
     [Theory]
     [InlineData(30.0)]
     [InlineData(20.0)]

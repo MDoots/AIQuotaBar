@@ -36,7 +36,7 @@ public class CodexUsageProviderTests
 
         var snapshot = await provider.GetUsageAsync();
 
-        Assert.Equal("app-server", runner.Arguments);
+        Assert.Equal("--disable plugins app-server", runner.Arguments);
         Assert.Equal(ProviderStatus.Error, snapshot.Status);
         Assert.Empty(snapshot.Windows);
         Assert.DoesNotContain("private diagnostic", snapshot.StatusMessage);

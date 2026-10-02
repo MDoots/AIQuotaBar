@@ -37,7 +37,7 @@ AIQuotaBar communicates directly with official locally installed developer tools
 
 | Provider | Status | Integration Mechanism |
 | :--- | :--- | :--- |
-| **OpenAI Codex** | Supported when the app-server responds | Official local Codex app-server via local stdio JSON-RPC (`codex app-server`). |
+| **OpenAI Codex** | Supported with verified helper configuration | Official `codex --disable plugins app-server` stdio interface via `account/rateLimits/read`. The helper verifies its process-local plugins setting before querying quota. Normal Codex plugin settings remain unchanged. |
 | **Google Antigravity** | Supported | Official `agy` CLI using structured usage output (`agy -p "/usage" --output-format json`). |
 | **Claude Code** | Authentication status supported; quota currently unavailable | Official Claude Code CLI authentication status (`claude auth status --json`). Open Claude Code's own usage view for quota details; AIQuotaBar does not capture an interactive usage session. |
 | **Grok Build** | Supported | Official local Grok Build ACP stdio server (`grok --no-auto-update agent stdio`) via provider-owned `x.ai/billing` (with fallback). |
@@ -60,7 +60,7 @@ AIQuotaBar is **plan-agnostic**. It does not require a paid tier itself. Where a
 * **Runtime:** None required for the portable release (the executable is self-contained).
 
 ### Provider Requirements
-* **OpenAI Codex:** Requires the official Codex CLI installed and authenticated. AIQuotaBar launches a short-lived local child process connecting over stdio.
+* **OpenAI Codex:** Requires an official installed native CLI with provider-owned authentication and an app-server that verifies `config.features.plugins=false` for the quota helper. Live validation used codex-cli 0.159.2. If that safeguard cannot be verified, AIQuotaBar pauses that selected executable for the current app session and marks retained quota as stale. Other versions are not covered by this live validation; see the [corrective investigation](docs/codex-staging-corrective-investigation.md).
 * **Google Antigravity:** Requires the official Antigravity CLI (`agy`) installed and authenticated (standalone Antigravity desktop app is not supported).
 * **Claude Code:** Requires the official Claude Code CLI installed and authenticated with an active Claude Code entitlement (Claude Desktop alone is not supported). AIQuotaBar reports official authentication status; quota details remain in Claude Code's own usage view until a supported non-interactive quota interface is available.
 * **Grok Build:** Requires the official Grok CLI (`grok`) installed and authenticated (browser-only Grok accounts are not supported). Quota windows appear only when the official local interface exposes finite values.
@@ -86,7 +86,7 @@ AIQuotaBar is **plan-agnostic**. It does not require a paid tier itself. Where a
 > AIQuotaBar requires no installer or administrator privileges. Settings and preferences are automatically saved to `%LOCALAPPDATA%\AIQuotaBar\settings.json`.
 
 ### Microsoft Store
-AIQuotaBar is packaged for the Microsoft Store. Version 1.0.4 is the resubmission build; Store certification is pending. The [release acceptance record](docs/release-acceptance-1.0.4.md) describes the completed checks and remaining limitations.
+AIQuotaBar is [available in the Microsoft Store](https://apps.microsoft.com/detail/9NTTSH588BQ9). The 1.0.5 update restores live Codex quota polling with a helper configuration check. See the [release record](docs/release-acceptance-1.0.5.md) for publication and submission status, completed checks and remaining limitations.
 
 ---
 
