@@ -1,0 +1,6 @@
+{
+  "config": {
+    "features": { "plugins": false },
+    "marketplaces": { "fixture-marketplace": {} }
+  }
+}

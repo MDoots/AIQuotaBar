@@ -171,6 +171,7 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(HasStatusMessage));
                 OnPropertyChanged(nameof(ShowStatusCard));
                 OnPropertyChanged(nameof(ShouldDisplayInWidget));
+                OnPropertyChanged(nameof(StaleStatusText));
             }
         }
     }
@@ -193,7 +194,9 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
 
     public bool ShowStaleIndicator => IsQuotaStale && HasVisibleWindows;
     public bool ShowStatusCard => HasStatusMessage && !HasVisibleWindows;
-    public string StaleStatusText => Status == ProviderStatus.Timeout
+    public string StaleStatusText => StatusMessage?.Contains("polling paused", StringComparison.OrdinalIgnoreCase) == true
+        ? "Quota polling paused · showing last update"
+        : Status == ProviderStatus.Timeout
         ? "Refresh timed out · showing last update"
         : "Refresh failed · showing last update";
 
@@ -467,9 +470,11 @@ public sealed class ProviderSectionViewModel : ViewModelBase, IDisposable
                     // Transient technical failure: preserve last-known-good quota windows
                     Status = snapshot.Status;
                     IsQuotaStale = true;
-                    StatusMessage = snapshot.Status == ProviderStatus.Timeout
-                        ? "Refresh timed out · showing last update"
-                        : "Refresh failed · showing last update";
+                    StatusMessage = snapshot.StatusMessage?.Contains("polling paused", StringComparison.OrdinalIgnoreCase) == true
+                        ? snapshot.StatusMessage
+                        : snapshot.Status == ProviderStatus.Timeout
+                            ? "Refresh timed out · showing last update"
+                            : "Refresh failed · showing last update";
 
                     ApplyVisibilityFilterInternal(_lastSettings);
                 }

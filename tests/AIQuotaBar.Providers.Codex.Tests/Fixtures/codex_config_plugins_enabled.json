@@ -1,0 +1,6 @@
+{
+  "config": {
+    "features": { "plugins": true },
+    "plugins": { "fixture-plugin": { "enabled": false } }
+  }
+}

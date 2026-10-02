@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.5] - 2026-10-02
+
+### Fixed
+
+* Restore live Codex quota polling with a process-local plugins feature override and official effective-configuration verification, suppressing helper marketplace startup without changing normal Codex plugin settings.
+* Contain a selected helper whose safe configuration cannot be verified, while preserving last-known-good quota through genuine transient failures.
+
+* Clearly label compatibility-paused quota as stale and exclude it from the tray's lowest-quota summary.
+
+The earlier paused candidate was containment only and was never accepted as this functional release. Its [record](docs/codex-1.0.5-containment-record.md) and artifacts remain preserved.
+
 ## [1.0.4] - 2026-09-19
 
 ### Fixed

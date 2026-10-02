@@ -3,8 +3,8 @@
 **Product Name:** AIQuotaBar  
 **Product ID:** 9NTTSH588BQ9  
 **Publisher:** AGIFutures (CN=63F366FC-16FC-4C0B-99DF-7E5B40742F24)<br />
-**Package Version:** 1.0.4.0<br />
-**Public App Version:** 1.0.4
+**Package Version:** 1.0.5.0<br />
+**Public App Version:** 1.0.5
 
 ---
 
@@ -47,44 +47,31 @@ AIQuotaBar displays live data only from supported official developer tools insta
 
 ---
 
-## 3. Release Notes (1.0.4)
+## 3. Release Notes (1.0.5)
 
-* Settings now shows scan progress and a completion summary on every provider rescan.
-* Improved Codex launch compatibility, quota-pool handling and recovery from temporary failures.
-* Improved compact sizing, docking, scaling declarations and background process handling.
-* Clarified official CLI prerequisites and provider limitations, including Claude Code authentication-only status.
+* Restored live Codex quota monitoring with a verified helper configuration that avoids unnecessary marketplace startup work.
+* Preserved automatic/manual refresh, reset countdowns and last-known-good quota through temporary failures.
+* Normal Codex plugin settings remain unchanged. If safe helper configuration cannot be verified, Codex displays a clear compatibility-paused status.
 
 ### Restricted capability explanation
 
-AIQuotaBar is a WPF desktop widget packaged as MSIX. It requires runFullTrust for its desktop window, notification-area icon and bounded child processes that query official locally installed Codex, Antigravity, Claude Code, Grok Build and GitHub Copilot tools. Claude Code supplies authentication status only. Child processes use local redirected input/output; the official tools own authentication and any service connections. AIQuotaBar does not request administrator elevation, install services or drivers, access credential files, or collect telemetry. Provider tools are installed and authenticated separately by the user.
-
----
+AIQuotaBar is a WPF desktop widget packaged as MSIX. It requires runFullTrust for its desktop window, notification-area icon and bounded child processes that query official locally installed provider tools. Child processes use redirected local stdio; official tools own authentication and any service connections. AIQuotaBar does not request administrator elevation, install services or drivers, access credential files, or collect telemetry. Provider tools are installed and authenticated separately by the user. Diagnostic tracing tools are developer-only and are not included in this package.
 
 ## 4. Certification Notes for Microsoft App Reviewers
 
-```
-Notes for Certification (package 1.0.4.0):
+Notes for certification (package 1.0.5.0):
 
-The previous review (09/02/2026, policy 10.1.2.10) reported a Codex app-server launch error and no visible Rescan providers response. The candidate uses Codex's documented default stdio launch command and now reports scan progress plus a persistent completion result, including when provider availability is unchanged. This records the candidate change and does not assert the historical cause of the earlier error.
+This update restores Codex quota polling with a process-local plugins feature override and official effective-configuration verification. It does not change the user's normal Codex configuration, plugins or authentication. Live validation used codex-cli 0.159.2 with a signed-in profile and three configured marketplaces. Ten minute-spaced production-provider quota reads succeeded with conclusive filesystem attribution and no helper staging activity or new staging folders. A separate fresh widget and portable restart/manual-refresh/tray-exit check were observed by the user.
 
 Verification journey:
-1. On a clean Windows 11 VM with no .NET Desktop Runtime, launch the portable build and confirm the no-provider onboarding state. The exact Store package provides the same setup guidance and rescan feedback.
-2. Install and authenticate an official provider CLI using its own documentation. A detected executable is distinct from successful quota access.
-3. With official Codex CLI 0.148.0 signed out, rescan and confirm the provider shows “Sign in required” with the safe message “Codex is not authenticated”. Repeat rescans while connected and disconnected; each completes visibly.
-4. If a provider cannot provide quota, the app retains an unavailable/error state and does not invent a percentage.
+1. On Windows 11 with no supported provider CLI, launch the app and use the no-provider setup guidance in Settings. A separately installed .NET runtime is not required.
+2. Install and authenticate an official provider CLI through its own supported interface. For Codex, use a current native official CLI supporting app-server config/read and account/rateLimits/read. AIQuotaBar verifies features.plugins=false for its isolated quota helper before reading quota.
+3. Use Settings > Rescan providers. The scan shows progress and a persistent completion result. A detected CLI is distinct from supported quota access. Missing authentication, unsupported helper configuration or unavailable quota is reported explicitly; no percentage is invented.
+4. Where finite quota is exposed, check automatic and manual refresh, reset countdowns, and tray health. Temporary failures retain previous quota with a stale indicator.
+5. Exit through the tray menu, then restart. Authentication remains provider-owned; AIQuotaBar never requests or reads credentials.
 
-Antigravity clarification: AIQuotaBar integrates with the official `agy` CLI, not the separate Antigravity desktop IDE. The Setup Guide links to https://antigravity.google/docs/cli/install/; installing the desktop application alone does not install `agy`.
+Provider prerequisites: official Codex CLI; official Antigravity agy CLI (the desktop IDE alone is insufficient); official Claude Code CLI (authentication status only, with quota viewed in Claude Code); official Grok CLI; official GitHub Copilot CLI. No provider/account tier is guaranteed to expose finite quota.
 
-CLI prerequisites:
-- OpenAI Codex: official Codex CLI (https://developers.openai.com/codex/cli/).
-- Google Antigravity: official `agy` CLI (https://antigravity.google/docs/cli/install/).
-- Claude Code: official Claude Code CLI (https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview); authentication status is supported, while quota remains in Claude Code's own usage view.
-- Grok Build: official Grok CLI (https://docs.x.ai/build/overview).
-- GitHub Copilot: official Copilot CLI (https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli).
+AIQuotaBar has no network client, telemetry or remote backend. Provider tools may contact their own services. Product support and privacy URLs remain unchanged.
 
-Provider CLIs own authentication and any service connections. AIQuotaBar does not read credential files, request passwords or tokens, bundle accounts, or provide a cloud backend. On a clean machine, “No supported providers detected” and the Settings setup cards are expected; finite quota availability depends on the provider and account.
-
-The Windows App Certification Kit 10.0.28000.2705 result for this candidate was **WARNING**, not PASS: twelve required checks passed, DPI Awareness Validation warned, and the optional blocked-executables check failed. This does not establish Store certification.
-```
-
-Internal release record (not part of the reviewer copy): signed-out Codex, disconnected signed-out rescans and host healthy-quota/rescan/tray smoke passed. Temporary host and guest packages and certificates were removed. WACK completed with WARNING as stated above. See `docs/release-acceptance-1.0.4.md`; no Store certification outcome is implied.
+Current-package installed and Windows App Certification Kit results are recorded in docs/release-acceptance-1.0.5.md. Earlier WACK reports must not be represented as this package's result. Microsoft certification remains a separate decision.

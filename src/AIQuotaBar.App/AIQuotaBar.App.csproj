@@ -28,9 +28,9 @@
     <!-- WPF owns startup and DPI through its manifest. WinForms is used only for
          tray/monitor APIs; its ApplicationConfiguration DPI advice does not apply. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
-    <Version>1.0.4</Version>
-    <AssemblyVersion>1.0.4.0</AssemblyVersion>
-    <FileVersion>1.0.4.0</FileVersion>
+    <Version>1.0.5</Version>
+    <AssemblyVersion>1.0.5.0</AssemblyVersion>
+    <FileVersion>1.0.5.0</FileVersion>
     <Product>AIQuotaBar</Product>
     <Company>AGIFutures</Company>
     <Description>AIQuotaBar - AI Quota &amp; Usage Monitor</Description>
