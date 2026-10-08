@@ -8,7 +8,9 @@ Updated: 8 October 2026. This documentation branch is provisional until merged.
 - Last implementation milestone: functional Codex plugin-safeguarded quota polling,
   merged through [PR #11](https://github.com/MDoots/AIQuotaBar/pull/11) at `d4dde6e`.
 - Audit base: `main` / `origin/main` at `45d850f`; fetch found zero commits ahead/behind.
-- Task branch: `codex/agent-context-sync`. Obtain its documentation revision with
+- Task branch: `codex/agent-context-sync`; initial documentation commit `633225c`.
+  [PR #12](https://github.com/MDoots/AIQuotaBar/pull/12) is open against `main`.
+  The branch was pushed successfully; current CI results are on the PR. Obtain its revision with
   `git log -1 --format="%h %s" -- docs/agent`; no self-referential commit hash is stored.
 - Canonical repository: [MDoots/AIQuotaBar](https://github.com/MDoots/AIQuotaBar),
   **public**, default branch `main`. Working tree was clean at audit start; no
@@ -49,8 +51,9 @@ Updated: 8 October 2026. This documentation branch is provisional until merged.
 
 ## Active work and decisions
 
-- AQ-DOC-01: audit, durable context documents and requested focused commit/PR.
-  No feature implementation, deployment or infrastructure work is included.
+- AQ-DOC-01: local audit/documents verified, committed and published for review in PR #12.
+  Review/authorized merge remains outstanding. No feature implementation, deployment
+  or infrastructure work is included.
 - Publishing decision: owner explicitly approved pushing this documentation branch
   and opening a PR in the existing public repository on 8 October. Identity and
   visibility are preserved. No merge, release or deployment is authorized.

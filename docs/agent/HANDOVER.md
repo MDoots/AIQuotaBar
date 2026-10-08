@@ -31,7 +31,8 @@ No exhaustive code review or live authenticated provider/Store/VM test was perfo
 - Release build: 0 warnings/errors. Full Release offline suite: 661 passed, 0 failed,
   0 skipped. The Debug baseline failure did not recur; no fixture/code fix was made.
 - Local Markdown links, original AGENTS prefix, verbatim routing snapshot and
-  ignore/template examples passed. Final staged checks are performed before commit.
+  ignore/template examples passed. Staged scope, whitespace and obvious-secret checks
+  passed before the initial commit; only the ten task files were included.
 - Tracked-file obvious-secret/name scan: no matching credential/key/token files
   or high-confidence token/private-key patterns found. Credential stores and ignored
   private-file contents were not opened. This is a limited check, not a security audit.
@@ -45,9 +46,15 @@ No exhaustive code review or live authenticated provider/Store/VM test was perfo
 ## Synchronization and remaining work
 
 The owner explicitly approved push/PR to the existing public repository on 8 October.
-Identity and visibility remain unchanged. The initial documentation commit is prepared
-after validation; synchronization results are recorded below when the PR exists.
-Obtain commit provenance with
+Identity and visibility remain unchanged. Initial commit
+[633225c](https://github.com/MDoots/AIQuotaBar/commit/633225ca0b77a1bf10b6e700658bfddf6a09a201)
+was pushed to `origin/codex/agent-context-sync`;
+[PR #12](https://github.com/MDoots/AIQuotaBar/pull/12) is open against `main` with ten
+changed files. A documentation-only follow-up records this synchronization result.
+No history conflict, force-push, merge, release or deployment occurred. Local/remote
+branch equality is checked after the final push. CI results remain available on the
+PR; packaging job success does not replace installed-package/WACK evidence.
+Obtain the latest documentation commit provenance with
 `git log -1 --format="%h %s" -- docs/agent` rather than a self-referential hash.
 
 Detailed historical evidence remains in [1.0.5 acceptance](../release-acceptance-1.0.5.md).

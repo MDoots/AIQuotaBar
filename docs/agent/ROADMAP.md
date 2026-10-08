@@ -25,7 +25,7 @@ P1 = next reliability/release work, P2 = subsequent verification, P3 = optional/
 
 | ID | Work | Priority / dependencies | Acceptance / current status |
 | --- | --- | --- | --- |
-| AQ-DOC-01 | Durable agent context and GitHub synchronization | P1; repository publishing decision | Six entry documents, preserved instructions/routing, accurate setup, focused commit and PR. This task branch is provisional until merged with authorization. |
+| AQ-DOC-01 | Durable agent context and GitHub synchronization | P1; repository publishing decision | Local documentation and required checks complete; initial commit `633225c` pushed in [PR #12](https://github.com/MDoots/AIQuotaBar/pull/12). Review/authorized merge outstanding; branch documents remain provisional. |
 | AQ-003 | Reconcile 1.0.5 Store certification/publication status | P1; read access to Partner Center/current Store evidence | Update release record and STATUS with observed version/status/date. Last recorded 2 October: certification pending, automatic publication enabled. No current Store check performed in this audit. |
 
 AQ-003 is an outstanding release follow-up, not evidence that an agent is currently running it.
