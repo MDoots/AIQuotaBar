@@ -162,6 +162,22 @@ For full details, please review our comprehensive [Privacy Policy](PRIVACY.md).
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for architectural guardrails, layer boundaries, and pull request guidelines.
 
+### Agent onboarding
+
+All agents, including those that do not automatically discover `AGENTS.md`, must
+read [AGENTS.md](AGENTS.md), [project context](docs/agent/PROJECT.md),
+[current status](docs/agent/STATUS.md) and [roadmap](docs/agent/ROADMAP.md) before
+significant work. Use the [architecture and development setup](docs/agent/ARCHITECTURE.md),
+[decision log](docs/agent/DECISIONS.md) and [latest handover](docs/agent/HANDOVER.md)
+as needed, and follow the [existing routing policy](docs/agent/MODEL_ROUTING.md).
+
+Work in bounded tasks, preserve the architecture and other contributors' edits,
+run the required checks, and update state/decisions/handover when relevant. Never
+commit secrets or private user data; obtain authorization before publishing,
+deploying or merging. The merged GitHub `main` branch is canonical; unmerged
+branch documentation is provisional. Windows is required for the full WPF build
+and test suite; isolated Linux agents have a smaller documented test scope.
+
 ---
 
 ## Support

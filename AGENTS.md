@@ -274,3 +274,52 @@ When tasked with implementing features, fixing bugs, or refactoring in AIQuotaBa
    Always run:
    - `dotnet build AIQuotaBar.slnf -c Release` (verify `0 Warning(s)`, `0 Error(s)`).
    - `dotnet test AIQuotaBar.slnf -c Release` (verify 100% passing).
+
+---
+
+## 7. Durable Agent Context and Handover
+
+These rules apply to local, cloud, Dot-coordinated and other agents. The merged
+`main` branch on the existing GitHub repository is canonical; documents on an
+unmerged task branch are provisional.
+
+### START
+
+1. Read this file, [PROJECT](docs/agent/PROJECT.md), [STATUS](docs/agent/STATUS.md),
+   [ROADMAP](docs/agent/ROADMAP.md) and relevant scoped instructions before significant work.
+2. Consult [ARCHITECTURE](docs/agent/ARCHITECTURE.md) and
+   [DECISIONS](docs/agent/DECISIONS.md) before technical decisions. Read
+   [HANDOVER](docs/agent/HANDOVER.md) and relevant recent commits/PRs to resume a task.
+3. Follow the existing [model-routing and delegation policy](docs/agent/MODEL_ROUTING.md).
+   It preserves the supplied global policy for environments without the owner's
+   local instructions. A newer applicable human/global policy takes precedence;
+   verify capabilities and quota before dispatch. Skills are execution mechanics,
+   not a competing routing policy. Do not modify the Lean Luna skill as part of onboarding.
+4. Inspect Git state and define a bounded task, acceptance criteria and required checks.
+   Preserve other contributors' changes and use a task branch or approved isolated checkout.
+
+### IMPLEMENT
+
+5. Respect the current architecture and scope; redesign requires explicit authorization.
+   Work in bounded, testable slices and run the appropriate checks, including this
+   repository's mandatory Release build and full offline suite.
+6. Never read provider credential stores or commit credentials, tokens, secrets or
+   private user data. Review staged files; do not stage unrelated or ignored evidence.
+7. Record significant architectural decisions with evidence and known trade-offs.
+   Distinguish inspected code, passing tests, manual observations and unverified behavior.
+8. Commits, pushes, releases, deployments, production changes and protected/default
+   branch merges require explicit authorization for that action. Never force-push,
+   discard legitimate work or automatically merge a PR.
+
+### FINISH
+
+9. Update STATUS after meaningful changes to project state, ROADMAP for completed or
+   newly identified work, and DECISIONS for significant decisions. Keep stable facts
+   in PROJECT/ARCHITECTURE and detailed release evidence in existing release records.
+10. Update the rolling HANDOVER with changes, checks, provenance, remaining risks,
+    blockers and the next action. Include relevant documentation with implementation
+    commits when committing is authorized; give the user a concise handover.
+11. Before updating shared status on parallel branches, reconcile newer `main`/PR
+    changes. Do not overwrite newer evidence or label unmerged work as canonical.
+12. Keep context proportionate: read the small entry set first, follow relevant links,
+    and avoid transcripts, duplicate release logs and unnecessary token consumption.
