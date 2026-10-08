@@ -5,6 +5,25 @@
 
 # dotenv files
 .env
+.env.*
+!.env.example
+
+# Local credentials and signing material (never inspect provider credential stores)
+**/.codex/auth.json
+**/.claude.json
+**/.claude/.credentials.json
+.git-credentials
+.netrc
+*.pem
+*.key
+*.p12
+*.p8
+
+# Local development data; AIQuotaBar itself has no database
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
 
 # User-specific files
 *.rsuser
